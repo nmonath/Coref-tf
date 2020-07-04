@@ -76,7 +76,7 @@ def model_fn_builder(config):
 
         is_training = (mode == tf.estimator.ModeKeys.TRAIN)
 
-        model = util.get_model(config, model_sign="mention_proposal")
+        model = util.get_model(config, model_sign="corefqa")
 
         tvars = tf.trainable_variables()
         # If you're using TF weights only, tf_checkpoint and init_checkpoint can be the same
@@ -150,6 +150,7 @@ def main(_):
 
 
     num_train_steps = config["num_docs"] * config["num_epochs"]
+    
     # use_tpu = FLAGS.use_tpu
     if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
         raise ValueError("At least one of `do_train`, `do_eval` or `do_predict' must be True.")
