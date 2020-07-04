@@ -177,7 +177,8 @@ class CorefModel(object):
 
         # beam size 所有span的数量小于num_words * top_span_ratio
         k = tf.minimum(3900, tf.to_int32(tf.floor(tf.to_float(num_words) * self.config["top_span_ratio"])))
-        c = tf.minimum(self.config["max_top_antecedents"], k)  # 初筛挑出0.4*500=200个候选，细筛再挑出50个候选
+        c = tf.to_int32(tf.minimum(self.config["max_top_antecedents"], k))  # 初筛挑出0.4*500=200个候选，细筛再挑出50个候选
+
         top_span_scores, top_span_indices = tf.nn.top_k(candidate_mention_scores, k)
 
         top_span_indices = tf.reshape(top_span_indices, [-1]) # k
@@ -206,25 +207,23 @@ class CorefModel(object):
             # def get_question_token_ids(self, input_ids, input_mask, sentence_map, top_start, top_end, special=True)
             question_tokens, start_in_sentence, end_in_sentence = self.get_question_token_ids(
                 self.input_ids, self.input_mask, self.sentence_map, tf.gather(top_span_starts, i), tf.gather(top_span_ends, i))
-            ################################################################################################
-            ##### tmp_context_input_ids = tf.reshape(input_ids,[-1, self.config["max_segment_len"]])  
-            # (max_train_sent, max_segment_len)
-            # input_mask = tf.reshape(self.input_mask, [-1, self.config["sliding_window_size"]])
-            #### tmp_context_input_mask = tf.reshape(input_mask, [-1, self.config["max_segment_len"]]) 
-            # tf.ones_like(tmp_context_input_ids) 
-            ##### actual_mask = tf.cast(tf.not_equal(input_mask, self.pad_idx), tf.int32)  
-            # (max_train_sent, max_segment_len) 
-            ##### question_tokens, start_in_sentence, end_in_sentence = self.get_question_token_ids(
-            ####    sentence_map, input_ids, input_mask, )
-            ################################################################################################
+
             # quesiton_tokens: dynamic query lens 
             # pad or clip to max_query_len 
-            query_input_mask = tf.ones_like(question_tokens)
-            pad_query_tokens = tf.keras.preprocessing.sequence.pad_sequences(question_tokens, maxlen=self.config["max_query_len"],
-                padding="post", truncating="post")
+            # query_input_mask = tf.ones_like(question_tokens)
+            question_len = util.shape(question_tokens, 0)
+            if question_len < self.config["max_query_len"]:
+                pad_tokens = tf.zeros([self.config["max_query_len"] - question_len], dtype=tf.int32)
+                pad_query_tokens = tf.concat([question_tokens, pad_tokens], axis=0)
+            else:
+                pad_query_tokens = tf.gather(question_tokens, tf.range(0, self.config["max_query_len"]))
+            ##############
+            pad_query_token_mask = tf.ones_like(pad_query_tokens, dtype=tf.int32)
+            ###### - pad_query_tokens = tf.keras.preprocessing.sequence.pad_sequences(question_tokens, maxlen=self.config["max_query_len"],
+            ###### -     padding="post", truncating="post")
             # pad_quesiton_tokens: max_query_len 
-            pad_query_token_mask = tf.keras.preprocessing.sequence.pad_sequences(query_input_mask, maxlen=self.config["max_query_len"],
-                padding="post", truncating="post")
+            ###### - pad_query_token_mask = tf.keras.preprocessing.sequence.pad_sequences(query_input_mask, maxlen=self.config["max_query_len"],
+            ###### -     padding="post", truncating="post")
             batch_query_tokens = tf.tile(tf.expand_dims(pad_query_tokens, 0), tf.constant([self.config["max_training_sentences"], 1])) 
             # batch_pad_question_tokens: (max_training_sentences, max_query_len)
             batch_query_token_type_mask = tf.zeros_like(batch_query_tokens)
@@ -238,6 +237,12 @@ class CorefModel(object):
             batch_qa_input_ids = tf.concat([batch_query_tokens, batch_context_tokens], -1)
             batch_qa_input_token_type_mask = tf.concat([batch_query_token_type_mask, batch_context_token_type_mask], -1)
             batch_qa_input_mask = tf.concat([batch_query_token_mask, batch_context_token_mask], -1)
+
+            batch_qa_input_ids = tf.cast(tf.reshape(batch_qa_input_ids, [1, self.config["max_training_sentences"], self.config["max_segment_len"] + self.config["max_query_len"]]), tf.int32)
+            batch_qa_input_token_type_mask = tf.cast(tf.reshape(batch_qa_input_token_type_mask, [1, self.config["max_training_sentences"], self.config["max_segment_len"] + self.config["max_query_len"]]), tf.int32)
+            batch_qa_input_mask = tf.cast(tf.reshape(batch_qa_input_mask, [1, self.config["max_training_sentences"], self.config["max_segment_len"] + self.config["max_query_len"]]), tf.int32)
+            pad_query_tokens = tf.cast(tf.reshape(pad_query_tokens, [1, self.config["max_query_len"]]), tf.int32)
+
             # link_qa_input_ids, link_qa_input_mask, link_qa_input_type_mask
             return (i+1, tf.concat([link_qa_input_ids, batch_qa_input_ids], 0), 
                 tf.concat([link_qa_input_mask, batch_qa_input_mask], 0), 
@@ -284,7 +289,8 @@ class CorefModel(object):
         forward_mention_end_emb = tf.gather(flat_forward_doc_emb, tf.tile(tf.expand_dims(top_span_ends, 0), [k, 1])) # (k, k, emb)
         forward_mention_span_emb = tf.concat([forward_mention_start_emb, forward_mention_end_emb], -1) # (k, k, emb * 2) 
 
-        forward_mention_ij_score = util.ffnn(forward_mention_span_emb, self.config["ffnn_depth"], self.config["ffnn_size"]*2, 1, self.dropout)
+        with tf.variable_scope("forward_qa",):
+            forward_mention_ij_score = util.ffnn(tf.reshape(forward_mention_span_emb, [-1, self.config["hidden_size"]]), self.config["ffnn_depth"], self.config["ffnn_size"]*2, 1, self.dropout)
 
         topc_forward_scores, topc_forward_indices = tf.nn.top_k(forward_mention_ij_score, c, sorted=False)
         # topc_forward_scores, topc_forward_indices : [k, c]
@@ -303,30 +309,49 @@ class CorefModel(object):
         backward_end_in_sent = tf.zeros((1), dtype=tf.int32)
 
         tile_top_span_starts = tf.reshape(tf.tile(tf.expand_dims(top_span_starts, 0), [k, 1]), [-1]) # [k*k]
-        tile_top_span_ends = tf.reshape(tf.file(tf.expand_dims(top_span_ends, 0), [k, 1]), [-1]) # [k*k]
+        tile_top_span_ends = tf.reshape(tf.tile(tf.expand_dims(top_span_ends, 0), [k, 1]), [-1]) # [k*k]
 
-        tf.logging.info("=-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-=")
-        print("please show the batch_query_ids")
-        print("#"*50)
-        tf.logging.info("=-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-=")
-        exit()
-
+        
+        # backward_qa_input_ids, backward_qa_input_mask, backward_qa_input_token_type, backward_start_in_sent, backward_end_in_sent
+        backward_qa_input_ids = tf.zeros([1, self.config["max_query_len"]+self.config["max_context_len"]], dtype=tf.int32)
+        backward_qa_input_mask = tf.zeros([1, self.config["max_query_len"]+self.config["max_context_len"]], dtype=tf.int32)
+        backward_qa_input_token_type = tf.zeros([1, self.config["max_query_len"]+self.config["max_context_len"]], dtype=tf.int32)
+        tmp_start_in_sent = tf.convert_to_tensor(tf.constant([0]), dtype=tf.int32)
+        tmp_end_in_sent = tf.convert_to_tensor(tf.constant([0]), dtype=tf.int32)
+        i0 = tf.constant(0)
+        
         @tf.function
-        def backward_qa_loop(i, rank_qa_input_ids, rank_qa_input_mask, rank_qa_input_type_mask, start_in_sent, end_sent):
+        def backward_qa_loop(i, rank_qa_input_ids, rank_qa_input_mask, rank_qa_input_type_mask, start_in_sent, end_in_sent,):
             
-            query_token, start_in_sent, end_in_sent = self.get_question_token_ids(
+            query_tokens, start_in_sent, end_in_sent = self.get_question_token_ids(
                 self.sentence_map, self.input_ids, self.input_mask, tf.gather(topc_start_index_doc, i), tf.gather(topc_end_index_doc, i))
-            
-            pad_query_tokens = tf.keras.preprocessing.sequence.pad_sequences(query_tokens, maxlen=self.config["max_query_len"],
-                padding="post", truncating="post")
+        
+            question_len = util.shape(query_tokens, 0)
+            if question_len < self.config["max_query_len"]:
+                pad_tokens = tf.zeros([self.config["max_query_len"] - question_len], dtype=tf.int32)
+                pad_query_tokens = tf.concat([query_tokens, pad_tokens], axis=0)
+            else:
+                pad_query_tokens = tf.gather(query_tokens, tf.range(0, self.config["max_query_len"]))
+
+            pad_query_tokens = tf.cast(pad_query_tokens, tf.int32) 
+            # pad_query_tokens = tf.keras.preprocessing.sequence.pad_sequences(query_tokens, maxlen=self.config["max_query_len"],
+            #     padding="post", truncating="post")
             query_input_token_type_mask = tf.zeros_like(pad_query_tokens, dtype=tf.int32)
             query_input_mask = tf.ones_like(pad_query_tokens, dtype=tf.int32)
 
             context_tokens, k_start_in_sent, k_end_in_sent = self.get_question_token_ids(
                 self.sentence_map, self.input_ids, self.input_mask, tf.gather(tile_top_span_starts, i), tf.gather(tile_top_span_ends, i), special=False)
 
-            pad_context_tokens = tf.keras.preprocessing.sequence.pad_sequences(context_tokens, maxlen=self.config["max_context_len"],
-                padding="post", truncating="post")
+            context_len = util.shape(context_tokens, 0)
+            if question_len < self.config["max_query_len"]:
+                pad_tokens = tf.zeros([self.config["max_query_len"] - context_len], dtype=tf.int32)
+                pad_context_tokens = tf.concat([context_tokens, pad_tokens], axis=0)
+            else:
+                pad_context_tokens = tf.gather(context_tokens, tf.range(0, self.config["max_query_len"]))
+
+            pad_context_tokens = tf.cast(pad_context_tokens, tf.int32)
+            # pad_context_tokens = tf.keras.preprocessing.sequence.pad_sequences(context_tokens, maxlen=self.config["max_context_len"],
+            #     padding="post", truncating="post")
             # k_start_in_sent, k_end_in_sent clip???? 因为后面要截断句子的长度
             context_input_mask = tf.ones_like(pad_context_tokens, dtype=tf.int32)
             context_input_token_type_mask = tf.ones_like(pad_context_tokens, dtype=tf.int32)
@@ -335,17 +360,28 @@ class CorefModel(object):
             qa_input_mask = tf.concat([query_input_mask, context_input_mask], axis=-1)
             qa_input_token_type_mask = tf.concat([query_input_token_type_mask, context_input_token_type_mask], -1)
 
-            return (i+1, tf.concat([rank_qa_input_ids, qa_input_tokens],axis=0), 
-                tf.cocnat([rank_qa_input_mask, qa_input_mask], axis=0), 
-                tf.concat([rank_qa_input_type_mask, qa_input_token_type_mask], axis=0), 
-                tf.concat([start_in_sent, k_start_in_sent], axis=0), 
-                tf.concat([end_in_sent, k_end_in_sent], axis=0))
+            qa_input_tokens = tf.cast(tf.reshape(qa_input_tokens, [1, self.config["max_query_len"]+self.config["max_context_len"]]), tf.int32)
+            qa_input_mask = tf.cast(tf.reshape(qa_input_mask, [1, self.config["max_query_len"]+self.config["max_context_len"]]), tf.int32)
+            qa_input_token_type_mask = tf.cast(tf.reshape(qa_input_token_type_mask, [1, self.config["max_query_len"]+self.config["max_context_len"]]), tf.int32)
+            k_start_in_sent = tf.convert_to_tensor(tf.cast(k_start_in_sent, tf.int32), dtype=tf.int32) 
+            k_end_in_sent = tf.convert_to_tensor(tf.cast(k_end_in_sent, tf.int32), dtype=tf.int32) 
 
+            rank_qa_input_ids = tf.cast(rank_qa_input_ids, tf.int32)
+            rank_qa_input_mask = tf.cast(rank_qa_input_mask, tf.int32)
+            rank_qa_input_type_mask = tf.cast(rank_qa_input_type_mask, tf.int32)
+            start_in_sent = tf.cast(start_in_sent, tf.int32)
+            end_in_sent = tf.cast(end_in_sent, tf.int32)
+
+            return (i+1, tf.concat([rank_qa_input_ids, qa_input_tokens],axis=0),
+                tf.concat([rank_qa_input_mask, qa_input_mask], axis=0), 
+                tf.concat([rank_qa_input_type_mask, qa_input_token_type_mask], axis=0), 
+                tf.stack([start_in_sent, k_start_in_sent], axis=0), 
+                tf.stack([end_in_sent, k_end_in_sent], axis=0))
 
         _, batch_backward_input_ids, batch_backward_input_mask, batch_backward_token_type_mask, batch_backward_start_sent, batch_backward_end_sent = tf.while_loop(
             cond = lambda i, o1, o2, o3, o4, o5: i < k * c,
             body=backward_qa_loop, 
-            loop_vars=[backward_qa_input_ids, backward_qa_input_mask, backward_qa_input_token_type, backward_start_in_sent, backward_end_in_sent], 
+            loop_vars=[i0, backward_qa_input_ids, backward_qa_input_mask, backward_qa_input_token_type, tmp_start_in_sent, tmp_end_in_sent], 
             shape_invariants=[i0.get_shape(), tf.TensorShape([None, None]), tf.TensorShape([None, None]), tf.TensorShape([None, None]), 
             tf.TensorShape([None]), tf.TensorShape([None])])
 
@@ -365,37 +401,43 @@ class CorefModel(object):
         backward_qa_end_emb = tf.gather(backward_k_sent_emb, tf.reshape(batch_backward_end_sent, [-1]))  # (c*k, emb)
         backward_qa_span_emb = tf.concat([ backward_qa_start_emb,backward_qa_end_emb ], axis=-1) # (c*k, 2*emb)
 
-        backard_mention_ji_score = util.ffnn(backward_qa_span_emb, self.config["ffnn_depth"], self.config["ffnn_size"]*2, 1, self.dropout)
+        with tf.variable_scope("backward_qa",):
+            backard_mention_ji_score = util.ffnn(tf.reshape(backward_qa_span_emb, [-1, self.config["hidden_size"]*2]), self.config["ffnn_depth"], self.config["ffnn_size"]*2, 1, self.dropout)
 
         # s(j) topc_span_scores # (k*c)
         # s(i) top_span_mention_scores # k
         # topc_forward_scores # (k*c)
         # backard_mention_ji_score # (k*c)
-        tile_top_span_mention_scores = tf.reshape(tf.stack([top_span_mention_scores]*c, axis=1), [-1])
+
+        tile_top_span_mention_scores = tf.tile(tf.expand_dims(tf.reshape(top_span_mention_scores, [-1]), 1), [1, c])
+
         top_antecedent_scores = (topc_forward_scores + backard_mention_ji_score)/2 * self.config["score_ratio"] + \
             (1 - self.config["score_ratio"]) * (topc_span_scores+ tile_top_span_mention_scores)
         
         top_antecedent_scores = tf.reshape(top_antecedent_scores, [k, c])
         dummy_scores = tf.zeros([k, 1])  # [k, 1]
 
+        ###############################################################################################################################################
         top_antecedent_scores = tf.concat([dummy_scores, top_antecedent_scores], 1)  # [k, c + 1]
         # top_antecedent_cluster_ids [k, c] 每个mention每个antecedent的cluster_id
         # same_cluster_indicator [k, c] 每个mention跟每个预测的antecedent是否同一个cluster
         # pairwise_labels [k, c] 用pairwise的方法得到的label，非mention、非antecedent都是0，mention跟antecedent共指是1
         # top_antecedent_labels [k, c+1] 最终的标签，如果某个mention没有antecedent就是dummy_label为1
         # top_antecedent_scores = 
-        ###### - same_cluster_indicator = tf.equal(antecedent_labels, tf.expand_dims(top_span_cluster_ids, 1))  # (k, c)
-        ###### - non_dummy_indicator = tf.expand_dims(top_span_cluster_ids > 0, 1)  # [k, 1]
-        ###### - pairwise_labels = tf.logical_and(same_cluster_indicator, non_dummy_indicator)  # [k, c]
-        ###### - dummy_labels = tf.logical_not(tf.reduce_any(pairwise_labels, 1, keepdims=True))  # [k, 1]
-        ###### - top_antecedent_labels = tf.concat([dummy_labels, pairwise_labels], 1)  # [k, c + 1]
-        ###### - loss = self.marginal_likelihood_loss(top_antecedent_scores, top_antecedent_labels)  # [k]
+        same_cluster_indicator = tf.equal(antecedent_labels, tf.expand_dims(top_span_cluster_ids, 1))  # (k, c)
+        non_dummy_indicator = tf.expand_dims(top_span_cluster_ids > 0, 1)  # [k, 1]
+        pairwise_labels = tf.logical_and(same_cluster_indicator, non_dummy_indicator)  # [k, c]
+        dummy_labels = tf.logical_not(tf.reduce_any(pairwise_labels, 1, keepdims=True))  # [k, 1]
+        top_antecedent_labels = tf.concat([dummy_labels, pairwise_labels], 1)  # [k, c + 1]
+        loss = self.marginal_likelihood_loss(top_antecedent_scores, top_antecedent_labels)  # [k]
 
-        # loss += mention_proposal_loss * self.config["mention_proposal_loss_ratio"]
-        loss = mention_proposal_loss 
+        loss += mention_proposal_loss * self.config["mention_proposal_loss_ratio"]
 
-        return [candidate_starts, candidate_ends, candidate_mention_scores, top_span_starts, top_span_ends,
-                topc_forward_antecedent, top_antecedent_scores], loss
+        # return [candidate_starts, candidate_ends, candidate_mention_scores, top_span_starts, top_span_ends,
+        #         topc_forward_antecedent, top_antecedent_scores], loss
+        ####################################################################################################################################################
+
+        return [top_antecedent_scores], loss
 
         ############################################################################################################################################
 
