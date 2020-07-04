@@ -247,11 +247,11 @@ class CorefModel(object):
 
         forward_qa_emb = forward_bert_qa_model.get_sequence_output() # (k * max_train_sent, max_query_len + max_segment_len, hidden_size)
         forward_qa_input_token_type_mask_bool = tf.cast(tf.reshape(forward_qa_input_token_type_mask, [-1, self.config["max_query_len"] + self.config["max_segment_len"]]), tf.bool)
-        forward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(forward_qa_input_token_type_mask_bool, 2), [1, 1, self.config["hidden_size"]])
+        forward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(forward_qa_input_token_type_mask_bool, 2), [1, 1, self.bert_config["hidden_size"]])
         
         forward_doc_emb = operation_funcs.mask.boolean_mask(forward_qa_emb, forward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"])
         # (k * max_train_sent, max_segment_len, hidden_size)
-        forward_doc_emb = tf.reshape(forward_doc_emb, [-1, self.config["hidden_size"]]) 
+        forward_doc_emb = tf.reshape(forward_doc_emb, [-1, self.bert_config["hidden_size"]]) 
         # (k * max_train_sent * max_segment_len, hidden_size)
         flat_sentence_map = tf.tile(tf.expand_dims(sentence_map, 0), [k, 1]) # (k, max_sent * max_segment) 
         flat_sentence_map = tf.reshape(flat_sentence_map, [-1])
@@ -259,7 +259,7 @@ class CorefModel(object):
 
         flat_forward_doc_emb = operation_funcs.mask.boolean_mask(forward_doc_emb, flat_sentence_map, use_tpu=self.config["tpu"])
         # flat_forward_doc_emb -> (k * non_overlap_doc_len * hidden_size)
-        flat_forward_doc_emb = tf.reshape(flat_forward_doc_emb, [k, -1, self.config["hidden_size"]])
+        flat_forward_doc_emb = tf.reshape(flat_forward_doc_emb, [k, -1, self.bert_config["hidden_size"]])
         # flat_forward_doc_emb -> (k, non_overlap_doc_len, hidden_size)
 
         forward_mention_start_emb = tf.gather(flat_forward_doc_emb, tf.tile(tf.expand_dims(top_span_starts, 0), [k, 1])) # (k, k, emb)
@@ -333,10 +333,10 @@ class CorefModel(object):
         backward_qa_emb = backward_bert_qa_model.get_sequence_output() # (c*k, num_ques_token+ max_context_len, embedding)
         # 1. (c*k
         backward_qa_input_token_type_mask_bool = tf.cast(batch_backward_token_type_mask ,tf.bool)
-        # backward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(backward_qa_input_token_type_mask_bool, 2), [1, 1, self.config["hidden_size"]])
+        # backward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(backward_qa_input_token_type_mask_bool, 2), [1, 1, self.bert_config["hidden_size"]])
         backward_k_sent_emb = operation_funcs.mask.boolean_mask(backward_qa_emb, backward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"])
         # backward_k_sent_emb -> (c*k, max_context_len, embedding)
-        backward_k_sent_emb =  tf.reshape(backward_k_sent_emb, [-1, self.config["hidden_size"]]) 
+        backward_k_sent_emb =  tf.reshape(backward_k_sent_emb, [-1, self.bert_config["hidden_size"]]) 
         backward_qa_start_emb = tf.gather(backward_k_sent_emb, tf.reshape(batch_backward_start_sent, [-1])) # (c*k, emb)
         backward_qa_end_emb = tf.gather(backward_k_sent_emb, tf.reshape(batch_backward_end_sent, [-1]))  # (c*k, emb)
         backward_qa_span_emb = tf.concat([ backward_qa_start_emb,backward_qa_end_emb ], axis=-1) # (c*k, 2*emb)
@@ -377,7 +377,7 @@ class CorefModel(object):
 
 
         # forward_qa_input_token_type_mask_bool = tf.cast(tf.reshape(forward_qa_input_token_type_mask, [-1, self.config["max_query_len"] + self.config["max_segment_len"]]), tf.bool)
-        # forward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(forward_qa_input_token_type_mask_bool, 2), [1, 1, self.config["hidden_size"]])
+        # forward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(forward_qa_input_token_type_mask_bool, 2), [1, 1, self.bert_config["hidden_size"]])
         
         # 找到topC个在原来文本中的index 
 
