@@ -22,10 +22,11 @@ import metrics
 import util
 import numpy as np
 import optimization
-import operation_funcs
 import tensorflow as tf
 from bert import modeling
 from bert import tokenization
+import operation_funcs.mask as mask 
+
 
 
 
@@ -62,40 +63,46 @@ class CorefModel(object):
         self.input_tensors = queue.dequeue()  # self.queue_input_tensors 不一样？
         self.bce_loss = tf.keras.losses.BinaryCrossentropy()
         self.mention_proposal_only = self.config.mention_proposal_only
-        if self.mention_proposal_only:
-            self.loss, self.pred_mention_labels, self.gold_mention_labels = self.get_mention_proposal_and_loss(*self.input_tensors)
-        else:
-            self.predictions, self.loss = self.get_predictions_and_loss(*self.input_tensors)
+        self.pad_idx = 0 
+        self.mention_start_idx = 37
+        self.mention_end_idx = 42
+        #####- if self.mention_proposal_only:
+        #####-     self.loss, self.pred_mention_labels, self.gold_mention_labels = self.get_mention_proposal_and_loss(*self.input_tensors)
+        #####- else:
+        #####-     self.predictions, self.loss = self.get_predictions_and_loss(*self.input_tensors)
         # bert stuff
-        tvars = tf.trainable_variables()
+        #####- tvars = tf.trainable_variables()
         # If you're using TF weights only, tf_checkpoint and init_checkpoint can be the same
         # Get the assignment map from the tensorflow checkpoint.
         # Depending on the extension, use TF/Pytorch to load weights.
-        assignment_map, initialized_variable_names = modeling.get_assignment_map_from_checkpoint(tvars, config[
-            'tf_checkpoint'])
-        init_from_checkpoint = tf.train.init_from_checkpoint if config['init_checkpoint'].endswith('ckpt') else load_from_pytorch_checkpoint
-        init_from_checkpoint(config['init_checkpoint'], assignment_map)
-        print("**** Trainable Variables ****")
-        for var in tvars:
-            init_string = ""
-            if var.name in initialized_variable_names:
-                init_string = ", *INIT_FROM_CKPT*"
-            # tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
-            # init_string)
-            print("  name = %s, shape = %s%s" % (var.name, var.shape, init_string))
+        #####- assignment_map, initialized_variable_names = modeling.get_assignment_map_from_checkpoint(tvars, config[
+        #####-     'tf_checkpoint'])
+        #####- init_from_checkpoint = tf.train.init_from_checkpoint if config['init_checkpoint'].endswith('ckpt') else load_from_pytorch_checkpoint
+        #####- init_from_checkpoint(config['init_checkpoint'], assignment_map)
+        #####- print("**** Trainable Variables ****")
+        #####- for var in tvars:
+        #####-     init_string = ""
+        #####-     if var.name in initialized_variable_names:
+        #####-         init_string = ", *INIT_FROM_CKPT*"
+        #####-     # tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape,
+        #####-     # init_string)
+        #####-     print("  name = %s, shape = %s%s" % (var.name, var.shape, init_string))
 
         num_train_steps = int(self.config['num_docs'] * self.config['num_epochs'])  # 文章数 * 训练轮数
         num_warmup_steps = int(num_train_steps * 0.1)  # 前1/10做warm_up
-        self.global_step = tf.train.get_or_create_global_step()  # 根据不同的model得到不同的optimizer
-        self.train_op = optimization.create_custom_optimizer(tvars, self.loss, self.config['bert_learning_rate'],
-                                                             self.config['task_learning_rate'],
-                                                             num_train_steps, num_warmup_steps, False, self.global_step,
-                                                             freeze=-1, task_opt=self.config['task_optimizer'],
-                                                             eps=config['adam_eps'])
+        #####- self.global_step = tf.train.get_or_create_global_step()  # 根据不同的model得到不同的optimizer
+        #####- self.train_op = optimization.create_custom_optimizer(tvars, self.loss, self.config['bert_learning_rate'],
+        #####-                                                    self.config['task_learning_rate'],
+        #####-                                                     num_train_steps, num_warmup_steps, False, self.global_step,
+        #####-                                                     freeze=-1, task_opt=self.config['task_optimizer'],
+        #####-                                                     eps=config['adam_eps'])
         self.coref_evaluator = metrics.CorefEvaluator()
 
-    def get_predictions_and_loss(self, input_ids, input_mask, text_len, speaker_ids, \
-            genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map):
+    def get_predictions_and_loss(self, input_ids, input_mask, text_len, speaker_ids, 
+            genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention):
+        ##### _, total_loss = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
+        ##### genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention)
+
         """
         Desc:
             input_mask: (max_sent_len, max_seg_len), 如果input_mask[i] > 0, 说明了当前位置的token是组成最终doc里面的一部分。
@@ -144,7 +151,7 @@ class CorefModel(object):
         # candidate_span: 
         candidate_starts = tf.tile(tf.expand_dims(tf.range(num_words), 1), [1, self.max_span_width])
         candidate_ends = candidate_starts + tf.expand_dims(tf.range(self.max_span_width), 0)
-        sentence_map = operation_funcs.mask.boolean_mask(tf.reshape(sentence_map, [-1]), doc_overlap_mask, use_tpu=self.config["tpu"])
+        sentence_map = mask.boolean_mask(tf.reshape(sentence_map, [-1]), doc_overlap_mask, use_tpu=self.config["tpu"])
 
         candidate_start_sentence_indices = tf.gather(sentence_map, candidate_starts)
         candidate_end_sentence_indices = tf.gather(sentence_map, tf.minimum(candidate_ends, num_words - 1))
@@ -154,15 +161,15 @@ class CorefModel(object):
                                         tf.equal(candidate_start_sentence_indices, candidate_end_sentence_indices))
 
         flattened_candidate_mask = tf.reshape(candidate_mask, [-1]) # [num_words * max_span_width]
-        candidate_starts = operation_funcs.mask.boolean_mask(tf.reshape(candidate_starts, [-1]), flattened_candidate_mask, use_tpu=self.config["tpu"] )
-        candidate_ends = operation_funcs.mask.boolean_mask(tf.reshape(candidate_ends, [-1]), flattened_candidate_mask, use_tpu=self.config["tpu"] )
+        candidate_starts = mask.boolean_mask(tf.reshape(candidate_starts, [-1]), flattened_candidate_mask, use_tpu=self.config["tpu"] )
+        candidate_ends = mask.boolean_mask(tf.reshape(candidate_ends, [-1]), flattened_candidate_mask, use_tpu=self.config["tpu"] )
         candidate_cluster_ids = self.get_candidate_labels(candidate_starts, candidate_ends, gold_starts, gold_ends, cluster_ids)
 
         candidate_binary_labels = candidate_cluster_ids > 0 
         # [num_candidates, emb] -> 候选答案的向量表示
         # [num_candidates, ] -> 候选答案的得分
 
-        candidate_span_emb = self.get_span_emb(mention_doc, candidate_starts, candidate_ends) # (candidate_mention, embedding)
+        candidate_span_emb = self.get_span_emb(doc_seq_emb, candidate_starts, candidate_ends) # (candidate_mention, embedding)
         candidate_mention_scores = self.get_mention_scores(candidate_span_emb, candidate_starts, candidate_ends)
         
         pred_probs = tf.sigmoid(candidate_mention_scores)
@@ -188,19 +195,28 @@ class CorefModel(object):
         # i0, batch_qa_input_ids, batch_qa_input_mask, batch_qa_input_token_type_mask
         batch_query_ids = tf.zeros((1, self.config["max_query_len"]), dtype=tf.int32)
 
-        tf.logging.info("=-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-=")
-        exit()
         @tf.function
         def forward_qa_loop(i, link_qa_input_ids, link_qa_input_mask, link_qa_input_type_mask, link_qa_query_ids):
             tmp_context_input_ids = tf.reshape(self.input_ids,[-1, self.config["max_segment_len"]])  
             # (max_train_sent, max_segment_len)
-            # input_mask = tf.reshape(self.input_mask, [-1, self.config["sliding_window_size"]])
             tmp_context_input_mask = tf.reshape(self.input_mask, [-1, self.config["max_segment_len"]]) 
             # tf.ones_like(tmp_context_input_ids) 
-            actual_mask = tf.cast(tf.not_equal(input_mask, self.config.pad_idx), tf.int32)  
+            actual_mask = tf.cast(tf.not_equal(self.input_mask, self.pad_idx), tf.int32)  
             # (max_train_sent, max_segment_len) 
+            # def get_question_token_ids(self, input_ids, input_mask, sentence_map, top_start, top_end, special=True)
             question_tokens, start_in_sentence, end_in_sentence = self.get_question_token_ids(
-                self.sentence_map, self.input_ids, self.input_mask, )
+                self.input_ids, self.input_mask, self.sentence_map, tf.gather(top_span_starts, i), tf.gather(top_span_ends, i))
+            ################################################################################################
+            ##### tmp_context_input_ids = tf.reshape(input_ids,[-1, self.config["max_segment_len"]])  
+            # (max_train_sent, max_segment_len)
+            # input_mask = tf.reshape(self.input_mask, [-1, self.config["sliding_window_size"]])
+            #### tmp_context_input_mask = tf.reshape(input_mask, [-1, self.config["max_segment_len"]]) 
+            # tf.ones_like(tmp_context_input_ids) 
+            ##### actual_mask = tf.cast(tf.not_equal(input_mask, self.pad_idx), tf.int32)  
+            # (max_train_sent, max_segment_len) 
+            ##### question_tokens, start_in_sentence, end_in_sentence = self.get_question_token_ids(
+            ####    sentence_map, input_ids, input_mask, )
+            ################################################################################################
             # quesiton_tokens: dynamic query lens 
             # pad or clip to max_query_len 
             query_input_mask = tf.ones_like(question_tokens)
@@ -249,19 +265,19 @@ class CorefModel(object):
 
         forward_qa_emb = forward_bert_qa_model.get_sequence_output() # (k * max_train_sent, max_query_len + max_segment_len, hidden_size)
         forward_qa_input_token_type_mask_bool = tf.cast(tf.reshape(forward_qa_input_token_type_mask, [-1, self.config["max_query_len"] + self.config["max_segment_len"]]), tf.bool)
-        forward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(forward_qa_input_token_type_mask_bool, 2), [1, 1, self.bert_config["hidden_size"]])
+        forward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(forward_qa_input_token_type_mask_bool, 2), [1, 1, self.config["hidden_size"]])
         
-        forward_doc_emb = operation_funcs.mask.boolean_mask(forward_qa_emb, forward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"])
+        forward_doc_emb = mask.boolean_mask(forward_qa_emb, forward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"])
         # (k * max_train_sent, max_segment_len, hidden_size)
-        forward_doc_emb = tf.reshape(forward_doc_emb, [-1, self.bert_config["hidden_size"]]) 
+        forward_doc_emb = tf.reshape(forward_doc_emb, [-1, self.config["hidden_size"]]) 
         # (k * max_train_sent * max_segment_len, hidden_size)
         flat_sentence_map = tf.tile(tf.expand_dims(sentence_map, 0), [k, 1]) # (k, max_sent * max_segment) 
         flat_sentence_map = tf.reshape(flat_sentence_map, [-1])
         flat_sentence_map = tf.where(tf.cast(tf.math.greater_equal(flat_sentence_map, tf.zeros_like(flat_sentence_map)),tf.bool), x=flat_sentence_map, y=tf.zeros_like(flat_sentence_map)) 
 
-        flat_forward_doc_emb = operation_funcs.mask.boolean_mask(forward_doc_emb, flat_sentence_map, use_tpu=self.config["tpu"])
+        flat_forward_doc_emb = mask.boolean_mask(forward_doc_emb, flat_sentence_map, use_tpu=self.config["tpu"])
         # flat_forward_doc_emb -> (k * non_overlap_doc_len * hidden_size)
-        flat_forward_doc_emb = tf.reshape(flat_forward_doc_emb, [k, -1, self.bert_config["hidden_size"]])
+        flat_forward_doc_emb = tf.reshape(flat_forward_doc_emb, [k, -1, self.config["hidden_size"]])
         # flat_forward_doc_emb -> (k, non_overlap_doc_len, hidden_size)
 
         forward_mention_start_emb = tf.gather(flat_forward_doc_emb, tf.tile(tf.expand_dims(top_span_starts, 0), [k, 1])) # (k, k, emb)
@@ -288,6 +304,12 @@ class CorefModel(object):
 
         tile_top_span_starts = tf.reshape(tf.tile(tf.expand_dims(top_span_starts, 0), [k, 1]), [-1]) # [k*k]
         tile_top_span_ends = tf.reshape(tf.file(tf.expand_dims(top_span_ends, 0), [k, 1]), [-1]) # [k*k]
+
+        tf.logging.info("=-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-=")
+        print("please show the batch_query_ids")
+        print("#"*50)
+        tf.logging.info("=-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-=")
+        exit()
 
         @tf.function
         def backward_qa_loop(i, rank_qa_input_ids, rank_qa_input_mask, rank_qa_input_type_mask, start_in_sent, end_sent):
@@ -335,10 +357,10 @@ class CorefModel(object):
         backward_qa_emb = backward_bert_qa_model.get_sequence_output() # (c*k, num_ques_token+ max_context_len, embedding)
         # 1. (c*k
         backward_qa_input_token_type_mask_bool = tf.cast(batch_backward_token_type_mask ,tf.bool)
-        # backward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(backward_qa_input_token_type_mask_bool, 2), [1, 1, self.bert_config["hidden_size"]])
-        backward_k_sent_emb = operation_funcs.mask.boolean_mask(backward_qa_emb, backward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"])
+        # backward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(backward_qa_input_token_type_mask_bool, 2), [1, 1, self.config["hidden_size"]])
+        backward_k_sent_emb = mask.boolean_mask(backward_qa_emb, backward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"])
         # backward_k_sent_emb -> (c*k, max_context_len, embedding)
-        backward_k_sent_emb =  tf.reshape(backward_k_sent_emb, [-1, self.bert_config["hidden_size"]]) 
+        backward_k_sent_emb =  tf.reshape(backward_k_sent_emb, [-1, self.config["hidden_size"]]) 
         backward_qa_start_emb = tf.gather(backward_k_sent_emb, tf.reshape(batch_backward_start_sent, [-1])) # (c*k, emb)
         backward_qa_end_emb = tf.gather(backward_k_sent_emb, tf.reshape(batch_backward_end_sent, [-1]))  # (c*k, emb)
         backward_qa_span_emb = tf.concat([ backward_qa_start_emb,backward_qa_end_emb ], axis=-1) # (c*k, 2*emb)
@@ -381,7 +403,7 @@ class CorefModel(object):
 
 
         # forward_qa_input_token_type_mask_bool = tf.cast(tf.reshape(forward_qa_input_token_type_mask, [-1, self.config["max_query_len"] + self.config["max_segment_len"]]), tf.bool)
-        # forward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(forward_qa_input_token_type_mask_bool, 2), [1, 1, self.bert_config["hidden_size"]])
+        # forward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(forward_qa_input_token_type_mask_bool, 2), [1, 1, self.config["hidden_size"]])
         
         # 找到topC个在原来文本中的index 
 
@@ -398,10 +420,11 @@ class CorefModel(object):
             emb: [max_sentence_len, max_segment_len] 
             segment_overlap_mask:  [max_sentence_len, max_segment_len]
         """
-        flattened_emb = tf.reshape(emb, [-1, self.bert_config["hidden_size"]])
+        flattened_emb = tf.reshape(emb, [-1, self.config["hidden_size"]])
         flattened_overlap_mask = tf.reshape(segment_overlap_mask, [-1])
         segment_overlap_mask = tf.maximum(segment_overlap_mask, tf.zeros_like(segment_overlap_mask))
-        flattened_emb = operation_funcs.mask.boolean_mask(flattened_emb, segment_overlap_mask, use_tpu=self.config["tpu"])
+        segment_overlap_mask = tf.reshape(segment_overlap_mask, [-1])
+        flattened_emb = mask.boolean_mask(flattened_emb, segment_overlap_mask, use_tpu=self.config["tpu"])
 
         return flattened_emb, flattened_overlap_mask 
 
@@ -441,8 +464,8 @@ class CorefModel(object):
             span_width_index = span_width -1 # [k]
             with tf.variable_scope("span_features",):
                 span_width_emb = tf.gather(
-                    tf.get_variable("span_width_emb", [self.config["max_span_width"], self.config["feature_size"]]))
-
+                tf.get_variable("span_width_embeddings", [self.config["max_span_width"], self.config["feature_size"]],
+                                initializer=tf.truncated_normal_initializer(stddev=0.02)), span_width_index)  # [k, emb]
                 span_width_emb = tf.nn.dropout(span_width_emb, self.dropout)
                 span_emb_list.append(span_width_emb)
 
@@ -454,8 +477,8 @@ class CorefModel(object):
         return span_emb # [k, emb]
 
     def get_masked_mention_word_scores(self, encoded_doc, span_starts, span_ends):
-        num_words = utils.shape(encoded_doc, 0) # T 
-        num_c = utils.shape(span_starts, 0)
+        num_words = util.shape(encoded_doc, 0) # T 
+        num_c = util.shape(span_starts, 0)
         doc_range = tf.tile(tf.expand_dims(tf.range(0, num_words), 0), [num_c, 1]) # [num_candidate, num_words]
         mention_mask = tf.logical_and(doc_range >= tf.expand_dims(span_starts, 1), 
             doc_range <= tf.expand_dims(span_ends, 1)) # [num_candidates, num_word]
@@ -471,7 +494,7 @@ class CorefModel(object):
 
     def get_mention_scores(self, span_emb, span_starts, span_ends):
         with tf.variable_scope("mention_scores", ):
-            span_scores = util.ffnn(span_emb, self.config["ffnn_width"], self.config["ffnn_size"], 1, self.dropout)
+            span_scores = util.ffnn(span_emb, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout)
         if self.config['use_prior']:
             span_width_emb = tf.get_variable("span_width_prior_embeddings",
                                              [self.config["max_span_width"], self.config["feature_size"]],
@@ -485,7 +508,7 @@ class CorefModel(object):
         return tf.squeeze(span_scores, 1)
 
 
-    def get_question_token_ids(self, sentence_map, input_ids, input_mask, top_start, top_end, special=True):
+    def get_question_token_ids(self, input_ids, flat_input_mask, sentence_map, top_start, top_end, special=True):
         """
         Desc:
             construct question based on the selected mention 
@@ -494,29 +517,34 @@ class CorefModel(object):
             top_start: start index in non-overlap document 
             top_end: end index in non-overlap document 
         """
-        nonoverlap_sentence_map = 
-        sentence_idx = tf.gather(nooverlap_sentence_map, top_start)
+        nonoverlap_sentence = tf.where(tf.cast(tf.math.greater_equal(sentence_map, tf.zeros_like(sentence_map)),tf.bool), x=sentence_map, y=tf.zeros_like(sentence_map)) 
 
-        # nooverlap_sentence_map = 
-        # tf.where(tf.math.equal(sentence_map, sentence_idx), x=input_ids, y=tf.zeros_like(input_ids))
-        query_sentence_mask = tf.math.equal(sentence_map, sentence_idx)
-        query_sentence_tokens = operation_funcs.mask.boolean_mask(input_ids, query_sentence_mask, use_tpu=self.config["tpu"])
+        nonoverlap_sentence = mask.boolean_mask(tf.reshape(input_ids, [-1]), tf.reshape(nonoverlap_sentence, [-1]), use_tpu=self.config["tpu"])
 
-        # sentence_tokens = tf.gather(nooverlap_sentence_map, sentence_idx)
-        # operation_funcs.mask.boolean_mask(tf.reshape(sentence_map, [-1]), doc_overlap_mask, use_tpu=self.config["tpu"])
+        flat_sentence_map = tf.reshape(sentence_map, [-1])
 
-        ### mention_start = tf.reshape()
-        ### mention_end = tf.reshape()
+        sentence_idx = tf.gather(nonoverlap_sentence, top_start)
+
+        query_sentence_mask = tf.math.equal(flat_sentence_map, sentence_idx)
+        input_ids = tf.reshape(input_ids, [-1])
+        query_sentence_tokens = mask.boolean_mask(input_ids, query_sentence_mask, use_tpu=self.config["tpu"])
+
+        sentence_start = tf.where(tf.equal(nonoverlap_sentence, query_sentence_tokens[0]))
+        sentence_end = tf.where(tf.equal(nonoverlap_sentence, query_sentence_tokens[-1])) 
+        mention_start = tf.where(tf.equal(nonoverlap_sentence, tf.gather(nonoverlap_sentence, top_start)))
+        mention_end = tf.where(tf.equal(flat_input_mask, tf.gather(nonoverlap_sentence, top_end)))
+        original_tokens = query_sentence_tokens
+
 
         mention_start_in_sentence = mention_start[0][0] - sentence_start[0][0]
-        mention_end_in_sentence = mention_end[0][0] - sentence_start[0][0]
+        mention_end_in_sentence = mention_end[0][0] - sentence_end[0][0]
 
         if special:
             # 补充上special token， 注意start end应该按照这个向后移动一步
             question_token_ids = tf.concat([original_tokens[: mention_start_in_sentence],
-                                        [self.config.mention_start_idx],
+                                        [self.mention_start_idx],
                                         original_tokens[mention_start_in_sentence: mention_end_in_sentence + 1],
-                                        [self.config.mention_end_idx],
+                                        [self.mention_end_idx],
                                         original_tokens[mention_end_in_sentence + 1:],
                                         ], 0)
             return question_token_ids, mention_start_in_sentence + 1, mention_end_in_sentence
@@ -525,8 +553,11 @@ class CorefModel(object):
             return question_token_ids, mention_start_in_sentence, mention_end_in_sentence  
 
 
-    def get_mention_proposal_loss(self, span_scores, span_labels, start_scores=None, 
+    def get_mention_proposal_loss(self, span_scores, span_mention, span_mention_loss_mask=None, start_scores=None, 
         end_scores=None, start_labels=None, end_labels=None):
+
+        if span_mention_loss_mask is None:
+            span_mention_loss_mask = tf.reshape(tf.ones_like(span_mention), [-1])
 
         span_scores = tf.cast(tf.reshape(span_scores, [-1]), tf.float32)
         span_scores = tf.stack([(1 - span_scores), span_scores], axis=-1)
@@ -555,6 +586,13 @@ class CorefModel(object):
         log_norm = tf.reduce_logsumexp(antecedent_scores, [1])  # [k]
         loss = log_norm - marginalized_gold_scores  # [k]
         return tf.reduce_sum(loss)
+
+    def get_dropout(self, dropout_rate, is_training):  # is_training为True时keep=1-drop, 为False时keep=1
+        
+        return 1 - (tf.to_float(is_training) * dropout_rate)
+
+
+
 
 
 
