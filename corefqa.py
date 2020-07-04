@@ -188,6 +188,8 @@ class CorefModel(object):
         # i0, batch_qa_input_ids, batch_qa_input_mask, batch_qa_input_token_type_mask
         batch_query_ids = tf.zeros((1, self.config["max_query_len"]), dtype=tf.int32)
 
+        tf.logging.info("=-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-==-=")
+        exit()
         @tf.function
         def forward_qa_loop(i, link_qa_input_ids, link_qa_input_mask, link_qa_input_type_mask, link_qa_query_ids):
             tmp_context_input_ids = tf.reshape(self.input_ids,[-1, self.config["max_segment_len"]])  
@@ -350,6 +352,7 @@ class CorefModel(object):
         tile_top_span_mention_scores = tf.reshape(tf.stack([top_span_mention_scores]*c, axis=1), [-1])
         top_antecedent_scores = (topc_forward_scores + backard_mention_ji_score)/2 * self.config["score_ratio"] + \
             (1 - self.config["score_ratio"]) * (topc_span_scores+ tile_top_span_mention_scores)
+        
         top_antecedent_scores = tf.reshape(top_antecedent_scores, [k, c])
         dummy_scores = tf.zeros([k, 1])  # [k, 1]
 
@@ -358,15 +361,16 @@ class CorefModel(object):
         # same_cluster_indicator [k, c] 每个mention跟每个预测的antecedent是否同一个cluster
         # pairwise_labels [k, c] 用pairwise的方法得到的label，非mention、非antecedent都是0，mention跟antecedent共指是1
         # top_antecedent_labels [k, c+1] 最终的标签，如果某个mention没有antecedent就是dummy_label为1
-        top_antecedent_scores = 
-        same_cluster_indicator = 
-        non_dummy_indicator = tf.expand_dims(top_span_cluster_ids > 0, 1)  # [k, 1]
-        pairwise_labels = tf.logical_and(same_cluster_indicator, non_dummy_indicator)  # [k, c]
-        dummy_labels = tf.logical_not(tf.reduce_any(pairwise_labels, 1, keepdims=True))  # [k, 1]
-        top_antecedent_labels = tf.concat([dummy_labels, pairwise_labels], 1)  # [k, c + 1]
-        loss = self.softmax_loss(top_antecedent_scores, top_antecedent_labels)  # [k]
+        # top_antecedent_scores = 
+        ###### - same_cluster_indicator = tf.equal(antecedent_labels, tf.expand_dims(top_span_cluster_ids, 1))  # (k, c)
+        ###### - non_dummy_indicator = tf.expand_dims(top_span_cluster_ids > 0, 1)  # [k, 1]
+        ###### - pairwise_labels = tf.logical_and(same_cluster_indicator, non_dummy_indicator)  # [k, c]
+        ###### - dummy_labels = tf.logical_not(tf.reduce_any(pairwise_labels, 1, keepdims=True))  # [k, 1]
+        ###### - top_antecedent_labels = tf.concat([dummy_labels, pairwise_labels], 1)  # [k, c + 1]
+        ###### - loss = self.marginal_likelihood_loss(top_antecedent_scores, top_antecedent_labels)  # [k]
 
-        loss += mention_proposal_loss * self.config["mention_proposal_loss_ratio"]
+        # loss += mention_proposal_loss * self.config["mention_proposal_loss_ratio"]
+        loss = mention_proposal_loss 
 
         return [candidate_starts, candidate_ends, candidate_mention_scores, top_span_starts, top_span_ends,
                 topc_forward_antecedent, top_antecedent_scores], loss
@@ -501,13 +505,23 @@ class CorefModel(object):
         # sentence_tokens = tf.gather(nooverlap_sentence_map, sentence_idx)
         # operation_funcs.mask.boolean_mask(tf.reshape(sentence_map, [-1]), doc_overlap_mask, use_tpu=self.config["tpu"])
 
-        mention_start = tf.reshape()
-        mention_end = tf.reshape()
+        ### mention_start = tf.reshape()
+        ### mention_end = tf.reshape()
+
+        mention_start_in_sentence = mention_start[0][0] - sentence_start[0][0]
+        mention_end_in_sentence = mention_end[0][0] - sentence_start[0][0]
 
         if special:
             # 补充上special token， 注意start end应该按照这个向后移动一步
-            return question_token_ids, mention_start_in_sentence, mention_end_in_sentence
+            question_token_ids = tf.concat([original_tokens[: mention_start_in_sentence],
+                                        [self.config.mention_start_idx],
+                                        original_tokens[mention_start_in_sentence: mention_end_in_sentence + 1],
+                                        [self.config.mention_end_idx],
+                                        original_tokens[mention_end_in_sentence + 1:],
+                                        ], 0)
+            return question_token_ids, mention_start_in_sentence + 1, mention_end_in_sentence
         else:
+            question_token_ids = original_tokens 
             return question_token_ids, mention_start_in_sentence, mention_end_in_sentence  
 
 
@@ -525,5 +539,38 @@ class CorefModel(object):
             return span_loss 
         else:
             return span_loss 
+
+    def marginal_likelihood(self, antecedent_scores, antecedent_labels):
+        """
+        Desc:
+            marginal likelihood of gold antecedent spans form coreference cluster 
+        Args:
+            antecedent_scores: [k, c+1] the predicted scores by the model
+            antecedent_labels: [k, c+1] the gold-truth cluster labels
+        Returns:
+            a scalar of loss 
+        """
+        gold_scores = antecedent_scores + tf.log(tf.to_float(antecedent_labels))
+        marginalized_gold_scores = tf.reduce_logsumexp(gold_scores, [1])  # [k]
+        log_norm = tf.reduce_logsumexp(antecedent_scores, [1])  # [k]
+        loss = log_norm - marginalized_gold_scores  # [k]
+        return tf.reduce_sum(loss)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

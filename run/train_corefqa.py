@@ -105,9 +105,9 @@ def model_fn_builder(config):
 
         if is_training: 
             tf.logging.info("****************************** Training On TPU ******************************")
-            total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(input_ids, input_mask, \
-                text_len, speaker_ids, genre, is_training, gold_starts,
-                gold_ends, cluster_ids, sentence_map, span_mention=span_mention)
+
+            _, total_loss = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
+                genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention)
 
             if config["device"] == "tpu":
                 tf.logging.info("  name = %s, shape = %s" % (name, features[name].shape))
