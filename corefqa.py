@@ -17,7 +17,6 @@ if repo_path not in sys.path:
 
 
 import conll
-import coref_ops
 import metrics
 import util
 import numpy as np
