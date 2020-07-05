@@ -62,7 +62,6 @@ class CorefModel(object):
         self.enqueue_op = queue.enqueue(self.queue_input_tensors)
         self.input_tensors = queue.dequeue()  # self.queue_input_tensors 不一样？
         self.bce_loss = tf.keras.losses.BinaryCrossentropy()
-        self.mention_proposal_only = self.config.mention_proposal_only
         self.pad_idx = 0 
         self.mention_start_idx = 37
         self.mention_end_idx = 42

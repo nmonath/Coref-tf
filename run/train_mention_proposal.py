@@ -110,7 +110,6 @@ def model_fn_builder(config):
                 gold_ends, cluster_ids, sentence_map, span_mention=span_mention)
 
             if config["device"] == "tpu":
-                tf.logging.info("  name = %s, shape = %s" % (name, features[name].shape))
                 optimizer = tf.train.AdamOptimizer(learning_rate=config['bert_learning_rate'], beta1=0.9, beta2=0.999, epsilon=1e-08)
                 optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer)
                 train_op = optimizer.minimize(total_loss, tf.train.get_global_step()) 
@@ -128,14 +127,26 @@ def model_fn_builder(config):
             total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(input_ids, input_mask, \
                 text_len, speaker_ids, genre, is_training, gold_starts,
                 gold_ends, cluster_ids, sentence_map, span_mention)
-            
+
             predictions = {"total_loss": total_loss,
                     "start_scores": start_scores,
                     "end_scores": end_scores, 
                     "span_scores": span_scores}
 
-            output_spec = tf.contrib.tpu.TPUEstimatorSpec(mode=tf.estimator.ModeKeys.PREDICT, \
-                predictions=predictions, \
+            def metric_fn(logits, span_scores, span_mention_label, start_scores, start_label, end_scores, end_label):
+                span_scores = tf.reshape(span_scores, [config["max_training_sentences"], config["max_segment_len"], config["max_segment_len"],]) # span_scores
+                start_scores = tf.reshape(start_scores, [-1])
+                end_scores = tf.reshape(end_scores, [-1])
+                start_label = tf.reshape(start_label, [-1])
+                end_label = tf.reshape(end_label, [-1])
+
+
+            eval_metrics = (metric_fn, [span_scores, span_mention, start_scores, start_label, end_scores, end_label])
+
+            output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+                mode=tf.estimator.ModeKeys.PREDICT,
+                predictions=predictions,
+                eval_metrics=eval_metrics, 
                 scaffold_fn=scaffold_fn)
         
         return output_spec
