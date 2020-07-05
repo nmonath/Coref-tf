@@ -83,11 +83,6 @@ class MentionProposalModel(object):
                                                             num_train_steps, num_warmup_steps, False, self.global_step,
                                                             freeze=-1, task_opt=self.config['task_optimizer'],
                                                             eps=config['adam_eps'])
-
-        # else:
-        #    pass 
-            # self.loss, self.pred_start_scores, self.pred_end_scores, self.pred_mention_scores = self.get_mention_proposal_and_loss(*self.input_tensors)
-
         
         self.coref_evaluator = metrics.CorefEvaluator()
 
