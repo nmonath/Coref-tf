@@ -20,7 +20,6 @@ import conll
 import metrics
 import util
 import numpy as np
-import optimization
 import tensorflow as tf
 from bert import modeling
 from bert import tokenization
