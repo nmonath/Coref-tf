@@ -19,7 +19,6 @@ import tensorflow as tf
 
 import util
 import metrics 
-import optimization 
 from bert import modeling
 from bert import tokenization
 
