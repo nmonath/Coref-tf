@@ -294,7 +294,7 @@ if __name__ == '__main__':
 
             input_filename = "{}.english.{}.jsonlines".format(data_sign, str(sliding_window_size))
     
-            output_data_dir = "/xiaoya/tpu_data/mention_proposal/span_all_{}_{}".format(str(sliding_window_size), str(config["max_training_sentences"]))
+            output_data_dir = "/xiaoya/tpu_data/mention_proposal/new_span_all_{}_{}".format(str(sliding_window_size), str(config["max_training_sentences"]))
             os.makedirs(output_data_dir, exist_ok=True)
             output_filename = "{}.english.jsonlines".format(data_sign)
             print("$^$"*30)

@@ -20,4 +20,4 @@ python3 ${REPO_PATH}/run/train_mention_proposal.py \
 --tpu_name=${TPU_NAME} \
 --tpu_zone=us-central1-f \
 --gcp_project=${GCP_PROJECT} \
---num_tpu_cores=1 > ${OUTPUT_DIR}/log.txt
+--num_tpu_cores=1 # > ${OUTPUT_DIR}/log.txt

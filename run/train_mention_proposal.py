@@ -160,7 +160,14 @@ def main(_):
     tf.logging.set_verbosity(tf.logging.INFO)
 
 
+    # if FLAGS.do_exp:
     num_train_steps = config["num_docs"] * config["num_epochs"]
+    # else:
+    #     num_train_steps = config["num_train_steps"]
+
+
+    save_checkpoints_steps = int(num_train_steps / 20)
+
     # use_tpu = FLAGS.use_tpu
     if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
         raise ValueError("At least one of `do_train`, `do_eval` or `do_predict' must be True.")
@@ -179,7 +186,8 @@ def main(_):
         cluster=tpu_cluster_resolver,
         master=FLAGS.master,
         model_dir=FLAGS.output_dir,
-        save_checkpoints_steps=config["save_checkpoints_steps"],
+        keep_checkpoint_max = 10,
+        save_checkpoints_steps=save_checkpoints_steps,
         tpu_config=tf.contrib.tpu.TPUConfig(
             iterations_per_loop=FLAGS.iterations_per_loop,
             num_shards=FLAGS.num_tpu_cores,
