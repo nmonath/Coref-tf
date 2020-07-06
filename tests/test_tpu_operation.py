@@ -43,6 +43,8 @@ if __name__ == "__main__":
 
         scores = tf.constant([1.0, 2.3, 3.2, 4.3, 1.5, 1.8, 98, 2.9])
         k = 2
+        
+        print("All devices: ", tf.config.list_logical_devices('TPU'))
 
         top_scores, top_index = tf.nn.top_k(scores, k) 
 
