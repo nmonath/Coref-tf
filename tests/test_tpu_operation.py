@@ -41,9 +41,17 @@ if __name__ == "__main__":
     with tf.compat.v1.Session(tpu_cluster_resolver) as sess:
         sess.run(tpu.initialize_system())
 
-        top_scores, top_index = sess.run(test_op)
+        scores = tf.constant([1.0, 2.3, 3.2, 4.3, 1.5, 1.8, 98, 2.9])
+        k = 2
+
+        top_scores, top_index = tf.nn.top_k(scores, k) 
 
         print(top_scores)
         print(top_index)
 
         sess.run(tpu.shutdown_system())
+
+
+
+
+
