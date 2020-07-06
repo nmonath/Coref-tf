@@ -11,6 +11,7 @@
 import os 
 import sys 
 import tensorflow as tf 
+from tensorflow.contrib import tpu
 
 
 TPU_NAME = "tensorflow-tpu"
