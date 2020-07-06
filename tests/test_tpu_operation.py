@@ -23,10 +23,10 @@ GCP_PROJECT = "xiaoyli-20-04-274510"
 
 
 if __name__ == "__main__":
-    # tpu_cluster_resolver = tf.distribute.cluster_resolver.TPUClusterResolver(TPU_NAME, zone=TPU_ZONE, project=GCP_PROJECT)   
-    tpu_cluster_resolver = TPUClusterResolver(tpu=['tensorflow-tpu']).get_master()
-    # tf.config.experimental_connect_to_cluster(tpu_cluster_resolver)
-    # tf.tpu.experimental.initialize_tpu_system(tpu_cluster_resolver)
+    tpu_cluster_resolver = tf.distribute.cluster_resolver.TPUClusterResolver(TPU_NAME, zone=TPU_ZONE, project=GCP_PROJECT)   
+    # tpu_cluster_resolver = TPUClusterResolver(tpu=['tensorflow-tpu']).get_master()
+    tf.config.experimental_connect_to_cluster(tpu_cluster_resolver)
+    tf.tpu.experimental.initialize_tpu_system(tpu_cluster_resolver)
 
     scores = tf.constant([1.0, 2.3, 3.2, 4.3, 1.5, 1.8, 98, 2.9])
     k = 2
