@@ -8,7 +8,7 @@
 
 
 import tensorflow as tf 
-from ops_funcs import ops 
+from operation_funcs import ops 
 
 VERY_LARGE_NEGATIVE_VALUE = -1e12
 
@@ -34,8 +34,8 @@ def exp_mask(logits, mask, mask_is_length=True):
     return logits + (1.0 - tf.cast(mask, 'float')) * VERY_LARGE_NEGATIVE_VALUE
 
 
-def boolean_mask(boxlist, indicator, fields=None, scope=None,
-                 use_static_shapes=False, indicator_sum=None):
+def boolean_mask(itemlist, indicator, fields=None, scope=None,
+                 use_static_shapes=False, indicator_sum=None, use_tpu=True):
   """Select boxes from BoxList according to indicator and return new BoxList.
   `boolean_mask` returns the subset of boxes that are marked as "True" by the
   indicator tensor. By default, `boolean_mask` returns boxes corresponding to
@@ -59,12 +59,14 @@ def boolean_mask(boxlist, indicator, fields=None, scope=None,
   Raises:
     ValueError: if `indicator` is not a rank-1 boolean tensor.
   """
+  if not use_tpu:
+    return tf.boolean_mask(itemlist, indicator)
   with tf.name_scope(scope, 'BooleanMask'):
-    if indicator.shape.ndims != 1:
+    if indicator.shape.ndims:
       raise ValueError('indicator should have rank 1')
     if indicator.dtype != tf.bool:
       raise ValueError('indicator should be a boolean tensor')
-    if use_static_shapes:
+    if use_static_shapes or use_tpu:
       if not (indicator_sum and isinstance(indicator_sum, int)):
         raise ValueError('`indicator_sum` must be a of type int')
       selected_positions = tf.cast(indicator, dtype=tf.float32)
@@ -80,20 +82,13 @@ def boolean_mask(boxlist, indicator, fields=None, scope=None,
               one_hot_selector,
               axes=[0, 0]),
           dtype=tf.int32)
-      return gather(boxlist, sampled_indices, use_static_shapes=True)
+      return tf.gather(itemlist, sampled_indices)
+      # return gather(boxlist, sampled_indices, use_static_shapes=True)
     else:
-      subboxlist = box_list.BoxList(tf.boolean_mask(boxlist.get(), indicator))
-      if fields is None:
-        fields = boxlist.get_extra_fields()
-      for field in fields:
-        if not boxlist.has_field(field):
-          raise ValueError('boxlist must contain all specified fields')
-        subfieldlist = tf.boolean_mask(boxlist.get_field(field), indicator)
-        subboxlist.add_field(field, subfieldlist)
-      return subboxlist
+      return tf.boolean_mask(itemlist, indicator)
 
 
-def gather(boxlist, indices, fields=None, scope=None, use_static_shapes=False):
+def gather(boxlist, indices, fields=None, scope=None, use_static_shapes=False, use_tpu=True):
   """Gather boxes from BoxList according to indices and return new BoxList.
   By default, `gather` returns boxes corresponding to the input index list, as
   well as all additional fields stored in the boxlist (indexing into the
@@ -121,27 +116,14 @@ def gather(boxlist, indices, fields=None, scope=None, use_static_shapes=False):
     if indices.dtype != tf.int32 and indices.dtype != tf.int64:
       raise ValueError('indices should be an int32 / int64 tensor')
     gather_op = tf.gather
-    if use_static_shapes:
+    if use_static_shapes or use_tpu:
       gather_op = ops.matmul_gather_on_zeroth_axis
-    subboxlist = box_list.BoxList(gather_op(boxlist.get(), indices))
-    if fields is None:
-      fields = boxlist.get_extra_fields()
-    fields += ['boxes']
-    for field in fields:
-      if not boxlist.has_field(field):
-        raise ValueError('boxlist must contain all specified fields')
-      subfieldlist = gather_op(boxlist.get_field(field), indices)
-      subboxlist.add_field(field, subfieldlist)
+    subboxlist = gather_op(boxlist.get(), indices)
     return subboxlist
 
 
-
-
-
-
-
-
-
+if __name__ == "__main__":
+  pass 
 
 
 

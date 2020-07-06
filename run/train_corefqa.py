@@ -76,7 +76,7 @@ def model_fn_builder(config):
 
         is_training = (mode == tf.estimator.ModeKeys.TRAIN)
 
-        model = util.get_model(config, model_sign="mention_proposal")
+        model = util.get_model(config, model_sign="corefqa")
 
         tvars = tf.trainable_variables()
         # If you're using TF weights only, tf_checkpoint and init_checkpoint can be the same
@@ -86,6 +86,7 @@ def model_fn_builder(config):
         init_from_checkpoint = tf.train.init_from_checkpoint # if config['init_checkpoint'].endswith('ckpt') # else load_from_pytorch_checkpoint
           
         if FLAGS.use_tpu:
+            tf.logging.info("****************************** Training on TPU ******************************")
             def tpu_scaffold():
                 init_from_checkpoint(config['init_checkpoint'], assignment_map)
                 return tf.train.Scaffold()
@@ -103,50 +104,27 @@ def model_fn_builder(config):
                 init_string = ", *INIT_FROM_CKPT*"
             tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape, init_string)
 
-        if is_training: 
-            tf.logging.info("****************************** Training On TPU ******************************")
-            total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(input_ids, input_mask, \
-                text_len, speaker_ids, genre, is_training, gold_starts,
-                gold_ends, cluster_ids, sentence_map, span_mention=span_mention)
+        #  is training 
 
-            if config["device"] == "tpu":
-                optimizer = tf.train.AdamOptimizer(learning_rate=config['bert_learning_rate'], beta1=0.9, beta2=0.999, epsilon=1e-08)
-                optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer)
-                train_op = optimizer.minimize(total_loss, tf.train.get_global_step()) 
-            else:
-                optimizer = RAdam(learning_rate=config['bert_learning_rate'], epsilon=1e-8, beta1=0.9, beta2=0.999)
-                train_op = optimizer.minimize(total_loss, tf.train.get_global_step())
-        
-            # logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=1)
-            output_spec = tf.contrib.tpu.TPUEstimatorSpec(
-                    mode=mode,
-                    loss=total_loss,
-                    train_op=train_op,
-                    scaffold_fn=scaffold_fn)
+        tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
+        tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
+
+        total_loss = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
+            genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention)
+
+        if config["device"] == "tpu":
+            optimizer = tf.train.AdamOptimizer(learning_rate=config['bert_learning_rate'], beta1=0.9, beta2=0.999, epsilon=1e-08)
+            optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer)
+            train_op = optimizer.minimize(total_loss, tf.train.get_global_step()) 
         else:
-            total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(input_ids, input_mask, \
-                text_len, speaker_ids, genre, is_training, gold_starts,
-                gold_ends, cluster_ids, sentence_map, span_mention)
-
-            predictions = {"total_loss": total_loss,
-                    "start_scores": start_scores,
-                    "end_scores": end_scores, 
-                    "span_scores": span_scores}
-
-            def metric_fn(logits, span_scores, span_mention_label, start_scores, start_label, end_scores, end_label):
-                span_scores = tf.reshape(span_scores, [config["max_training_sentences"], config["max_segment_len"], config["max_segment_len"],]) # span_scores
-                start_scores = tf.reshape(start_scores, [-1])
-                end_scores = tf.reshape(end_scores, [-1])
-                start_label = tf.reshape(start_label, [-1])
-                end_label = tf.reshape(end_label, [-1])
-
-
-            eval_metrics = (metric_fn, [span_scores, span_mention, start_scores, start_label, end_scores, end_label])
-
-            output_spec = tf.contrib.tpu.TPUEstimatorSpec(
-                mode=tf.estimator.ModeKeys.PREDICT,
-                predictions=predictions,
-                eval_metrics=eval_metrics, 
+            optimizer = RAdam(learning_rate=config['bert_learning_rate'], epsilon=1e-8, beta1=0.9, beta2=0.999)
+            train_op = optimizer.minimize(total_loss, tf.train.get_global_step())
+        
+        # logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=1)
+        output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+                mode=tf.estimator.ModeKeys.TRAIN,
+                loss=total_loss,
+                train_op=train_op,
                 scaffold_fn=scaffold_fn)
         
         return output_spec
@@ -160,13 +138,7 @@ def main(_):
     tf.logging.set_verbosity(tf.logging.INFO)
 
 
-    # if FLAGS.do_exp:
     num_train_steps = config["num_docs"] * config["num_epochs"]
-    # else:
-    #     num_train_steps = config["num_train_steps"]
-
-
-    save_checkpoints_steps = int(num_train_steps / 20)
 
     # use_tpu = FLAGS.use_tpu
     if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
@@ -186,8 +158,8 @@ def main(_):
         cluster=tpu_cluster_resolver,
         master=FLAGS.master,
         model_dir=FLAGS.output_dir,
+        save_checkpoints_steps=config["save_checkpoints_steps"],
         keep_checkpoint_max = 10,
-        save_checkpoints_steps=save_checkpoints_steps,
         tpu_config=tf.contrib.tpu.TPUConfig(
             iterations_per_loop=FLAGS.iterations_per_loop,
             num_shards=FLAGS.num_tpu_cores,

@@ -10,7 +10,7 @@
 
 
 import tensorflow as tf 
-from ops_funcs import shape_utils
+from operation_funcs import shape_utils
 
 
 def indices_to_dense_vector(indices,

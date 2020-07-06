@@ -279,7 +279,7 @@ def get_speaker_dict(speakers, config):
 if __name__ == '__main__':
     # python3 build_data_to_tfrecord.py 
     data_sign = "test"
-    for sliding_window_size in [128]:
+    for sliding_window_size in [64]:
         print("=*="*20)
         print("current sliding window size is : {}".format(str(sliding_window_size)))
         print("=*="*20)
@@ -294,7 +294,7 @@ if __name__ == '__main__':
 
             input_filename = "{}.english.{}.jsonlines".format(data_sign, str(sliding_window_size))
     
-            output_data_dir = "/xiaoya/tpu_data/mention_proposal/span_all_{}_{}".format(str(sliding_window_size), str(config["max_training_sentences"]))
+            output_data_dir = "/xiaoya/tpu_data/mention_proposal/new_span_all_{}_{}".format(str(sliding_window_size), str(config["max_training_sentences"]))
             os.makedirs(output_data_dir, exist_ok=True)
             output_filename = "{}.english.jsonlines".format(data_sign)
             print("$^$"*30)
