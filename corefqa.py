@@ -127,7 +127,7 @@ class CorefModel(object):
         
         pred_probs = tf.sigmoid(candidate_mention_scores)
         ############################
-        ################ mention_proposal_loss = self.get_mention_proposal_loss(pred_probs, span_mention)
+        #############mention_proposal_loss = self.get_mention_proposal_loss(pred_probs, span_mention, candidate_starts, candidate_ends)
 
         # beam size 所有span的数量小于num_words * top_span_ratio
         k = tf.minimum(2, tf.to_int32(tf.floor(tf.to_float(num_words) * self.config["top_span_ratio"])))
@@ -169,15 +169,6 @@ class CorefModel(object):
             # pad or clip to max_query_len 
             # query_input_mask = tf.ones_like(question_tokens)
             ##### question_len = util.shape(question_tokens, 0)
-            ###### print("question_len")
-            #####print("question_len")
-            #####print("question_len")
-            #####print("question_len")
-            ##########print("question_len")
-            ##########print("question_len")
-            ##########print("question_len")
-            ##########print("question_len")
-            ##########print(question_len)
             ##########if question_len < self.config["max_query_len"]:
             # pad_tokens = tf.zeros([self.config["max_query_len"] - question_len], dtype=tf.int32)
             pad_tokens = tf.zeros([self.config["max_query_len"] - util.shape(question_tokens, 0)], dtype=tf.int32)
@@ -316,19 +307,6 @@ class CorefModel(object):
         tmp_end_in_sent = tf.convert_to_tensor(tf.constant([0]), dtype=tf.int32)
         i0 = tf.constant(0)
         
-        print("check tile top_span_starts ")
-        print("ududioi"*30)
-        print(util.shape(tile_top_span_starts, 0))
-        print(util.shape(tile_top_span_starts, 0))
-        print(util.shape(tile_top_span_starts, 0))
-        print(util.shape(tile_top_span_starts, 0))
-        print(util.shape(tile_top_span_starts, 0))
-        print(util.shape(tile_top_span_starts, 0))
-        print(util.shape(tile_top_span_starts, 0))
-        print(util.shape(tile_top_span_starts, 0))
-        print(util.shape(tile_top_span_starts, 0))
-        print(util.shape(tile_top_span_starts, 0))
-        print(util.shape(tile_top_span_starts, 0))
 
         @tf.function
         def backward_qa_loop(i, rank_qa_input_ids, rank_qa_input_mask, rank_qa_input_type_mask, start_in_sent, end_in_sent,):
@@ -352,17 +330,6 @@ class CorefModel(object):
             context_tokens, k_start_in_sent, k_end_in_sent = self.get_question_token_ids(
                 self.input_ids, self.input_mask, self.sentence_map, tf.gather(tile_top_span_starts, i), tf.gather(tile_top_span_ends, i), special=False)
 
-            ### context_len = util.shape(context_tokens, 0)
-            ### if question_len < self.config["max_query_len"]:
-            print("@%@"*30)
-            print(util.shape(k_start_in_sent, 0))
-            print(util.shape(k_start_in_sent, 0))
-            print(util.shape(k_start_in_sent, 0))
-            print(util.shape(k_start_in_sent, 0))
-            print(util.shape(k_start_in_sent, 0))
-            print(util.shape(k_start_in_sent, 0))
-            print(util.shape(k_start_in_sent, 0))
-            print(util.shape(k_start_in_sent, 0))
             pad_tokens = tf.zeros([self.config["max_query_len"] - util.shape(context_tokens, 0)], dtype=tf.int32)
             pad_context_tokens = tf.concat([context_tokens, pad_tokens], axis=0)
             ### else:
@@ -423,15 +390,7 @@ class CorefModel(object):
 
         backward_pos_offset = tf.cast(tf.reshape(tf.range(0, k*c) * self.config["max_context_len"], [-1, 1]), tf.int32) 
         # #forward_pos_offset = tf.cast(tf.tile(tf.reshape(tf.range(0, k) * non_overlap_doc_len, [-1, 1]), [1, k]), tf.int32)
-        print("<-#"*30)
-        print(util.shape(backward_pos_offset, 0))
-        print(util.shape(backward_pos_offset, 0))
-        print(util.shape(backward_pos_offset, 0))
-        print(util.shape(backward_pos_offset, 1))
-        print(util.shape(backward_pos_offset, 1))
-        print(util.shape(backward_pos_offset, 1))
-        print(util.shape(backward_pos_offset, 1))
-        print(util.shape(backward_pos_offset, 1))
+
 
         ##### batch_backward_start_sent = tf.reshape(self.batch_backward_start_sent, [c*k]) + tf.reshape(backward_pos_offset, [-1])
         ##### batch_backward_end_sent = tf.reshape(self.batch_backward_end_sent, [c*k]) + tf.reshape(backward_pos_offset, [-1])
@@ -445,14 +404,6 @@ class CorefModel(object):
 
         #### 这里也需要向forward的一样加上当前位置的test
         #### 需要加上test
-        print("$->"*30)
-        print(util.shape(backward_qa_span_emb, 0))
-        print(util.shape(backward_qa_span_emb, 0))
-        print(util.shape(backward_qa_span_emb, 0))
-        print(util.shape(backward_qa_span_emb, 1))
-        print(util.shape(backward_qa_span_emb, 1))
-        print(util.shape(backward_qa_span_emb, 1))
-        print(util.shape(backward_qa_span_emb, 1))
 
 
         with tf.variable_scope("backward_qa",):
@@ -467,16 +418,7 @@ class CorefModel(object):
         
         # [2, 2] [16, 1]
         top_antecedent_scores = tf.reshape(topc_forward_scores, [-1]) + tf.reshape(backard_mention_ji_score, [-1])
-        print("$--->"*30)
-        print(util.shape(top_antecedent_scores, 0))
-        print(util.shape(top_antecedent_scores, 0))
-        print(util.shape(top_antecedent_scores, 0))
-        print(util.shape(top_antecedent_scores, 0))
-        print(util.shape(top_antecedent_scores, 0))
-        print(util.shape(top_antecedent_scores, 0))
-        print(util.shape(top_antecedent_scores, 0))
-        print(util.shape(top_antecedent_scores, 0))
-        print(util.shape(top_antecedent_scores, 0))
+
 
 
         # top_antecedent_scores = (tf.reshape(topc_forward_scores, [-1]) + tf.reshape(backard_mention_ji_score, [-1]))/2 * self.config["score_ratio"] 
@@ -506,7 +448,7 @@ class CorefModel(object):
 
         loss = self.marginal_likelihood_loss(top_antecedent_scores, top_antecedent_labels)  # [k]
 
-        ### loss += mention_proposal_loss * self.config["mention_proposal_loss_ratio"]
+        ######## loss += mention_proposal_loss * self.config["mention_proposal_loss_ratio"]
 
         # return [candidate_starts, candidate_ends, candidate_mention_scores, top_span_starts, top_span_ends,
         #         topc_forward_antecedent, top_antecedent_scores], loss
@@ -701,8 +643,7 @@ class CorefModel(object):
             return question_token_ids, mention_start_in_sentence, mention_end_in_sentence  
 
 
-    def get_mention_proposal_loss(self, span_scores, span_mention, span_mention_loss_mask=None, start_scores=None, 
-        end_scores=None, start_labels=None, end_labels=None):
+    def get_mention_proposal_loss(self, span_scores, span_mention, start_pos, end_pos, span_mention_loss_mask=None):
 
         span_mention = tf.reshape(span_mention, [-1])
 
@@ -711,8 +652,24 @@ class CorefModel(object):
 
         span_scores = tf.cast(tf.reshape(span_scores, [-1]), tf.float32)
         span_scores = tf.stack([(1 - span_scores), span_scores], axis=-1)
-        span_mention = tf.cast(tf.one_hot(tf.reshape(span_mention, [-1]), 2, axis=-1),tf.float32)
+        ##### span_mention = tf.cast(tf.one_hot(tf.reshape(span_mention, [-1]), 2, axis=-1),tf.float32)
         #  [1472,2] vs. [81920,2]
+
+        ####### if start_pos is not None:
+        #######    # start_pos : [1, ]
+        #######    # end_pos : [1, ]
+        #######    start_end_mask = tf.concat([tf.reshape(start_pos, [-1, 1]), tf.reshape(end_pos, [-1, 1])], -1)
+        #######    span_mention = tf.reshape(span_mention, [-1,self.config["max_segment_len"],self.config["max_segment_len"]])
+        #######    span_mention = tf.gather_nd(span_mention, start_end_mask)
+
+        start_end_mask = tf.concat([tf.reshape(start_pos, [-1, 1]), tf.reshape(end_pos, [-1, 1])], 1)
+        start_end_mask = tf.reshape(start_end_mask, [self.config["max_training_sentences"], -1, 2])
+        span_mention = tf.reshape(span_mention, [-1,self.config["max_segment_len"],self.config["max_segment_len"]])
+        span_mention = tf.gather_nd(span_mention, start_end_mask)
+
+
+        span_mention = tf.cast(tf.one_hot(tf.reshape(span_mention, [-1]), 2, axis=-1),tf.float32)
+
 
         span_loss = tf.keras.losses.binary_crossentropy(span_mention, span_scores,)
         if span_mention_loss_mask is not None:
@@ -720,10 +677,8 @@ class CorefModel(object):
         else:
             span_loss = tf.reduce_mean(span_loss)
         
-        if start_labels is None:
-            return span_loss 
-        else:
-            return span_loss 
+        
+        return span_loss 
 
     def marginal_likelihood_loss(self, antecedent_scores, antecedent_labels):
         """
