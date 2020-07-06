@@ -25,14 +25,22 @@ if __name__ == "__main__":
     tf.config.experimental_connect_to_cluster(tpu_cluster_resolver)
     tf.tpu.experimental.initialize_tpu_system(tpu_cluster_resolver)
 
-    with tf.compat.v1.InteractiveSession(tpu_cluster_resolver) as sess:
+    scores = tf.constant([1.0, 2.3, 3.2, 4.3, 1.5, 1.8, 98, 2.9])
+    k = 2
+
+    def test_top_k():
+        top_scores, top_index = tf.nn.top_k(scores, k)
+        return top_scores, top_index 
+
+    test_op = test_top_k
+
+    # with tf.compat.v1.InteractiveSession(tpu_cluster_resolver) as sess:
+    with tf.Session(tpu_cluster_resolver) as sess:
         sess.run(tpu.initialize_system())
 
-        scores = tf.constant([1.0, 2.3, 3.2, 4.3, 1.5, 1.8, 98, 2.9])
-        k = 2
-        top_scores, top_index = tf.nn.top_k(scores, k)
+        top_scores, top_index = sess.run(test_top_k)
 
-        top_scores.eval()
-        top_index.eval()
+        print(top_scores)
+        print(top_index)
 
         sess.run(tpu.shutdown_system())
