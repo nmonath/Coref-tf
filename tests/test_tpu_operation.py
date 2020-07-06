@@ -46,8 +46,8 @@ if __name__ == "__main__":
 
         top_scores, top_index = tf.nn.top_k(scores, k) 
 
-        print(top_scores)
-        print(top_index)
+        print(top_scores.eval())
+        print(top_index.eval())
 
         sess.run(tpu.shutdown_system())
 
