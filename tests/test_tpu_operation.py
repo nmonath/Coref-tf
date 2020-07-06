@@ -35,7 +35,7 @@ if __name__ == "__main__":
     test_op = test_top_k
 
     # with tf.compat.v1.InteractiveSession(tpu_cluster_resolver) as sess:
-    with tf.Session(tpu_cluster_resolver) as sess:
+    with tf.compat.v1.Session(tpu_cluster_resolver) as sess:
         sess.run(tpu.initialize_system())
 
         top_scores, top_index = sess.run(test_top_k)
