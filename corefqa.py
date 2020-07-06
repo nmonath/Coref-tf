@@ -59,14 +59,6 @@ class CorefModel(object):
             e.g.: [[-3, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -3],
             [-3, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -3]]
         """
-        print("loading inputs : ")
-        print("loading inputs : ")
-        print("loading inputs : ")
-        print("loading inputs : ")
-        print("loading inputs : ")
-        print("loading inputs : ")
-        print("loading inputs : ")
-        print("loading inputs : ")
 
         input_ids = tf.where(tf.cast(tf.math.greater_equal(input_ids, tf.zeros_like(input_ids)),tf.bool), x=input_ids, y=tf.zeros_like(input_ids)) 
         input_mask = tf.where(tf.cast(tf.math.greater_equal(input_mask, tf.zeros_like(input_mask)), tf.bool), x=input_mask, y=tf.zeros_like(input_mask)) 
@@ -103,16 +95,19 @@ class CorefModel(object):
 
         doc_seq_emb = model.get_sequence_output() # (max_sentence_len, max_seg_len)
         doc_seq_emb, doc_overlap_mask = self.flatten_emb_by_sentence(doc_seq_emb, input_mask) # (max_sent_len * )
+        doc_seq_emb = tf.reshape(doc_seq_emb, [-1, self.config["hidden_size"]])
 
-        num_words = util.shape(doc_seq_emb, 0) # true words in one document 
+
+        num_words = util.shape(doc_seq_emb, 0) # true words in one document  # senten_map 
         # num_words is smaller than the max_sentence_len * max_segment_len
         # candidate_span: 
         candidate_starts = tf.tile(tf.expand_dims(tf.range(num_words), 1), [1, self.max_span_width])
         candidate_ends = candidate_starts + tf.expand_dims(tf.range(self.max_span_width), 0)
-        sentence_map = mask.boolean_mask(tf.reshape(sentence_map, [-1]), doc_overlap_mask, use_tpu=self.config["tpu"])
+        ######### sentence_map = mask.boolean_mask(tf.reshape(sentence_map, [-1]), doc_overlap_mask, use_tpu=self.config["tpu"])
+        sentence_map = tf.reshape(sentence_map, [-1])
 
         candidate_start_sentence_indices = tf.gather(sentence_map, candidate_starts)
-        candidate_end_sentence_indices = tf.gather(sentence_map, tf.minimum(candidate_ends, num_words - 1))
+        candidate_end_sentence_indices = tf.gather(sentence_map, tf.minimum(candidate_ends, num_words - 2))
 
         # [num_words, max_span_width], 合法的span需要满足start/end不能越界；start/end必须在同一个句子里
         candidate_mask = tf.logical_and(candidate_ends < num_words,
@@ -135,7 +130,7 @@ class CorefModel(object):
         ################ mention_proposal_loss = self.get_mention_proposal_loss(pred_probs, span_mention)
 
         # beam size 所有span的数量小于num_words * top_span_ratio
-        k = tf.minimum(20, tf.to_int32(tf.floor(tf.to_float(num_words) * self.config["top_span_ratio"])))
+        k = tf.minimum(2, tf.to_int32(tf.floor(tf.to_float(num_words) * self.config["top_span_ratio"])))
         c = tf.to_int32(tf.minimum(self.config["max_top_antecedents"], k))  # 初筛挑出0.4*500=200个候选，细筛再挑出50个候选
 
         top_span_scores, top_span_indices = tf.nn.top_k(candidate_mention_scores, k)
@@ -146,6 +141,9 @@ class CorefModel(object):
         top_span_cluster_ids = tf.gather(candidate_cluster_ids, top_span_indices)  # [k]
         top_span_emb = tf.gather(candidate_span_emb, top_span_indices)
         top_span_mention_scores = tf.gather(candidate_mention_scores, top_span_indices)  # [k] 
+
+        self.topk_span_starts = top_span_starts 
+        self.topk_span_ends = top_span_ends 
 
         i0 = tf.constant(0)
         num_forward_question = k 
@@ -254,18 +252,42 @@ class CorefModel(object):
         # flat_forward_doc_emb -> (k * non_overlap_doc_len * hidden_size)
         flat_forward_doc_emb = tf.reshape(flat_forward_doc_emb, [k, -1, self.config["hidden_size"]])
         # flat_forward_doc_emb -> (k, non_overlap_doc_len, hidden_size)
+        non_overlap_doc_len = util.shape(flat_forward_doc_emb, 1)
+        top_span_starts = tf.reshape(top_span_starts, [-1])
+        top_span_ends = tf.reshape(top_span_ends, [-1])
+        top_span_starts = tf.reshape(tf.tile(tf.expand_dims(top_span_starts, 0), [k, 1]), [k, k])
+        top_span_ends = tf.reshape(tf.tile(tf.expand_dims(top_span_ends, 0), [k, 1]), [k,k])
 
-        forward_mention_start_emb = tf.gather(flat_forward_doc_emb, tf.tile(tf.expand_dims(top_span_starts, 0), [k, 1])) # (k, k, emb)
-        forward_mention_end_emb = tf.gather(flat_forward_doc_emb, tf.tile(tf.expand_dims(top_span_ends, 0), [k, 1])) # (k, k, emb)
-        forward_mention_span_emb = tf.concat([forward_mention_start_emb, forward_mention_end_emb], -1) # (k, k, emb * 2) 
+        forward_pos_offset = tf.cast(tf.tile(tf.reshape(tf.range(0, k) * non_overlap_doc_len, [-1, 1]), [1, k]), tf.int32)
+        top_span_starts = tf.reshape(tf.cast(top_span_starts + forward_pos_offset, tf.int32), [-1])
+        top_span_ends = tf.reshape(tf.cast(top_span_ends + forward_pos_offset, tf.int32), [-1])
 
-        with tf.variable_scope("forward_qa",):
-            forward_mention_ij_score = util.ffnn(tf.reshape(forward_mention_span_emb, [-1, self.config["hidden_size"]]), self.config["ffnn_depth"], self.config["ffnn_size"]*2, 1, self.dropout)
+        forward_mention_start_emb = tf.gather(tf.reshape(flat_forward_doc_emb, [-1, self.config["hidden_size"]]), top_span_starts,) # (k, k, emb)
 
+        # forward_mention_start_emb = tf.gather(tf.reshape(flat_forward_doc_emb, [-1, self.config["hidden_size"]]), tf.reshape(top_span_starts,[-1]), batch_dims=0) # (k, k, emb)
+        # forward_mention_start_emb = tf.reshape(forward_mention_start_emb, [k*k, self.config["hidden_size"]])
+        # print("---"*20)
+        # print("---"*20)
+        # print("---"*20)
+        # print("---"*20)
+        forward_mention_end_emb = tf.gather(tf.reshape(flat_forward_doc_emb, [-1, self.config["hidden_size"]]), top_span_ends)
+
+        ##### forward_mention_end_emb = tf.gather_nd(flat_forward_doc_emb, top_span_ends, batch_dims=0) # (k, k, emb)
+        forward_mention_start_emb = tf.reshape(forward_mention_start_emb, [k*k, self.config["hidden_size"]])
+        forward_mention_end_emb = tf.reshape(forward_mention_end_emb, [k*k, self.config["hidden_size"]])
+        forward_mention_span_emb = tf.concat([forward_mention_start_emb, forward_mention_end_emb], 1) # (k, k emb * 2) 
+
+        # with tf.variable_scope("forward_qa",):
+        forward_mention_span_emb = tf.reshape(forward_mention_span_emb, [k*k, self.config["hidden_size"]*2])
+        forward_mention_ij_score = util.ffnn(forward_mention_span_emb, 1, self.config["hidden_size"]*2, 1, self.dropout)
+        ################
+
+        forward_mention_ij_score = tf.reshape(forward_mention_ij_score, [k, k])
         topc_forward_scores, topc_forward_indices = tf.nn.top_k(forward_mention_ij_score, c, sorted=False)
         # topc_forward_scores, topc_forward_indices : [k, c]
 
         flat_topc_forward_indices = tf.reshape(topc_forward_indices, [-1])
+
         topc_start_index_doc = tf.gather(top_span_starts, flat_topc_forward_indices) # (k * c)
         topc_end_index_doc = tf.gather(top_span_ends, flat_topc_forward_indices) # (k * c)
         topc_span_scores = tf.gather(top_span_mention_scores, flat_topc_forward_indices) # (k*c)
@@ -278,8 +300,12 @@ class CorefModel(object):
         backward_start_in_sent = tf.zeros((1), dtype=tf.int32)
         backward_end_in_sent = tf.zeros((1), dtype=tf.int32)
 
-        tile_top_span_starts = tf.reshape(tf.tile(tf.expand_dims(top_span_starts, 0), [k, 1]), [-1]) # [k*k]
-        tile_top_span_ends = tf.reshape(tf.tile(tf.expand_dims(top_span_ends, 0), [k, 1]), [-1]) # [k*k]
+        ### tile_top_span_starts = tf.reshape(tf.tile(tf.expand_dims(tf.reshape(top_span_starts, [1, -1]), 0), [c, 1]), [-1]) # [c*k]
+        ### tile_top_span_ends = tf.reshape(tf.tile(tf.expand_dims(top_span_ends, 0), [c, 1]), [-1]) # [c*k]
+
+        tile_top_span_starts = tf.reshape(tf.tile(tf.reshape(self.topk_span_starts, [1, -1]), [c, 1]), [-1])
+        tile_top_span_ends = tf.reshape(tf.tile(tf.reshape(self.topk_span_ends, [1, -1]), [c, 1]), [-1])
+
 
         
         # backward_qa_input_ids, backward_qa_input_mask, backward_qa_input_token_type, backward_start_in_sent, backward_end_in_sent
@@ -290,10 +316,24 @@ class CorefModel(object):
         tmp_end_in_sent = tf.convert_to_tensor(tf.constant([0]), dtype=tf.int32)
         i0 = tf.constant(0)
         
+        print("check tile top_span_starts ")
+        print("ududioi"*30)
+        print(util.shape(tile_top_span_starts, 0))
+        print(util.shape(tile_top_span_starts, 0))
+        print(util.shape(tile_top_span_starts, 0))
+        print(util.shape(tile_top_span_starts, 0))
+        print(util.shape(tile_top_span_starts, 0))
+        print(util.shape(tile_top_span_starts, 0))
+        print(util.shape(tile_top_span_starts, 0))
+        print(util.shape(tile_top_span_starts, 0))
+        print(util.shape(tile_top_span_starts, 0))
+        print(util.shape(tile_top_span_starts, 0))
+        print(util.shape(tile_top_span_starts, 0))
+
         @tf.function
         def backward_qa_loop(i, rank_qa_input_ids, rank_qa_input_mask, rank_qa_input_type_mask, start_in_sent, end_in_sent,):
             
-            query_tokens, start_in_sent, end_in_sent = self.get_question_token_ids(
+            query_tokens, t_start_in_sent, t_end_in_sent = self.get_question_token_ids(
                 self.input_ids, self.input_mask, self.sentence_map, tf.gather(topc_start_index_doc, i), tf.gather(topc_end_index_doc, i))
         
             ## question_len = util.shape(query_tokens, 0)
@@ -314,6 +354,15 @@ class CorefModel(object):
 
             ### context_len = util.shape(context_tokens, 0)
             ### if question_len < self.config["max_query_len"]:
+            print("@%@"*30)
+            print(util.shape(k_start_in_sent, 0))
+            print(util.shape(k_start_in_sent, 0))
+            print(util.shape(k_start_in_sent, 0))
+            print(util.shape(k_start_in_sent, 0))
+            print(util.shape(k_start_in_sent, 0))
+            print(util.shape(k_start_in_sent, 0))
+            print(util.shape(k_start_in_sent, 0))
+            print(util.shape(k_start_in_sent, 0))
             pad_tokens = tf.zeros([self.config["max_query_len"] - util.shape(context_tokens, 0)], dtype=tf.int32)
             pad_context_tokens = tf.concat([context_tokens, pad_tokens], axis=0)
             ### else:
@@ -342,16 +391,6 @@ class CorefModel(object):
             start_in_sent = tf.cast(start_in_sent, tf.int32)
             end_in_sent = tf.cast(end_in_sent, tf.int32)
 
-            print("backward_qa_loop")
-            print("backward_qa_loop")
-            print("backward_qa_loop")
-            print("backward_qa_loop")
-            print("backward_qa_loop")
-            print("backward_qa_loop")
-            print("backward_qa_loop")
-            print("backward_qa_loop")
-            print("backward_qa_loop")
-
             return (i+1, tf.concat([rank_qa_input_ids, qa_input_tokens],axis=0),
                 tf.concat([rank_qa_input_mask, qa_input_mask], axis=0), 
                 tf.concat([rank_qa_input_type_mask, qa_input_token_type_mask], axis=0), 
@@ -365,6 +404,9 @@ class CorefModel(object):
             shape_invariants=[i0.get_shape(), tf.TensorShape([None, None]), tf.TensorShape([None, None]), tf.TensorShape([None, None]), 
             tf.TensorShape([None]), tf.TensorShape([None])])
 
+        self.batch_backward_start_sent = tf.gather(batch_backward_start_sent, tf.range(1, k * c+1))
+        self.batch_backward_end_sent = tf.gather(batch_backward_end_sent, tf.range(1, k*c+1)) 
+
         backward_bert_qa_model = modeling.BertModel(config=self.bert_config, is_training=is_training, 
             input_ids=batch_backward_input_ids, input_mask=batch_backward_input_mask, 
             token_type_ids=batch_backward_token_type_mask, use_one_hot_embeddings=False, 
@@ -376,25 +418,72 @@ class CorefModel(object):
         # backward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(backward_qa_input_token_type_mask_bool, 2), [1, 1, self.config["hidden_size"]])
         backward_k_sent_emb = mask.boolean_mask(backward_qa_emb, backward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"])
         # backward_k_sent_emb -> (c*k, max_context_len, embedding)
+
         backward_k_sent_emb =  tf.reshape(backward_k_sent_emb, [-1, self.config["hidden_size"]]) 
+
+        backward_pos_offset = tf.cast(tf.reshape(tf.range(0, k*c) * self.config["max_context_len"], [-1, 1]), tf.int32) 
+        # #forward_pos_offset = tf.cast(tf.tile(tf.reshape(tf.range(0, k) * non_overlap_doc_len, [-1, 1]), [1, k]), tf.int32)
+        print("<-#"*30)
+        print(util.shape(backward_pos_offset, 0))
+        print(util.shape(backward_pos_offset, 0))
+        print(util.shape(backward_pos_offset, 0))
+        print(util.shape(backward_pos_offset, 1))
+        print(util.shape(backward_pos_offset, 1))
+        print(util.shape(backward_pos_offset, 1))
+        print(util.shape(backward_pos_offset, 1))
+        print(util.shape(backward_pos_offset, 1))
+
+        ##### batch_backward_start_sent = tf.reshape(self.batch_backward_start_sent, [c*k]) + tf.reshape(backward_pos_offset, [-1])
+        ##### batch_backward_end_sent = tf.reshape(self.batch_backward_end_sent, [c*k]) + tf.reshape(backward_pos_offset, [-1])
+        batch_backward_start_sent = tf.reshape(self.batch_backward_start_sent, [-1]) + tf.reshape(backward_pos_offset, [-1])
+        batch_backward_end_sent = tf.reshape(self.batch_backward_end_sent, [-1]) + tf.reshape(backward_pos_offset, [-1])
+
+
         backward_qa_start_emb = tf.gather(backward_k_sent_emb, tf.reshape(batch_backward_start_sent, [-1])) # (c*k, emb)
         backward_qa_end_emb = tf.gather(backward_k_sent_emb, tf.reshape(batch_backward_end_sent, [-1]))  # (c*k, emb)
-        backward_qa_span_emb = tf.concat([ backward_qa_start_emb,backward_qa_end_emb ], axis=-1) # (c*k, 2*emb)
+        backward_qa_span_emb = tf.concat([backward_qa_start_emb,backward_qa_end_emb], axis=1) # (c*k, 2*emb)
+
+        #### 这里也需要向forward的一样加上当前位置的test
+        #### 需要加上test
+        print("$->"*30)
+        print(util.shape(backward_qa_span_emb, 0))
+        print(util.shape(backward_qa_span_emb, 0))
+        print(util.shape(backward_qa_span_emb, 0))
+        print(util.shape(backward_qa_span_emb, 1))
+        print(util.shape(backward_qa_span_emb, 1))
+        print(util.shape(backward_qa_span_emb, 1))
+        print(util.shape(backward_qa_span_emb, 1))
+
 
         with tf.variable_scope("backward_qa",):
-            backard_mention_ji_score = util.ffnn(tf.reshape(backward_qa_span_emb, [-1, self.config["hidden_size"]*2]), self.config["ffnn_depth"], self.config["ffnn_size"]*2, 1, self.dropout)
-
+            backard_mention_ji_score = util.ffnn(tf.reshape(backward_qa_span_emb, [-1, self.config["hidden_size"]*2]), 1, self.config["hidden_size"]*2, 1, self.dropout)
+        # inputs, num_hidden_layers, hidden_size, output_size, dropout,
         # s(j) topc_span_scores # (k*c)
         # s(i) top_span_mention_scores # k
         # topc_forward_scores # (k*c)
-        # backard_mention_ji_score # (k*c)
+        # backard_mention_ji_score # (k*c) 
 
         tile_top_span_mention_scores = tf.tile(tf.expand_dims(tf.reshape(top_span_mention_scores, [-1]), 1), [1, c])
+        
+        # [2, 2] [16, 1]
+        top_antecedent_scores = tf.reshape(topc_forward_scores, [-1]) + tf.reshape(backard_mention_ji_score, [-1])
+        print("$--->"*30)
+        print(util.shape(top_antecedent_scores, 0))
+        print(util.shape(top_antecedent_scores, 0))
+        print(util.shape(top_antecedent_scores, 0))
+        print(util.shape(top_antecedent_scores, 0))
+        print(util.shape(top_antecedent_scores, 0))
+        print(util.shape(top_antecedent_scores, 0))
+        print(util.shape(top_antecedent_scores, 0))
+        print(util.shape(top_antecedent_scores, 0))
+        print(util.shape(top_antecedent_scores, 0))
 
-        top_antecedent_scores = (topc_forward_scores + backard_mention_ji_score)/2 * self.config["score_ratio"] + \
-            (1 - self.config["score_ratio"]) * (topc_span_scores+ tile_top_span_mention_scores)
+
+        # top_antecedent_scores = (tf.reshape(topc_forward_scores, [-1]) + tf.reshape(backard_mention_ji_score, [-1]))/2 * self.config["score_ratio"] 
+        # + \   (1 - self.config["score_ratio"]) * (tf.reshape(topc_span_scores, [-1]) + tf.reshape(tile_top_span_mention_scores, [-1]))
         
         top_antecedent_scores = tf.reshape(top_antecedent_scores, [k, c])
+
         dummy_scores = tf.zeros([k, 1])  # [k, 1]
 
         ###############################################################################################################################################
@@ -404,11 +493,17 @@ class CorefModel(object):
         # pairwise_labels [k, c] 用pairwise的方法得到的label，非mention、非antecedent都是0，mention跟antecedent共指是1
         # top_antecedent_labels [k, c+1] 最终的标签，如果某个mention没有antecedent就是dummy_label为1
         # top_antecedent_scores = 
+        
+
+        topc_span_cluster_ids = tf.reshape(topc_span_cluster_ids, [k, c])
         same_cluster_indicator = tf.equal(topc_span_cluster_ids, tf.expand_dims(top_span_cluster_ids, 1))  # (k, c)
         non_dummy_indicator = tf.expand_dims(top_span_cluster_ids > 0, 1)  # [k, 1]
         pairwise_labels = tf.logical_and(same_cluster_indicator, non_dummy_indicator)  # [k, c]
+
         dummy_labels = tf.logical_not(tf.reduce_any(pairwise_labels, 1, keepdims=True))  # [k, 1]
         top_antecedent_labels = tf.concat([dummy_labels, pairwise_labels], 1)  # [k, c + 1]
+        
+
         loss = self.marginal_likelihood_loss(top_antecedent_scores, top_antecedent_labels)  # [k]
 
         ### loss += mention_proposal_loss * self.config["mention_proposal_loss_ratio"]
@@ -416,7 +511,6 @@ class CorefModel(object):
         # return [candidate_starts, candidate_ends, candidate_mention_scores, top_span_starts, top_span_ends,
         #         topc_forward_antecedent, top_antecedent_scores], loss
         ####################################################################################################################################################
-
         return loss
 
         ############################################################################################################################################
@@ -446,7 +540,8 @@ class CorefModel(object):
         flattened_overlap_mask = tf.reshape(segment_overlap_mask, [-1])
         segment_overlap_mask = tf.maximum(segment_overlap_mask, tf.zeros_like(segment_overlap_mask))
         segment_overlap_mask = tf.reshape(segment_overlap_mask, [-1])
-        flattened_emb = mask.boolean_mask(flattened_emb, segment_overlap_mask, use_tpu=self.config["tpu"])
+        
+        # flattened_emb = mask.boolean_mask(flattened_emb, segment_overlap_mask, use_tpu=self.config["tpu"])
 
         return flattened_emb, flattened_overlap_mask 
 
@@ -474,12 +569,21 @@ class CorefModel(object):
         一个span的表示由下面的组成
         span_start_embedding, span_end_embedding, span_with_embedding, head_attention_representation 
         """
-        span_emb_list = []
 
-        span_start_emb = tf.gather(context_outputs, span_starts) # [k, emb]
+        span_emb_list = []
+        context_outputs = tf.reshape(context_outputs, [-1, self.config["hidden_size"]])
+
+        print(util.shape(span_starts, 0))
+        print(util.shape(span_starts, 0))
+        print(util.shape(span_starts, 0))
+        print(util.shape(span_starts, 0))
+        print("8"*20)
+        span_end_emb = tf.gather(context_outputs, tf.reshape(span_ends, [-1]))
+        span_start_emb = tf.gather(context_outputs, tf.reshape(span_starts, [-1])) # [k, emb]
         span_emb_list.append(span_start_emb)
-        span_end_emb = tf.gather(context_outputs, span_ends)
+        # span_end_emb = tf.gather(context_outputs, tf.reshape(span_ends, [-1]))
         span_emb_list.append(span_end_emb)
+        
         span_width = 1 + span_ends - span_starts # [k]
 
         if self.config["use_features"]:
@@ -495,7 +599,9 @@ class CorefModel(object):
             mention_word_scores = self.get_masked_mention_word_scores(context_outputs, span_starts, span_ends)
             head_attn_reps = tf.matmul(mention_word_scores, context_outputs) # [k, t]
             span_emb_list.append(head_attn_reps)
-        span_emb = tf.concat(span_emb_list, 1) # [k, emb]
+
+        span_emb = tf.concat([span_start_emb, span_end_emb], 1) # [k, emb] origin span_emb_list 
+        span_emb = tf.reshape(span_emb, [-1, self.config["hidden_size"]*2])
         return span_emb # [k, emb]
 
     def get_masked_mention_word_scores(self, encoded_doc, span_starts, span_ends):
@@ -516,18 +622,11 @@ class CorefModel(object):
 
     def get_mention_scores(self, span_emb, span_starts, span_ends):
         with tf.variable_scope("mention_scores", ):
-            span_scores = util.ffnn(span_emb, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout)
-        if self.config['use_prior']:
-            span_width_emb = tf.get_variable("span_width_prior_embeddings",
-                                             [self.config["max_span_width"], self.config["feature_size"]],
-                                             initializer=tf.truncated_normal_initializer(stddev=0.02))  # [W, emb]
-            span_width_index = span_ends - span_starts  # [NC]
-            with tf.variable_scope("width_scores"):
-                width_scores = util.ffnn(span_width_emb, self.config["ffnn_depth"], self.config["ffnn_size"], 1,
-                                         self.dropout)  # [W, 1]
-            width_scores = tf.gather(width_scores, span_width_index)
-            span_scores += width_scores
-        return tf.squeeze(span_scores, 1)
+            span_scores = util.ffnn(span_emb, 1, self.config["hidden_size"]*2, 1, self.dropout)
+        return   tf.squeeze(span_scores, 1)
+        # def ffnn(inputs, num_hidden_layers, hidden_size, output_size, dropout,
+        #  output_weights_initializer=tf.truncated_normal_initializer(stddev=0.02),
+        #  hidden_initializer=tf.truncated_normal_initializer(stddev=0.02)):
 
 
     def get_question_token_ids(self, input_ids, flat_input_mask, sentence_map, top_start, top_end, special=True):
@@ -539,16 +638,6 @@ class CorefModel(object):
             top_start: start index in non-overlap document 
             top_end: end index in non-overlap document 
         """
-        print("-*-"*10)
-        print("get question_token_ids ")
-        print("get question_token_ids ")
-        print("get question_token_ids ")
-        print("get question_token_ids ")
-        print("get question_token_ids ")
-        print("get question_token_ids ")
-        print("get question_token_ids ")
-        print("get question_token_ids ")
-        print("get question_token_ids ")
 
         nonoverlap_sentence = tf.where(tf.cast(tf.math.greater_equal(sentence_map, tf.zeros_like(sentence_map)),tf.bool), x=sentence_map, y=tf.zeros_like(sentence_map)) 
 
@@ -563,13 +652,24 @@ class CorefModel(object):
         query_sentence_tokens = mask.boolean_mask(input_ids, query_sentence_mask, use_tpu=self.config["tpu"])
         len_query_tokens = util.shape(query_sentence_tokens, 0)
 
-        sentence_start = tf.where(tf.equal(nonoverlap_sentence, query_sentence_tokens[0]))
-        sentence_end = tf.where(tf.equal(nonoverlap_sentence, tf.gather(query_sentence_tokens, len_query_tokens -1 ))) 
-        mention_start = tf.where(tf.equal(nonoverlap_sentence, tf.gather(nonoverlap_sentence, top_start)))
-        mention_end = tf.where(tf.equal(flat_input_mask, tf.gather(nonoverlap_sentence, top_end)))
+        sentence_start = tf.where(tf.equal(nonoverlap_sentence, tf.gather(query_sentence_tokens, tf.constant(0))))
+        # sentence_end = tf.where(tf.equal(nonoverlap_sentence, tf.gather(query_sentence_tokens, len_query_tokens -1 ))) 
+        ############### mention_start = tf.where(tf.equal(nonoverlap_sentence, tf.gather(nonoverlap_sentence, top_start)))
+        ############### mention_end = tf.where(tf.equal(nonoverlap_sentence, tf.gather(nonoverlap_sentence, top_end)))
+        ##### should be flat_input_mask 
+        mention_start = tf.cast(top_start, tf.int32) 
+        mention_end = tf.cast(top_end, tf.int32) 
+
         original_tokens = query_sentence_tokens
 
-        return original_tokens, tf.reshape(mention_start, [-1]),  tf.reshape(mention_end, [-1]) 
+        tmp_start = mention_start - tf.cast(sentence_start, tf.int32) 
+        tmp_end = mention_end - tf.cast(sentence_start, tf.int32) 
+
+        tmp_start = tf.gather(tmp_start, tf.constant(0))
+        tmp_end = tf.gather(tmp_end, tf.constant(0))
+
+        return original_tokens, tf.reshape(tmp_start, [-1]), tf.reshape(tmp_end, [-1]) 
+        # tf.reshape(mention_start, [-1]),  tf.reshape(mention_end, [-1]) 
 
         # mention_start_in_sentence = mention_start[0] - sentence_start[0]
         # mention_end_in_sentence = mention_end[0] - sentence_end[0]

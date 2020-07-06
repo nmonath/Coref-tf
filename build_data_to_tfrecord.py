@@ -279,7 +279,7 @@ def get_speaker_dict(speakers, config):
 if __name__ == '__main__':
     # python3 build_data_to_tfrecord.py 
     data_sign = "test"
-    for sliding_window_size in [128]:
+    for sliding_window_size in [64]:
         print("=*="*20)
         print("current sliding window size is : {}".format(str(sliding_window_size)))
         print("=*="*20)

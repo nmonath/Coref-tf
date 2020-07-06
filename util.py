@@ -35,7 +35,7 @@ def initialize_from_env(eval_test=False, config_name="train_spanbert_base", use_
 
     if not use_tpu:
         print("loading experiments.conf ... ")
-        config = pyhocon.ConfigFactory.parse_file(os.path.join(repo_path, "experiments.conf")) 
+        config = pyhocon.ConfigFactory.parse_file(os.path.join(repo_path, "experiments_tinybert.conf")) 
     else: 
         print("loading experiments_tpu.conf ... ")
         config = pyhocon.ConfigFactory.parse_file(os.path.join(repo_path, "experiments_tpu.conf"))
@@ -92,7 +92,7 @@ def maybe_divide(x, y):
 
 
 def projection(inputs, output_size, initializer=tf.truncated_normal_initializer(stddev=0.02)):
-    return ffnn(inputs, 0, -1, output_size, dropout=None, output_weights_initializer=initializer)
+    return ffnn_bk(inputs, 0, -1, output_size, dropout=None, output_weights_initializer=initializer)
 
 
 def highway(inputs, num_layers, dropout):
@@ -110,8 +110,7 @@ def highway(inputs, num_layers, dropout):
 def shape(x, dim):
     return x.get_shape()[dim].value or tf.shape(x)[dim]
 
-
-def ffnn(inputs, num_hidden_layers, hidden_size, output_size, dropout,
+def ffnn_bk(inputs, num_hidden_layers, hidden_size, output_size, dropout,
          output_weights_initializer=tf.truncated_normal_initializer(stddev=0.02),
          hidden_initializer=tf.truncated_normal_initializer(stddev=0.02)):
     if len(inputs.get_shape()) > 3:
@@ -142,6 +141,33 @@ def ffnn(inputs, num_hidden_layers, hidden_size, output_size, dropout,
 
     if len(inputs.get_shape()) == 3:
         outputs = tf.reshape(outputs, [batch_size, seqlen, output_size])
+    return outputs
+
+def ffnn(inputs, num_hidden_layers, hidden_size, output_size, dropout,
+         output_weights_initializer=tf.truncated_normal_initializer(stddev=0.02),
+         hidden_initializer=tf.truncated_normal_initializer(stddev=0.02)):
+    if len(inputs.get_shape()) > 3:
+        raise ValueError("FFNN with rank {} not supported".format(len(inputs.get_shape())))
+    current_inputs = inputs
+
+    # for i in range(num_hidden_layers):
+    hidden_weights = tf.get_variable("hidden_weights", [hidden_size, output_size],
+                                         initializer=hidden_initializer)
+    hidden_bias = tf.get_variable("hidden_bias", [output_size], initializer=tf.zeros_initializer())
+    current_outputs = tf.nn.relu(tf.nn.xw_plus_b(current_inputs, hidden_weights, hidden_bias))
+
+    # if dropout is not None:
+    #    current_outputs = tf.nn.dropout(current_outputs, dropout)
+    current_inputs = current_outputs
+
+    # output_weights = tf.get_variable("output_weights", [shape(current_inputs, 1), output_size],
+    #                                  initializer=output_weights_initializer)
+    # output_bias = tf.get_variable("output_bias", [output_size], initializer=tf.zeros_initializer())
+    # outputs = tf.nn.xw_plus_b(current_inputs, output_weights, output_bias)
+    outputs = current_inputs
+
+    # if len(inputs.get_shape()) == 3:
+    #     outputs = tf.reshape(outputs, [batch_size, seqlen, output_size])
     return outputs
 
 

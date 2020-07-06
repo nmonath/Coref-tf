@@ -231,16 +231,16 @@ def minimize_language(language, labels, stats, vocab_file, seg_len, input_dir, o
 
 
 if __name__ == "__main__":
-    vocab_file = sys.argv[1]
-    input_dir = sys.argv[2]
-    output_dir = sys.argv[3]
-    do_lower_case = sys.argv[4].lower() == 'true'
+    vocab_file = "/xiaoya/pretrain_ckpt/cased_L-12_H-768_A-12/vocab.txt" # sys.argv[1]
+    input_dir = "/xiaoya/data" # sys.argv[2]
+    output_dir = "/xiaoya/data" # sys.argv[3]
+    do_lower_case = False # sys.argv[4].lower() == 'true'
     print(do_lower_case)
     labels = collections.defaultdict(set)
     stats = collections.defaultdict(int)
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
-    for seg_len in [128, 256, 384, 512]:
+    for seg_len in [64,]: # 128, 256, 384, 512]:
         minimize_language("english", labels, stats, vocab_file, seg_len, input_dir, output_dir, do_lower_case)
         # minimize_language("chinese", labels, stats, vocab_file, seg_len)
         # minimize_language("es", labels, stats, vocab_file, seg_len)
