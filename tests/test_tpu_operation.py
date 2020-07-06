@@ -13,9 +13,9 @@ import sys
 import tensorflow as tf 
 
 
-TPU_NAME = ""
-TPU_ZONE = ""
-GCP_PROJECT = ""
+TPU_NAME = "tensorflow-tpu"
+TPU_ZONE = "us-central1-f"
+GCP_PROJECT = "xiaoyli-20-04-274510"
 
 
 
