@@ -19,7 +19,6 @@ import util
 import tensorflow as tf
 from bert import modeling
 from bert import tokenization
-import operation_funcs.mask as mask 
 
 
 
@@ -94,7 +93,7 @@ class CorefModel(object):
         doc_seq_emb = tf.reshape(doc_seq_emb, [-1, self.config["hidden_size"]])
 
 
-        num_words = util.shape(doc_seq_emb, 0) # true words in one document  # senten_map 
+        num_words = self.shape(doc_seq_emb, 0) # true words in one document  # senten_map 
         # num_words is smaller than the max_sentence_len * max_segment_len
         # candidate_span: 
         candidate_starts = tf.tile(tf.expand_dims(tf.range(num_words), 1), [1, self.max_span_width])
@@ -165,10 +164,10 @@ class CorefModel(object):
             # quesiton_tokens: dynamic query lens 
             # pad or clip to max_query_len 
             # query_input_mask = tf.ones_like(question_tokens)
-            ##### question_len = util.shape(question_tokens, 0)
+            ##### question_len = self.shape(question_tokens, 0)
             ##########if question_len < self.config["max_query_len"]:
             # pad_tokens = tf.zeros([self.config["max_query_len"] - question_len], dtype=tf.int32)
-            pad_tokens = tf.zeros([self.config["max_query_len"] - util.shape(question_tokens, 0)], dtype=tf.int32)
+            pad_tokens = tf.zeros([self.config["max_query_len"] - self.shape(question_tokens, 0)], dtype=tf.int32)
             pad_query_tokens = tf.concat([question_tokens, pad_tokens], axis=0)
             #####else:
             ##########    pad_query_tokens = tf.gather(question_tokens, tf.range(0, self.config["max_query_len"]))
@@ -244,7 +243,7 @@ class CorefModel(object):
         # flat_forward_doc_emb -> (k * non_overlap_doc_len * hidden_size)
         flat_forward_doc_emb = tf.reshape(flat_forward_doc_emb, [k, -1, self.config["hidden_size"]])
         # flat_forward_doc_emb -> (k, non_overlap_doc_len, hidden_size)
-        non_overlap_doc_len = util.shape(flat_forward_doc_emb, 1)
+        non_overlap_doc_len = self.shape(flat_forward_doc_emb, 1)
         top_span_starts = tf.reshape(top_span_starts, [-1])
         top_span_ends = tf.reshape(top_span_ends, [-1])
         top_span_starts = tf.reshape(tf.tile(tf.expand_dims(top_span_starts, 0), [k, 1]), [k, k])
@@ -268,7 +267,7 @@ class CorefModel(object):
 
         # with tf.variable_scope("forward_qa",):
         forward_mention_span_emb = tf.reshape(forward_mention_span_emb, [k*k, self.config["hidden_size"]*2])
-        forward_mention_ij_score = util.ffnn(forward_mention_span_emb, 1, self.config["hidden_size"]*2, 1, self.dropout)
+        forward_mention_ij_score = self.ffnn(forward_mention_span_emb, 1, self.config["hidden_size"]*2, 1, self.dropout)
         ################
 
         forward_mention_ij_score = tf.reshape(forward_mention_ij_score, [k, k])
@@ -307,9 +306,9 @@ class CorefModel(object):
             query_tokens, t_start_in_sent, t_end_in_sent = self.get_question_token_ids(
                 self.input_ids, self.input_mask, self.sentence_map, tf.gather(topc_start_index_doc, i), tf.gather(topc_end_index_doc, i))
         
-            ## question_len = util.shape(query_tokens, 0)
+            ## question_len = self.shape(query_tokens, 0)
             ## if question_len < self.config["max_query_len"]:
-            pad_tokens = tf.zeros([self.config["max_query_len"] - util.shape(query_tokens, 0)], dtype=tf.int32)
+            pad_tokens = tf.zeros([self.config["max_query_len"] - self.shape(query_tokens, 0)], dtype=tf.int32)
             pad_query_tokens = tf.concat([query_tokens, pad_tokens], axis=0)
             ### else:
             ###    pad_query_tokens = tf.gather(query_tokens, tf.range(0, self.config["max_query_len"]))
@@ -323,7 +322,7 @@ class CorefModel(object):
             context_tokens, k_start_in_sent, k_end_in_sent = self.get_question_token_ids(
                 self.input_ids, self.input_mask, self.sentence_map, tf.gather(tile_top_span_starts, i), tf.gather(tile_top_span_ends, i), special=False)
 
-            pad_tokens = tf.zeros([self.config["max_query_len"] - util.shape(context_tokens, 0)], dtype=tf.int32)
+            pad_tokens = tf.zeros([self.config["max_query_len"] - self.shape(context_tokens, 0)], dtype=tf.int32)
             pad_context_tokens = tf.concat([context_tokens, pad_tokens], axis=0)
             ### else:
             ###    pad_context_tokens = tf.gather(context_tokens, tf.range(0, self.config["max_query_len"]))
@@ -400,7 +399,7 @@ class CorefModel(object):
 
 
         with tf.variable_scope("backward_qa",):
-            backard_mention_ji_score = util.ffnn(tf.reshape(backward_qa_span_emb, [-1, self.config["hidden_size"]*2]), 1, self.config["hidden_size"]*2, 1, self.dropout)
+            backard_mention_ji_score = self.ffnn(tf.reshape(backward_qa_span_emb, [-1, self.config["hidden_size"]*2]), 1, self.config["hidden_size"]*2, 1, self.dropout)
         # inputs, num_hidden_layers, hidden_size, output_size, dropout,
         # s(j) topc_span_scores # (k*c)
         # s(i) top_span_mention_scores # k
@@ -517,8 +516,8 @@ class CorefModel(object):
         return span_emb # [k, emb]
 
     def get_masked_mention_word_scores(self, encoded_doc, span_starts, span_ends):
-        num_words = util.shape(encoded_doc, 0) # T 
-        num_c = util.shape(span_starts, 0)
+        num_words = self.shape(encoded_doc, 0) # T 
+        num_c = self.shape(span_starts, 0)
         doc_range = tf.tile(tf.expand_dims(tf.range(0, num_words), 0), [num_c, 1]) # [num_candidate, num_words]
         mention_mask = tf.logical_and(doc_range >= tf.expand_dims(span_starts, 1), 
             doc_range <= tf.expand_dims(span_ends, 1)) # [num_candidates, num_word]
@@ -526,7 +525,7 @@ class CorefModel(object):
 
         with tf.variable_scope("mention_word_attn",):
             word_attn = tf.squeeze(
-                util.projection(encoded_doc, 1, initializer=tf.truncated_normal_initializer(stddev=0.02)), 1)
+                self.projection(encoded_doc, 1, initializer=tf.truncated_normal_initializer(stddev=0.02)), 1)
 
         word_attn = tf.cast(word_attn,tf.float32)
         mention_word_attn = tf.nn.softmax(tf.math.add(tf.log(tf.to_float(mention_mask)), tf.expand_dims(word_attn, 0)) )
@@ -536,7 +535,7 @@ class CorefModel(object):
 
     def get_mention_scores(self, span_emb, span_starts, span_ends):
         with tf.variable_scope("mention_scores", ):
-            span_scores = util.ffnn(span_emb, 1, self.config["hidden_size"]*2, 1, self.dropout)
+            span_scores = self.ffnn(span_emb, 1, self.config["hidden_size"]*2, 1, self.dropout)
         return   tf.squeeze(span_scores, 1)
         # def ffnn(inputs, num_hidden_layers, hidden_size, output_size, dropout,
         #  output_weights_initializer=tf.truncated_normal_initializer(stddev=0.02),
@@ -564,7 +563,7 @@ class CorefModel(object):
         query_sentence_mask = tf.math.equal(flat_sentence_map, sentence_idx)
         input_ids = tf.reshape(input_ids, [-1])
         query_sentence_tokens = self.boolean_mask_1d(input_ids, query_sentence_mask, use_tpu=self.config["tpu"])
-        len_query_tokens = util.shape(query_sentence_tokens, 0)
+        len_query_tokens = self.shape(query_sentence_tokens, 0)
 
         sentence_start = tf.where(tf.equal(nonoverlap_sentence, tf.gather(query_sentence_tokens, tf.constant(0))))
         # sentence_end = tf.where(tf.equal(nonoverlap_sentence, tf.gather(query_sentence_tokens, len_query_tokens -1 ))) 
@@ -596,7 +595,7 @@ class CorefModel(object):
 
         if special:
             # 补充上special token， 注意start end应该按照这个向后移动一步
-            len_sent = util.shape(original_tokens, 0)
+            len_sent = self.shape(original_tokens, 0)
             before_sent = tf.gather(original_tokens, tf.range(0, mention_start_in_sentence[0]))
             mid_sent = tf.gather(original_tokens, tf.range(mention_start_in_sentence[0], mention_end_in_sentence[0] + 1))
             end_sent = tf.gather(original_tokens, tf.range(mention_end_in_sentence[0] + 1, len_sent))
@@ -723,7 +722,7 @@ class CorefModel(object):
         # if not use_tpu:
         #  return tf.boolean_mask(itemlist, indicator)
         with tf.name_scope(scope, 'BooleanMask'):
-            # shape_itemlist = util.shape(itemlist, -1)
+            # shape_itemlist = self.shape(itemlist, -1)
             # itemlist = tf.reshape(itemlist, [-1, shape_itemlist])
             # indicator = tf.reshape(indicator, [-1])
             # if dims == 1:
@@ -767,7 +766,7 @@ class CorefModel(object):
         # if not use_tpu:
         #  return tf.boolean_mask(itemlist, indicator)
         with tf.name_scope(scope, 'BooleanMask'):
-            sum_idx = util.shape(itemlist, 0) 
+            sum_idx = self.shape(itemlist, 0) 
             start_mask_lst = tf.cast(tf.zeros_like(tf.gather(itemlist, 0)), tf.float32) 
             i0 = tf.constant(0)
 
@@ -787,6 +786,63 @@ class CorefModel(object):
 
             return mask_itemlist_tensor
 
+    def ffnn(self, inputs, num_hidden_layers, hidden_size, output_size, dropout,
+         output_weights_initializer=tf.truncated_normal_initializer(stddev=0.02),
+         hidden_initializer=tf.truncated_normal_initializer(stddev=0.02)):
+        if len(inputs.get_shape()) > 3:
+            raise ValueError("FFNN with rank {} not supported".format(len(inputs.get_shape())))
+        current_inputs = inputs
+
+        # for i in range(num_hidden_layers):
+        hidden_weights = tf.get_variable("hidden_weights", [hidden_size, output_size],
+                                         initializer=hidden_initializer)
+        hidden_bias = tf.get_variable("hidden_bias", [output_size], initializer=tf.zeros_initializer())
+        current_outputs = tf.nn.relu(tf.nn.xw_plus_b(current_inputs, hidden_weights, hidden_bias))
+        current_inputs = current_outputs
+        outputs = current_inputs
+        return outputs
+
+    def shape(self, x, dim):
+        return x.get_shape()[dim].value or tf.shape(x)[dim]
+
+
+    def projection(self, inputs, output_size, initializer=tf.truncated_normal_initializer(stddev=0.02)):
+        
+        return self.project_ffnn(inputs, 0, -1, output_size, dropout=None, output_weights_initializer=initializer)
+
+
+    def project_ffnn(self, inputs, num_hidden_layers, hidden_size, output_size, dropout,
+        output_weights_initializer=tf.truncated_normal_initializer(stddev=0.02),
+        hidden_initializer=tf.truncated_normal_initializer(stddev=0.02)):
+        if len(inputs.get_shape()) > 3:
+            raise ValueError("FFNN with rank {} not supported".format(len(inputs.get_shape())))
+
+        if len(inputs.get_shape()) == 3:
+            batch_size = self.shape(inputs, 0)
+            seqlen = self.shape(inputs, 1)
+            emb_size = self.shape(inputs, 2)
+            current_inputs = tf.reshape(inputs, [batch_size * seqlen, emb_size])
+        else:
+            current_inputs = inputs
+
+        for i in range(num_hidden_layers):
+            hidden_weights = tf.get_variable("hidden_weights_{}".format(i), [self.shape(current_inputs, 1), hidden_size],
+                                         initializer=hidden_initializer)
+            hidden_bias = tf.get_variable("hidden_bias_{}".format(i), [hidden_size], initializer=tf.zeros_initializer())
+            current_outputs = tf.nn.relu(tf.nn.xw_plus_b(current_inputs, hidden_weights, hidden_bias))
+
+            if dropout is not None:
+                current_outputs = tf.nn.dropout(current_outputs, dropout)
+            current_inputs = current_outputs
+
+        output_weights = tf.get_variable("output_weights", [self.shape(current_inputs, 1), output_size],
+                                     initializer=output_weights_initializer)
+        output_bias = tf.get_variable("output_bias", [output_size], initializer=tf.zeros_initializer())
+        outputs = tf.nn.xw_plus_b(current_inputs, output_weights, output_bias)
+
+        if len(inputs.get_shape()) == 3:
+            outputs = tf.reshape(outputs, [batch_size, seqlen, output_size])
+        return outputs
 
 
 
