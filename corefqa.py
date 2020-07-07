@@ -694,7 +694,8 @@ class CorefModel(object):
         return top_span_cluster_ids
 
 
-    def boolean_mask(self, itemlist, indicator, fields=None, scope=None, 
+    @staticmethod
+    def boolean_mask(itemlist, indicator, fields=None, scope=None, 
         use_static_shapes=False, indicator_sum=None, use_tpu=True, dims=1):
         """Select boxes from BoxList according to indicator and return new BoxList.
         `boolean_mask` returns the subset of boxes that are marked as "True" by the
