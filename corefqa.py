@@ -528,9 +528,9 @@ class CorefModel(object):
             word_attn = tf.squeeze(
                 util.projection(encoded_doc, 1, initializer=tf.truncated_normal_initializer(stddev=0.02)), 1)
 
-        # mention_word_attn = tf.math.add(tf.nn.softmax(tf.log(tf.to_float(mention_mask)), tf.cast(tf.expand_dims(word_attn, 0),tf.float32)))
-        mention_word_attn = tf.math.add(tf.nn.softmax(tf.log(tf.cast(mention_mask, tf.float32)), tf.cast(tf.expand_dims(word_attn, 0),tf.float32)))
-
+        word_attn = tf.cast(word_attn,tf.float32)
+        mention_word_attn = tf.nn.softmax(tf.math.add(tf.log(tf.to_float(mention_mask)), tf.expand_dims(word_attn, 0)) )
+        
         return mention_word_attn  # [num_candidates, num_words] 
 
 
