@@ -657,10 +657,10 @@ class CorefModel(object):
             a scalar of loss 
         """
         gold_scores = antecedent_scores + tf.log(tf.to_float(antecedent_labels))
-        marginalized_gold_scores = tf.reduce_logsumexp(gold_scores, [1])  # [k]
-        log_norm = tf.reduce_logsumexp(antecedent_scores, [1])  # [k]
+        marginalized_gold_scores = tf.math.reduce_logsumexp(gold_scores, [1])  # [k]
+        log_norm = tf.math.reduce_logsumexp(antecedent_scores, [1])  # [k]
         loss = log_norm - marginalized_gold_scores  # [k]
-        return tf.reduce_sum(loss)
+        return tf.math.reduce_sum(loss)
 
     def get_dropout(self, dropout_rate, is_training):  # is_training为True时keep=1-drop, 为False时keep=1
         
