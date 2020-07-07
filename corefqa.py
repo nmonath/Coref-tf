@@ -100,7 +100,7 @@ class CorefModel(object):
         candidate_starts = tf.tile(tf.expand_dims(tf.range(num_words), 1), [1, self.max_span_width])
         candidate_ends = tf.math.add(candidate_starts, tf.expand_dims(tf.range(self.max_span_width), 0))
 
-        ######### sentence_map = self.boolean_mask(tf.reshape(sentence_map, [-1]), doc_overlap_mask, use_tpu=self.config["tpu"])
+        ######### sentence_map = self.boolean_mask_1d(tf.reshape(sentence_map, [-1]), doc_overlap_mask, use_tpu=self.config["tpu"])
         sentence_map = tf.reshape(sentence_map, [-1])
 
         candidate_start_sentence_indices = tf.gather(sentence_map, candidate_starts)
@@ -111,8 +111,8 @@ class CorefModel(object):
                                         tf.equal(candidate_start_sentence_indices, candidate_end_sentence_indices))
 
         flattened_candidate_mask = tf.reshape(candidate_mask, [-1]) # [num_words * max_span_width]
-        candidate_starts = self.boolean_mask(tf.reshape(candidate_starts, [-1]), flattened_candidate_mask, use_tpu=self.config["tpu"] )
-        candidate_ends = self.boolean_mask(tf.reshape(candidate_ends, [-1]), flattened_candidate_mask, use_tpu=self.config["tpu"] )
+        candidate_starts = self.boolean_mask_1d(tf.reshape(candidate_starts, [-1]), flattened_candidate_mask, use_tpu=self.config["tpu"] )
+        candidate_ends = self.boolean_mask_1d(tf.reshape(candidate_ends, [-1]), flattened_candidate_mask, use_tpu=self.config["tpu"] )
         candidate_cluster_ids = self.get_candidate_labels(candidate_starts, candidate_ends, gold_starts, gold_ends, cluster_ids)
 
         candidate_binary_labels = candidate_cluster_ids > 0 
@@ -232,7 +232,7 @@ class CorefModel(object):
         # forward_qa_input_token_type_mask_bool = tf.reshape(forward_qa_input_token_type_mask_bool, [-1, self.config["max_query_len"] + self.config["max_segment_len"], self.config["hidden_size"]])
         forward_qa_input_token_type_mask_bool = tf.reshape(forward_qa_input_token_type_mask_bool, [-1, tf.math.add(self.config["max_query_len"], self.config["max_segment_len"])])
 
-        forward_doc_emb = self.boolean_mask(forward_qa_emb, forward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"], dims=2)
+        forward_doc_emb = self.boolean_mask_2d(forward_qa_emb, forward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"], dims=2)
         # (k * max_train_sent, max_segment_len, hidden_size)
         forward_doc_emb = tf.reshape(forward_doc_emb, [-1, self.config["hidden_size"]]) 
         # (k * max_train_sent * max_segment_len, hidden_size)
@@ -240,7 +240,7 @@ class CorefModel(object):
         flat_sentence_map = tf.reshape(flat_sentence_map, [-1])
         flat_sentence_map = tf.where(tf.cast(tf.math.greater_equal(flat_sentence_map, tf.zeros_like(flat_sentence_map)),tf.bool), x=flat_sentence_map, y=tf.zeros_like(flat_sentence_map)) 
 
-        flat_forward_doc_emb = self.boolean_mask(forward_doc_emb, flat_sentence_map, use_tpu=self.config["tpu"])
+        flat_forward_doc_emb = self.boolean_mask_1d(forward_doc_emb, flat_sentence_map, use_tpu=self.config["tpu"])
         # flat_forward_doc_emb -> (k * non_overlap_doc_len * hidden_size)
         flat_forward_doc_emb = tf.reshape(flat_forward_doc_emb, [k, -1, self.config["hidden_size"]])
         # flat_forward_doc_emb -> (k, non_overlap_doc_len, hidden_size)
@@ -376,7 +376,7 @@ class CorefModel(object):
         # 1. (c*k
         backward_qa_input_token_type_mask_bool = tf.cast(batch_backward_token_type_mask ,tf.bool)
         # backward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(backward_qa_input_token_type_mask_bool, 2), [1, 1, self.config["hidden_size"]])
-        backward_k_sent_emb = self.boolean_mask(backward_qa_emb, backward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"], dims=2)
+        backward_k_sent_emb = self.boolean_mask_2d(backward_qa_emb, backward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"], dims=2)
         # backward_k_sent_emb -> (c*k, max_context_len, embedding)
 
         backward_k_sent_emb =  tf.reshape(backward_k_sent_emb, [-1, self.config["hidden_size"]]) 
@@ -458,7 +458,7 @@ class CorefModel(object):
         segment_overlap_mask = tf.maximum(segment_overlap_mask, tf.zeros_like(segment_overlap_mask))
         segment_overlap_mask = tf.reshape(segment_overlap_mask, [-1])
         
-        # flattened_emb = self.boolean_mask(flattened_emb, segment_overlap_mask, use_tpu=self.config["tpu"])
+        # flattened_emb = self.boolean_mask_1d(flattened_emb, segment_overlap_mask, use_tpu=self.config["tpu"])
 
         return flattened_emb, flattened_overlap_mask 
 
@@ -555,7 +555,7 @@ class CorefModel(object):
 
         nonoverlap_sentence = tf.where(tf.cast(tf.math.greater_equal(sentence_map, tf.zeros_like(sentence_map)),tf.bool), x=sentence_map, y=tf.zeros_like(sentence_map)) 
 
-        nonoverlap_sentence = self.boolean_mask(tf.reshape(input_ids, [-1]), tf.reshape(nonoverlap_sentence, [-1]), use_tpu=self.config["tpu"])
+        nonoverlap_sentence = self.boolean_mask_1d(tf.reshape(input_ids, [-1]), tf.reshape(nonoverlap_sentence, [-1]), use_tpu=self.config["tpu"])
 
         flat_sentence_map = tf.reshape(sentence_map, [-1])
 
@@ -563,7 +563,7 @@ class CorefModel(object):
 
         query_sentence_mask = tf.math.equal(flat_sentence_map, sentence_idx)
         input_ids = tf.reshape(input_ids, [-1])
-        query_sentence_tokens = self.boolean_mask(input_ids, query_sentence_mask, use_tpu=self.config["tpu"])
+        query_sentence_tokens = self.boolean_mask_1d(input_ids, query_sentence_mask, use_tpu=self.config["tpu"])
         len_query_tokens = util.shape(query_sentence_tokens, 0)
 
         sentence_start = tf.where(tf.equal(nonoverlap_sentence, tf.gather(query_sentence_tokens, tf.constant(0))))
@@ -694,8 +694,7 @@ class CorefModel(object):
         return top_span_cluster_ids
 
 
-    @staticmethod
-    def boolean_mask(itemlist, indicator, fields=None, scope=None, 
+    def boolean_mask_1d(self, itemlist, indicator, fields=None, scope=None, 
         use_static_shapes=False, indicator_sum=None, use_tpu=True, dims=1):
         """Select boxes from BoxList according to indicator and return new BoxList.
         `boolean_mask` returns the subset of boxes that are marked as "True" by the
@@ -727,37 +726,66 @@ class CorefModel(object):
             # shape_itemlist = util.shape(itemlist, -1)
             # itemlist = tf.reshape(itemlist, [-1, shape_itemlist])
             # indicator = tf.reshape(indicator, [-1])
-            if dims == 1:
-                indicator_sum = tf.reduce_sum(tf.cast(indicator, tf.int32))
+            # if dims == 1:
+            indicator_sum = tf.reduce_sum(tf.cast(indicator, tf.int32))
 
-                selected_positions = tf.cast(indicator, dtype=tf.float32)
-                indexed_positions = tf.cast(tf.multiply(tf.cumsum(selected_positions), selected_positions),dtype=tf.int32)
-                one_hot_selector = tf.one_hot(indexed_positions - 1, indicator_sum, dtype=tf.float32)
-                sampled_indices = tf.cast(tf.tensordot(tf.cast(tf.range(tf.shape(indicator)[0]), dtype=tf.float32),one_hot_selector,axes=[0, 0]),dtype=tf.int32)
-                mask_itemlist = tf.gather(itemlist, sampled_indices)
-                # mask_itemlist = tf.reshape(mask_itemlist, [-1, shape_itemlist])
-                return mask_itemlist
-                # return gather(boxlist, sampled_indices, use_static_shapes=True)
-            else:
-                sum_idx = util.shape(itemlist, 0) 
-                start_mask_lst = tf.cast(tf.zeros_like(tf.gather(itemlist, 0)), tf.float32) 
-                i0 = tf.constant(0)
+            selected_positions = tf.cast(indicator, dtype=tf.float32)
+            indexed_positions = tf.cast(tf.multiply(tf.cumsum(selected_positions), selected_positions),dtype=tf.int32)
+            one_hot_selector = tf.one_hot(indexed_positions - 1, indicator_sum, dtype=tf.float32)
+            sampled_indices = tf.cast(tf.tensordot(tf.cast(tf.range(tf.shape(indicator)[0]), dtype=tf.float32),one_hot_selector,axes=[0, 0]),dtype=tf.int32)
+            mask_itemlist = tf.gather(itemlist, sampled_indices)
+            # mask_itemlist = tf.reshape(mask_itemlist, [-1, shape_itemlist])
+            return mask_itemlist
 
-                @tf.function
-                def mask_loop(i, stack_mask_itemlist):
-                    tmp_itemlist = tf.gather(itemlist, i) 
-                    tmp_indicator = tf.gather(indicator, i)
-                    tmp_mask_itemlist = boolean_mask(tmp_itemlist, tmp_indicator, use_tpu=use_tpu, dims=1)
-                    return [tf.math.add(i, 1), tf.concat([stack_mask_itemlist, tmp_mask_itemlist], axis=0)]
 
-                _, mask_itemlist_tensor = tf.while_loop(
-                    cond=lambda i, o1, : i < sum_idx,
-                    body=mask_loop, 
-                    loop_vars=[i0, start_mask_lst],
-                    shape_invariants=[i0.get_shape(), tf.TensorShape([None, None])],
-                    maximum_iterations=20)
+    def boolean_mask_2d(self, itemlist, indicator, fields=None, scope=None, 
+        use_static_shapes=False, indicator_sum=None, use_tpu=True, dims=1):
+        """Select boxes from BoxList according to indicator and return new BoxList.
+        `boolean_mask` returns the subset of boxes that are marked as "True" by the
+        indicator tensor. By default, `boolean_mask` returns boxes corresponding to
+        the input index list, as well as all additional fields stored in the boxlist
+        (indexing into the first dimension).  However one can optionally only draw
+        from a subset of fields.
+        Args:
+            boxlist: BoxList holding N boxes
+            indicator: a rank-1 boolean tensor
+            fields: (optional) list of fields to also gather from.  If None (default),
+                all fields are gathered from.  Pass an empty fields list to only gather
+                the box coordinates.
+            scope: name scope.
+            use_static_shapes: Whether to use an implementation with static shape
+                gurantees.
+            indicator_sum: An integer containing the sum of `indicator` vector. Only
+            required if `use_static_shape` is True.
+        Returns:
+        subboxlist: a BoxList corresponding to the subset of the input BoxList
+        specified by indicator
+        Raises:
+        ValueError: if `indicator` is not a rank-1 boolean tensor.
+        """
 
-                return mask_itemlist_tensor
+        # if not use_tpu:
+        #  return tf.boolean_mask(itemlist, indicator)
+        with tf.name_scope(scope, 'BooleanMask'):
+            sum_idx = util.shape(itemlist, 0) 
+            start_mask_lst = tf.cast(tf.zeros_like(tf.gather(itemlist, 0)), tf.float32) 
+            i0 = tf.constant(0)
+
+            @tf.function
+            def mask_loop(i, stack_mask_itemlist):
+                tmp_itemlist = tf.gather(itemlist, i) 
+                tmp_indicator = tf.gather(indicator, i)
+                tmp_mask_itemlist = self.boolean_mask_1d(tmp_itemlist, tmp_indicator, use_tpu=use_tpu, dims=1)
+                return [tf.math.add(i, 1), tf.concat([stack_mask_itemlist, tmp_mask_itemlist], axis=0)]
+
+            _, mask_itemlist_tensor = tf.while_loop(
+                cond=lambda i, o1, : i < sum_idx,
+                body=mask_loop, 
+                loop_vars=[i0, start_mask_lst],
+                shape_invariants=[i0.get_shape(), tf.TensorShape([None, None])],
+                maximum_iterations=20)
+
+            return mask_itemlist_tensor
 
 
 
