@@ -15,7 +15,6 @@ if repo_path not in sys.path:
     sys.path.insert(0, repo_path)
 
 import metrics
-import util
 import tensorflow as tf
 from bert import modeling
 from bert import tokenization
