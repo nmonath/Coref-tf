@@ -409,8 +409,12 @@ class CorefModel(object):
         # backard_mention_ji_score # (k*c) 
         tile_top_span_mention_scores = tf.tile(tf.expand_dims(tf.reshape(top_span_mention_scores, [-1]), 1), [1, c])
         
-        top_antecedent_scores = (tf.reshape(topc_forward_scores, [-1]) + tf.reshape(backard_mention_ji_score, [-1]))/2 * self.config["score_ratio"] + \
-           (1 - self.config["score_ratio"]) * (tf.reshape(topc_span_scores, [-1]) + tf.reshape(tile_top_span_mention_scores, [-1]))
+        # top_antecedent_scores = (tf.reshape(topc_forward_scores, [-1]) + tf.reshape(backard_mention_ji_score, [-1]))/2 * self.config["score_ratio"] + \
+        #    (1 - self.config["score_ratio"]) * (tf.reshape(topc_span_scores, [-1]) + tf.reshape(tile_top_span_mention_scores, [-1]))
+
+        top_antecedent_scores = tf.math.add_n([tf.reshape(topc_forward_scores, [-1]), tf.reshape(backard_mention_ji_score, [-1]), \
+            tf.reshape(topc_span_scores, [-1]),tf.reshape(tile_top_span_mention_scores, [-1])])
+
         
         top_antecedent_scores = tf.reshape(top_antecedent_scores, [k, c])
 
@@ -639,9 +643,9 @@ class CorefModel(object):
 
         span_loss = tf.keras.losses.binary_crossentropy(span_mention, span_scores,)
         if span_mention_loss_mask is not None:
-            span_loss = tf.reduce_mean(tf.multiply(span_loss, tf.cast(span_mention_loss_mask, tf.float32)))
+            span_loss = tf.math.reduce_mean(tf.multiply(span_loss, tf.cast(span_mention_loss_mask, tf.float32)))
         else:
-            span_loss = tf.reduce_mean(span_loss)
+            span_loss = tf.math.reduce_mean(span_loss)
         
         
         return span_loss 
