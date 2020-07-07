@@ -496,7 +496,7 @@ class CorefModel(object):
         # span_end_emb = tf.gather(context_outputs, tf.reshape(span_ends, [-1]))
         span_emb_list.append(span_end_emb)
         
-        span_width = tf.math.add([1, span_ends]) - span_starts # [k]
+        span_width = tf.math.add(1, span_ends) - span_starts # [k]
 
         if self.config["use_features"]:
             span_width_index = span_width -1 # [k]
