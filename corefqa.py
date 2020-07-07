@@ -149,7 +149,7 @@ class CorefModel(object):
         # i0, batch_qa_input_ids, batch_qa_input_mask, batch_qa_input_token_type_mask
         batch_query_ids = tf.zeros((1, self.config["max_query_len"]), dtype=tf.int32)
 
-        @tf.function
+        # @tf.function
         def forward_qa_loop(i, link_qa_input_ids, link_qa_input_mask, link_qa_input_type_mask, link_qa_query_ids):
             tmp_context_input_ids = tf.reshape(self.input_ids,[-1, self.config["max_segment_len"]])  
             # (max_train_sent, max_segment_len)
@@ -300,7 +300,7 @@ class CorefModel(object):
         i0 = tf.constant(0)
         
 
-        @tf.function
+        # @tf.function
         def backward_qa_loop(i, rank_qa_input_ids, rank_qa_input_mask, rank_qa_input_type_mask, start_in_sent, end_in_sent,):
             
             query_tokens, t_start_in_sent, t_end_in_sent = self.get_question_token_ids(
@@ -770,7 +770,7 @@ class CorefModel(object):
             start_mask_lst = tf.cast(tf.zeros_like(tf.gather(itemlist, 0)), tf.float32) 
             i0 = tf.constant(0)
 
-            @tf.function
+            # @tf.function
             def mask_loop(i, stack_mask_itemlist):
                 tmp_itemlist = tf.gather(itemlist, i) 
                 tmp_indicator = tf.gather(indicator, i)
