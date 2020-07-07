@@ -440,7 +440,9 @@ class CorefModel(object):
         # return [candidate_starts, candidate_ends, candidate_mention_scores, top_span_starts, top_span_ends,
         #         topc_forward_antecedent, top_antecedent_scores], loss
         ####################################################################################################################################################
-        return loss
+        return loss, self.topk_span_starts, self.topk_span_ends, top_antecedent_scores 
+
+        # top_span_starts, top_span_ends, predicted_antecedents, gold_clusters
         # return loss, [self.topk_span_starts, self.topk_span_ends, top_span_mention_scores], top_antecedent_scores
 
     def flatten_emb_by_sentence(self, emb, segment_overlap_mask):
@@ -843,7 +845,42 @@ class CorefModel(object):
             outputs = tf.reshape(outputs, [batch_size, seqlen, output_size])
         return outputs
 
+    def evaluate(self, top_span_starts, top_span_ends, predicted_antecedents, gold_clusters):
 
+        gold_clusters = [tuple(tuple(m) for m in gc) for gc in gold_clusters]
+        mention_to_gold = {}
+        for gc in gold_clusters:
+            for mention in gc:
+                mention_to_gold[mention] = gc
+
+        predicted_clusters, mention_to_predicted = self.get_predicted_clusters(top_span_starts, top_span_ends, predicted_antecedents)
+    
+        return predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold
+
+
+    def get_predicted_clusters(self, top_span_starts, top_span_ends, predicted_antecedents):
+        mention_to_predicted = {}
+        predicted_clusters = []
+        for i, predicted_index in enumerate(predicted_antecedents):
+            if predicted_index < 0:
+                continue
+        assert i > predicted_index, (i, predicted_index)
+        predicted_antecedent = (int(top_span_starts[predicted_index]), int(top_span_ends[predicted_index]))
+        if predicted_antecedent in mention_to_predicted:
+            predicted_cluster = mention_to_predicted[predicted_antecedent]
+        else:
+            predicted_cluster = len(predicted_clusters)
+            predicted_clusters.append([predicted_antecedent])
+            mention_to_predicted[predicted_antecedent] = predicted_cluster
+
+        mention = (int(top_span_starts[i]), int(top_span_ends[i]))
+        predicted_clusters[predicted_cluster].append(mention)
+        mention_to_predicted[mention] = predicted_cluster
+
+        predicted_clusters = [tuple(pc) for pc in predicted_clusters]
+        mention_to_predicted = { m:predicted_clusters[i] for m,i in mention_to_predicted.items() }
+
+        return predicted_clusters, mention_to_predicted
 
 
 

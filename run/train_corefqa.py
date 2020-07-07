@@ -3,7 +3,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
+import metrics
 import logging
 import tensorflow as tf
 import util
@@ -104,30 +104,47 @@ def model_fn_builder(config):
                 init_string = ", *INIT_FROM_CKPT*"
             tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape, init_string)
 
-        #  is training 
 
-        tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
-        tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
+        total_loss, topk_span_starts, topk_span_ends, top_antecedent_scores = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
+                genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention)
 
-        total_loss = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
-            genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention)
+        if mode == tf.estimator.ModeKeys.TRAIN:
+            tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
+            tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
 
-        if config["device"] == "tpu":
-            optimizer = tf.train.AdamOptimizer(learning_rate=config['bert_learning_rate'], beta1=0.9, beta2=0.999, epsilon=1e-08)
-            optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer)
-            train_op = optimizer.minimize(total_loss, tf.train.get_global_step()) 
-        else:
-            optimizer = RAdam(learning_rate=config['bert_learning_rate'], epsilon=1e-8, beta1=0.9, beta2=0.999)
-            train_op = optimizer.minimize(total_loss, tf.train.get_global_step())
+
+            if tf.train.get_global_step() // 10 == 0:
+                tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
+                tf.logging.info("current loss is : {}".format(str(total_loss.value)))
+
+            if config["device"] == "tpu":
+                optimizer = tf.train.AdamOptimizer(learning_rate=config['bert_learning_rate'], beta1=0.9, beta2=0.999, epsilon=1e-08)
+                optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer)
+                train_op = optimizer.minimize(total_loss, tf.train.get_global_step()) 
+            else:
+                optimizer = RAdam(learning_rate=config['bert_learning_rate'], epsilon=1e-8, beta1=0.9, beta2=0.999)
+                train_op = optimizer.minimize(total_loss, tf.train.get_global_step())
         
-        training_logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=50)
-        # evaluate_logging_hook = tf.
-        output_spec = tf.contrib.tpu.TPUEstimatorSpec(
-                mode=tf.estimator.ModeKeys.TRAIN,
-                loss=total_loss,
-                train_op=train_op,
-                scaffold_fn=scaffold_fn, 
-                training_hooks=[training_logging_hook])
+            training_logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=50)
+            # evaluate_logging_hook = tf.
+            output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+                    mode=tf.estimator.ModeKeys.TRAIN,
+                    loss=total_loss,
+                    train_op=train_op,
+                    scaffold_fn=scaffold_fn, 
+                    training_hooks=[training_logging_hook])
+
+        elif mode == tf.estimator.ModeKeys.PREDICT:
+
+            predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(topk_span_starts, topk_span_ends, top_antecedent_scores, cluster_ids)
+            
+            predictions = {"predicted_clusters": predicted_clusters, 
+            "gold_clusters": gold_clusters, 
+            "mention_to_predicted": mention_to_predicted,
+            "mention_to_gold": mention_to_gold}   
+            output_spec = tf.contrib.tpu.TPUEstimatorSpec(mode=mode, predictions=predictions, scaffold_fn=scaffold_fn)
+        else:
+            raise ValueError
         
         return output_spec
 
@@ -181,6 +198,15 @@ def main(_):
         estimator.train(input_fn=file_based_input_fn_builder(config["train_path"], seq_length, config, 
             is_training=True, drop_remainder=True),
             max_steps=num_train_steps)
+
+    if FLAGS.do_eval:
+        coref_evaluator = metrics.CorefEvaluator()
+        all_results = []
+        for result in estimator.predict(file_based_input_fn_builder(config["eval_path"], seq_length, config,is_training=False, drop_remainder=False), yield_single_examples=True):
+            all_results.append(result)
+            coref_evaluator.update(result["predicted_clusters"], result["gold_clusters"], result["mention_to_predicted"], result["mention_to_gold"])
+        p, r, f = coref_evaluator.get_prf()
+        tf.logging.info("Average precision: {:.2f}, Average recall: {:.2f}, Average F1 {:.4f}".format(p, r, f))
 
 
 if __name__ == '__main__':
