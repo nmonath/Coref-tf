@@ -257,10 +257,7 @@ class CorefModel(object):
 
         # forward_mention_start_emb = tf.gather(tf.reshape(flat_forward_doc_emb, [-1, self.config["hidden_size"]]), tf.reshape(top_span_starts,[-1]), batch_dims=0) # (k, k, emb)
         # forward_mention_start_emb = tf.reshape(forward_mention_start_emb, [k*k, self.config["hidden_size"]])
-        # print("---"*20)
-        # print("---"*20)
-        # print("---"*20)
-        # print("---"*20)
+
         forward_mention_end_emb = tf.gather(tf.reshape(flat_forward_doc_emb, [-1, self.config["hidden_size"]]), top_span_ends)
 
         ##### forward_mention_end_emb = tf.gather_nd(flat_forward_doc_emb, top_span_ends, batch_dims=0) # (k, k, emb)
@@ -489,11 +486,6 @@ class CorefModel(object):
         span_emb_list = []
         context_outputs = tf.reshape(context_outputs, [-1, self.config["hidden_size"]])
 
-        print(util.shape(span_starts, 0))
-        print(util.shape(span_starts, 0))
-        print(util.shape(span_starts, 0))
-        print(util.shape(span_starts, 0))
-        print("8"*20)
         span_end_emb = tf.gather(context_outputs, tf.reshape(span_ends, [-1]))
         span_start_emb = tf.gather(context_outputs, tf.reshape(span_starts, [-1])) # [k, emb]
         span_emb_list.append(span_start_emb)

@@ -101,7 +101,8 @@ def boolean_mask(itemlist, indicator, fields=None, scope=None,
         cond=lambda i, o1, : i < sum_idx,
         body=mask_loop, 
         loop_vars=[i0, start_mask_lst],
-        shape_invariants=[i0.get_shape(), tf.TensorShape([None, None])]
+        shape_invariants=[i0.get_shape(), tf.TensorShape([None, None])],
+        maximum_iterations=20,swap_memory=True
         )
 
       return mask_itemlist_tensor
