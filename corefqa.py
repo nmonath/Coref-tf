@@ -14,12 +14,8 @@ print(repo_path)
 if repo_path not in sys.path:
     sys.path.insert(0, repo_path)
 
-
-
-import conll
 import metrics
 import util
-import numpy as np
 import tensorflow as tf
 from bert import modeling
 from bert import tokenization
@@ -229,9 +225,13 @@ class CorefModel(object):
 
         forward_qa_emb = forward_bert_qa_model.get_sequence_output() # (k * max_train_sent, max_query_len + max_segment_len, hidden_size)
         forward_qa_input_token_type_mask_bool = tf.cast(tf.reshape(forward_qa_input_token_type_mask, [-1, self.config["max_query_len"] + self.config["max_segment_len"]]), tf.bool)
-        forward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(forward_qa_input_token_type_mask_bool, 2), [1, 1, self.config["hidden_size"]])
+        # forward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(forward_qa_input_token_type_mask_bool, 2), [1, 1, self.config["hidden_size"]])
         
-        forward_doc_emb = mask.boolean_mask(forward_qa_emb, forward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"])
+        forward_qa_emb = tf.reshape(forward_qa_emb, [-1, self.config["max_query_len"] + self.config["max_segment_len"], self.config["hidden_size"]])
+        # forward_qa_input_token_type_mask_bool = tf.reshape(forward_qa_input_token_type_mask_bool, [-1, self.config["max_query_len"] + self.config["max_segment_len"], self.config["hidden_size"]])
+        forward_qa_input_token_type_mask_bool = tf.reshape(forward_qa_input_token_type_mask_bool, [-1, self.config["max_query_len"] + self.config["max_segment_len"]])
+
+        forward_doc_emb = mask.boolean_mask(forward_qa_emb, forward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"], dims=2)
         # (k * max_train_sent, max_segment_len, hidden_size)
         forward_doc_emb = tf.reshape(forward_doc_emb, [-1, self.config["hidden_size"]]) 
         # (k * max_train_sent * max_segment_len, hidden_size)
@@ -290,9 +290,6 @@ class CorefModel(object):
         backward_qa_input_token_type = tf.zeros((1, self.config["max_query_len"] + self.config["max_context_len"]), dtype=tf.int32)
         backward_start_in_sent = tf.zeros((1), dtype=tf.int32)
         backward_end_in_sent = tf.zeros((1), dtype=tf.int32)
-
-        ### tile_top_span_starts = tf.reshape(tf.tile(tf.expand_dims(tf.reshape(top_span_starts, [1, -1]), 0), [c, 1]), [-1]) # [c*k]
-        ### tile_top_span_ends = tf.reshape(tf.tile(tf.expand_dims(top_span_ends, 0), [c, 1]), [-1]) # [c*k]
 
         tile_top_span_starts = tf.reshape(tf.tile(tf.reshape(self.topk_span_starts, [1, -1]), [c, 1]), [-1])
         tile_top_span_ends = tf.reshape(tf.tile(tf.reshape(self.topk_span_ends, [1, -1]), [c, 1]), [-1])
@@ -383,7 +380,7 @@ class CorefModel(object):
         # 1. (c*k
         backward_qa_input_token_type_mask_bool = tf.cast(batch_backward_token_type_mask ,tf.bool)
         # backward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(backward_qa_input_token_type_mask_bool, 2), [1, 1, self.config["hidden_size"]])
-        backward_k_sent_emb = mask.boolean_mask(backward_qa_emb, backward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"])
+        backward_k_sent_emb = mask.boolean_mask(backward_qa_emb, backward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"], dims=2)
         # backward_k_sent_emb -> (c*k, max_context_len, embedding)
 
         backward_k_sent_emb =  tf.reshape(backward_k_sent_emb, [-1, self.config["hidden_size"]]) 
@@ -413,16 +410,10 @@ class CorefModel(object):
         # s(i) top_span_mention_scores # k
         # topc_forward_scores # (k*c)
         # backard_mention_ji_score # (k*c) 
-
         tile_top_span_mention_scores = tf.tile(tf.expand_dims(tf.reshape(top_span_mention_scores, [-1]), 1), [1, c])
         
-        # [2, 2] [16, 1]
-        top_antecedent_scores = tf.reshape(topc_forward_scores, [-1]) + tf.reshape(backard_mention_ji_score, [-1])
-
-
-
-        # top_antecedent_scores = (tf.reshape(topc_forward_scores, [-1]) + tf.reshape(backard_mention_ji_score, [-1]))/2 * self.config["score_ratio"] 
-        # + \   (1 - self.config["score_ratio"]) * (tf.reshape(topc_span_scores, [-1]) + tf.reshape(tile_top_span_mention_scores, [-1]))
+        top_antecedent_scores = (tf.reshape(topc_forward_scores, [-1]) + tf.reshape(backard_mention_ji_score, [-1]))/2 * self.config["score_ratio"] + \
+           (1 - self.config["score_ratio"]) * (tf.reshape(topc_span_scores, [-1]) + tf.reshape(tile_top_span_mention_scores, [-1]))
         
         top_antecedent_scores = tf.reshape(top_antecedent_scores, [k, c])
 
@@ -434,8 +425,6 @@ class CorefModel(object):
         # same_cluster_indicator [k, c] 每个mention跟每个预测的antecedent是否同一个cluster
         # pairwise_labels [k, c] 用pairwise的方法得到的label，非mention、非antecedent都是0，mention跟antecedent共指是1
         # top_antecedent_labels [k, c+1] 最终的标签，如果某个mention没有antecedent就是dummy_label为1
-        # top_antecedent_scores = 
-        
 
         topc_span_cluster_ids = tf.reshape(topc_span_cluster_ids, [k, c])
         same_cluster_indicator = tf.equal(topc_span_cluster_ids, tf.expand_dims(top_span_cluster_ids, 1))  # (k, c)
@@ -454,21 +443,6 @@ class CorefModel(object):
         #         topc_forward_antecedent, top_antecedent_scores], loss
         ####################################################################################################################################################
         return loss
-
-        ############################################################################################################################################
-
-        # forward_mention_ij_score = util.ffnn(forward_mention_span_emb, self.config["ffnn_depth"], self.config["ffnn_size"]*2, 1, self.dropout)
-
-
-        # forward_qa_input_token_type_mask_bool = tf.cast(tf.reshape(forward_qa_input_token_type_mask, [-1, self.config["max_query_len"] + self.config["max_segment_len"]]), tf.bool)
-        # forward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(forward_qa_input_token_type_mask_bool, 2), [1, 1, self.config["hidden_size"]])
-        
-        # 找到topC个在原来文本中的index 
-
-        # 先把query 和 context mask掉，然后再按照sentence map把之前的东西拿出来
-        # 最后出来的是: k, max_training_sentences, max_query_len + max_segment_len 
-        ############################################################################################################
-
 
     def flatten_emb_by_sentence(self, emb, segment_overlap_mask):
         """

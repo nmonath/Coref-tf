@@ -24,7 +24,7 @@ flags = tf.app.flags
 flags.DEFINE_string("output_dir", "data", "The output directory of the model training.")
 flags.DEFINE_bool("do_train", True, "Whether to run training.")
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
-flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
+flags.DEFINE_integer("iterations_per_loop", 100, "How many steps to make in each estimator call.")
 flags.DEFINE_integer("slide_window_size", 156, "size of sliding window.")
 flags.DEFINE_integer("max_seq_length", 200, "Max sequence length for the input sequence.")
 flags.DEFINE_string("tpu_name", None, "The Cloud TPU to use for training. This should be either the name "
@@ -120,12 +120,14 @@ def model_fn_builder(config):
             optimizer = RAdam(learning_rate=config['bert_learning_rate'], epsilon=1e-8, beta1=0.9, beta2=0.999)
             train_op = optimizer.minimize(total_loss, tf.train.get_global_step())
         
-        # logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=1)
+        training_logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=50)
+        # evaluate_logging_hook = tf.
         output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                 mode=tf.estimator.ModeKeys.TRAIN,
                 loss=total_loss,
                 train_op=train_op,
-                scaffold_fn=scaffold_fn)
+                scaffold_fn=scaffold_fn, 
+                training_hooks=[training_logging_hook])
         
         return output_spec
 
