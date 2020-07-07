@@ -198,10 +198,10 @@ class CorefModel(object):
             pad_query_tokens = tf.cast(tf.reshape(pad_query_tokens, [1, self.config["max_query_len"]]), tf.int32)
 
             # link_qa_input_ids, link_qa_input_mask, link_qa_input_type_mask
-            return (i+1, tf.concat([link_qa_input_ids, batch_qa_input_ids], 0), 
+            return [i+1, tf.concat([link_qa_input_ids, batch_qa_input_ids], 0), 
                 tf.concat([link_qa_input_mask, batch_qa_input_mask], 0), 
                 tf.concat([link_qa_input_type_mask, batch_qa_input_token_type_mask], 0), 
-                tf.concat([link_qa_query_ids, pad_query_tokens], 0))
+                tf.concat([link_qa_query_ids, pad_query_tokens], 0)]
 
 
         _, forward_qa_input_ids, forward_qa_input_mask, forward_qa_input_token_type_mask, qa_topk_query_tokens = tf.while_loop(
@@ -352,11 +352,11 @@ class CorefModel(object):
             start_in_sent = tf.cast(start_in_sent, tf.int32)
             end_in_sent = tf.cast(end_in_sent, tf.int32)
 
-            return (i+1, tf.concat([rank_qa_input_ids, qa_input_tokens],axis=0),
+            return [i+1, tf.concat([rank_qa_input_ids, qa_input_tokens],axis=0),
                 tf.concat([rank_qa_input_mask, qa_input_mask], axis=0), 
                 tf.concat([rank_qa_input_type_mask, qa_input_token_type_mask], axis=0), 
                 tf.concat([start_in_sent, k_start_in_sent], axis=0), 
-                tf.concat([end_in_sent, k_end_in_sent], axis=0))
+                tf.concat([end_in_sent, k_end_in_sent], axis=0)]
 
         _, batch_backward_input_ids, batch_backward_input_mask, batch_backward_token_type_mask, batch_backward_start_sent, batch_backward_end_sent = tf.while_loop(
             cond = lambda i, o1, o2, o3, o4, o5: i < k * c,
