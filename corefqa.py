@@ -98,7 +98,7 @@ class CorefModel(object):
         # num_words is smaller than the max_sentence_len * max_segment_len
         # candidate_span: 
         candidate_starts = tf.tile(tf.expand_dims(tf.range(num_words), 1), [1, self.max_span_width])
-        candidate_ends = tf.math.add_n([candidate_starts, tf.expand_dims(tf.range(self.max_span_width), 0)])
+        candidate_ends = tf.math.add(candidate_starts, tf.expand_dims(tf.range(self.max_span_width), 0))
 
         ######### sentence_map = mask.boolean_mask(tf.reshape(sentence_map, [-1]), doc_overlap_mask, use_tpu=self.config["tpu"])
         sentence_map = tf.reshape(sentence_map, [-1])
@@ -528,7 +528,7 @@ class CorefModel(object):
             word_attn = tf.squeeze(
                 util.projection(encoded_doc, 1, initializer=tf.truncated_normal_initializer(stddev=0.02)), 1)
 
-        mention_word_attn = tf.math.add_n([tf.nn.softmax(tf.log(tf.to_float(mention_mask)), tf.expand_dims(word_attn, 0))])
+        mention_word_attn = tf.math.add(tf.nn.softmax(tf.log(tf.to_float(mention_mask)), tf.expand_dims(word_attn, 0)))
         return mention_word_attn  # [num_candidates, num_words] 
 
 
@@ -660,7 +660,7 @@ class CorefModel(object):
         Returns:
             a scalar of loss 
         """
-        gold_scores = tf.math.add_n([antecedent_scores, tf.log(tf.to_float(antecedent_labels))])
+        gold_scores = tf.math.add(antecedent_scores, tf.log(tf.to_float(antecedent_labels)))
         marginalized_gold_scores = tf.math.reduce_logsumexp(gold_scores, [1])  # [k]
         log_norm = tf.math.reduce_logsumexp(antecedent_scores, [1])  # [k]
         loss = log_norm - marginalized_gold_scores  # [k]
