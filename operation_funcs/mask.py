@@ -95,7 +95,7 @@ def boolean_mask(itemlist, indicator, fields=None, scope=None,
         tmp_itemlist = tf.gather(itemlist, i) 
         tmp_indicator = tf.gather(indicator, i)
         tmp_mask_itemlist = boolean_mask(tmp_itemlist, tmp_indicator, use_tpu=use_tpu, dims=1)
-        return [i+1, tf.concat([stack_mask_itemlist, tmp_mask_itemlist], axis=0)]
+        return [tf.math.add(i, 1), tf.concat([stack_mask_itemlist, tmp_mask_itemlist], axis=0)]
 
       _, mask_itemlist_tensor = tf.while_loop(
         cond=lambda i, o1, : i < sum_idx,

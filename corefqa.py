@@ -98,7 +98,8 @@ class CorefModel(object):
         # num_words is smaller than the max_sentence_len * max_segment_len
         # candidate_span: 
         candidate_starts = tf.tile(tf.expand_dims(tf.range(num_words), 1), [1, self.max_span_width])
-        candidate_ends = candidate_starts + tf.expand_dims(tf.range(self.max_span_width), 0)
+        candidate_ends = tf.math.add_n([candidate_starts, tf.expand_dims(tf.range(self.max_span_width), 0)])
+
         ######### sentence_map = mask.boolean_mask(tf.reshape(sentence_map, [-1]), doc_overlap_mask, use_tpu=self.config["tpu"])
         sentence_map = tf.reshape(sentence_map, [-1])
 
@@ -143,9 +144,9 @@ class CorefModel(object):
 
         i0 = tf.constant(0)
         num_forward_question = k 
-        batch_qa_input_ids = tf.zeros((1, self.config["max_training_sentences"], self.config["max_segment_len"] + self.config["max_query_len"]), dtype=tf.int32)
-        batch_qa_input_mask = tf.zeros((1, self.config["max_training_sentences"], self.config["max_segment_len"] + self.config["max_query_len"]), dtype=tf.int32)
-        batch_qa_input_token_type_mask = tf.zeros((1, self.config["max_training_sentences"],  self.config["max_segment_len"] + self.config["max_query_len"]), dtype=tf.int32)
+        batch_qa_input_ids = tf.zeros((1, self.config["max_training_sentences"], tf.math.add(self.config["max_segment_len"], self.config["max_query_len"])), dtype=tf.int32)
+        batch_qa_input_mask = tf.zeros((1, self.config["max_training_sentences"], tf.math.add(self.config["max_segment_len"], self.config["max_query_len"])), dtype=tf.int32)
+        batch_qa_input_token_type_mask = tf.zeros((1, self.config["max_training_sentences"],  tf.math.add(self.config["max_segment_len"], self.config["max_query_len"])), dtype=tf.int32)
         # i0, batch_qa_input_ids, batch_qa_input_mask, batch_qa_input_token_type_mask
         batch_query_ids = tf.zeros((1, self.config["max_query_len"]), dtype=tf.int32)
 
@@ -192,13 +193,13 @@ class CorefModel(object):
             batch_qa_input_token_type_mask = tf.concat([batch_query_token_type_mask, batch_context_token_type_mask], -1)
             batch_qa_input_mask = tf.concat([batch_query_token_mask, batch_context_token_mask], -1)
 
-            batch_qa_input_ids = tf.cast(tf.reshape(batch_qa_input_ids, [1, self.config["max_training_sentences"], self.config["max_segment_len"] + self.config["max_query_len"]]), tf.int32)
-            batch_qa_input_token_type_mask = tf.cast(tf.reshape(batch_qa_input_token_type_mask, [1, self.config["max_training_sentences"], self.config["max_segment_len"] + self.config["max_query_len"]]), tf.int32)
-            batch_qa_input_mask = tf.cast(tf.reshape(batch_qa_input_mask, [1, self.config["max_training_sentences"], self.config["max_segment_len"] + self.config["max_query_len"]]), tf.int32)
+            batch_qa_input_ids = tf.cast(tf.reshape(batch_qa_input_ids, [1, self.config["max_training_sentences"], tf.math.add(self.config["max_segment_len"], self.config["max_query_len"])]), tf.int32)
+            batch_qa_input_token_type_mask = tf.cast(tf.reshape(batch_qa_input_token_type_mask, [1, self.config["max_training_sentences"], tf.math.add(self.config["max_segment_len"] ,self.config["max_query_len"])]), tf.int32)
+            batch_qa_input_mask = tf.cast(tf.reshape(batch_qa_input_mask, [1, self.config["max_training_sentences"], tf.math.add(self.config["max_segment_len"], self.config["max_query_len"])]), tf.int32)
             pad_query_tokens = tf.cast(tf.reshape(pad_query_tokens, [1, self.config["max_query_len"]]), tf.int32)
 
             # link_qa_input_ids, link_qa_input_mask, link_qa_input_type_mask
-            return [i+1, tf.concat([link_qa_input_ids, batch_qa_input_ids], 0), 
+            return [tf.math.add(i, 1), tf.concat([link_qa_input_ids, batch_qa_input_ids], 0), 
                 tf.concat([link_qa_input_mask, batch_qa_input_mask], 0), 
                 tf.concat([link_qa_input_type_mask, batch_qa_input_token_type_mask], 0), 
                 tf.concat([link_qa_query_ids, pad_query_tokens], 0)]
@@ -214,8 +215,8 @@ class CorefModel(object):
         # 
 
         # forward_qa_input_ids -> (k, max_train_sent, max_query_len + max_segment_len) -> (k * max_train_sent, max_query_len + max_segment_len)
-        forward_qa_input_ids = tf.reshape(forward_qa_input_ids, [-1, self.config["max_query_len"] + self.config["max_segment_len"]]) 
-        forward_qa_input_mask = tf.reshape(forward_qa_input_mask, [-1, self.config["max_query_len"] + self.config["max_segment_len"]]) 
+        forward_qa_input_ids = tf.reshape(forward_qa_input_ids, [-1, tf.math.add(self.config["max_query_len"], self.config["max_segment_len"])]) 
+        forward_qa_input_mask = tf.reshape(forward_qa_input_mask, [-1, tf.math.add(self.config["max_query_len"], self.config["max_segment_len"])]) 
         forward_qa_input_token_type_mask = tf.reshape(forward_qa_input_token_type_mask, [-1]) # self.config["max_query_len"] + self.config["max_segment_len"]]) 
 
         forward_bert_qa_model = modeling.BertModel(config=self.bert_config, is_training=is_training, 
@@ -224,12 +225,12 @@ class CorefModel(object):
             scope="forward_qa_linking")
 
         forward_qa_emb = forward_bert_qa_model.get_sequence_output() # (k * max_train_sent, max_query_len + max_segment_len, hidden_size)
-        forward_qa_input_token_type_mask_bool = tf.cast(tf.reshape(forward_qa_input_token_type_mask, [-1, self.config["max_query_len"] + self.config["max_segment_len"]]), tf.bool)
+        forward_qa_input_token_type_mask_bool = tf.cast(tf.reshape(forward_qa_input_token_type_mask, [-1, tf.math.add(self.config["max_query_len"] , self.config["max_segment_len"])]), tf.bool)
         # forward_qa_input_token_type_mask_bool = tf.tile(tf.expand_dims(forward_qa_input_token_type_mask_bool, 2), [1, 1, self.config["hidden_size"]])
         
-        forward_qa_emb = tf.reshape(forward_qa_emb, [-1, self.config["max_query_len"] + self.config["max_segment_len"], self.config["hidden_size"]])
+        forward_qa_emb = tf.reshape(forward_qa_emb, [-1, tf.math.add(self.config["max_query_len"], self.config["max_segment_len"]), self.config["hidden_size"]])
         # forward_qa_input_token_type_mask_bool = tf.reshape(forward_qa_input_token_type_mask_bool, [-1, self.config["max_query_len"] + self.config["max_segment_len"], self.config["hidden_size"]])
-        forward_qa_input_token_type_mask_bool = tf.reshape(forward_qa_input_token_type_mask_bool, [-1, self.config["max_query_len"] + self.config["max_segment_len"]])
+        forward_qa_input_token_type_mask_bool = tf.reshape(forward_qa_input_token_type_mask_bool, [-1, tf.math.add(self.config["max_query_len"], self.config["max_segment_len"])])
 
         forward_doc_emb = mask.boolean_mask(forward_qa_emb, forward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"], dims=2)
         # (k * max_train_sent, max_segment_len, hidden_size)
@@ -250,8 +251,8 @@ class CorefModel(object):
         top_span_ends = tf.reshape(tf.tile(tf.expand_dims(top_span_ends, 0), [k, 1]), [k,k])
 
         forward_pos_offset = tf.cast(tf.tile(tf.reshape(tf.range(0, k) * non_overlap_doc_len, [-1, 1]), [1, k]), tf.int32)
-        top_span_starts = tf.reshape(tf.cast(top_span_starts + forward_pos_offset, tf.int32), [-1])
-        top_span_ends = tf.reshape(tf.cast(top_span_ends + forward_pos_offset, tf.int32), [-1])
+        top_span_starts = tf.reshape(tf.cast(tf.math.add(top_span_starts, forward_pos_offset), tf.int32), [-1])
+        top_span_ends = tf.reshape(tf.cast(tf.math.add(top_span_ends, forward_pos_offset), tf.int32), [-1])
 
         forward_mention_start_emb = tf.gather(tf.reshape(flat_forward_doc_emb, [-1, self.config["hidden_size"]]), top_span_starts,) # (k, k, emb)
 
@@ -282,21 +283,19 @@ class CorefModel(object):
         topc_span_cluster_ids = tf.gather(top_span_cluster_ids, flat_topc_forward_indices)
 
         # link_qa_input_ids, link_qa_input_mask, link_qa_input_type_mask, link_qa_query_ids
-        backward_qa_input_ids = tf.zeros((1, self.config["max_query_len"] + self.config["max_context_len"]), dtype=tf.int32)
-        backward_qa_input_mask = tf.zeros((1, self.config["max_query_len"] + self.config["max_context_len"]), dtype=tf.int32)
-        backward_qa_input_token_type = tf.zeros((1, self.config["max_query_len"] + self.config["max_context_len"]), dtype=tf.int32)
+        backward_qa_input_ids = tf.zeros((1, tf.math.add(self.config["max_query_len"],self.config["max_context_len"])), dtype=tf.int32)
+        backward_qa_input_mask = tf.zeros((1, tf.math.add(self.config["max_query_len"], self.config["max_context_len"])), dtype=tf.int32)
+        backward_qa_input_token_type = tf.zeros((1, tf.math.add(self.config["max_query_len"], self.config["max_context_len"])), dtype=tf.int32)
         backward_start_in_sent = tf.zeros((1), dtype=tf.int32)
         backward_end_in_sent = tf.zeros((1), dtype=tf.int32)
 
         tile_top_span_starts = tf.reshape(tf.tile(tf.reshape(self.topk_span_starts, [1, -1]), [c, 1]), [-1])
         tile_top_span_ends = tf.reshape(tf.tile(tf.reshape(self.topk_span_ends, [1, -1]), [c, 1]), [-1])
 
-
-        
         # backward_qa_input_ids, backward_qa_input_mask, backward_qa_input_token_type, backward_start_in_sent, backward_end_in_sent
-        backward_qa_input_ids = tf.zeros([1, self.config["max_query_len"]+self.config["max_context_len"]], dtype=tf.int32)
-        backward_qa_input_mask = tf.zeros([1, self.config["max_query_len"]+self.config["max_context_len"]], dtype=tf.int32)
-        backward_qa_input_token_type = tf.zeros([1, self.config["max_query_len"]+self.config["max_context_len"]], dtype=tf.int32)
+        backward_qa_input_ids = tf.zeros([1, tf.math.add(self.config["max_query_len"], self.config["max_context_len"])], dtype=tf.int32)
+        backward_qa_input_mask = tf.zeros([1, tf.math.add(self.config["max_query_len"], self.config["max_context_len"])], dtype=tf.int32)
+        backward_qa_input_token_type = tf.zeros([1, tf.math.add(self.config["max_query_len"], self.config["max_context_len"])], dtype=tf.int32)
         tmp_start_in_sent = tf.convert_to_tensor(tf.constant([0]), dtype=tf.int32)
         tmp_end_in_sent = tf.convert_to_tensor(tf.constant([0]), dtype=tf.int32)
         i0 = tf.constant(0)
@@ -340,9 +339,9 @@ class CorefModel(object):
             qa_input_mask = tf.concat([query_input_mask, context_input_mask], axis=-1)
             qa_input_token_type_mask = tf.concat([query_input_token_type_mask, context_input_token_type_mask], -1)
 
-            qa_input_tokens = tf.cast(tf.reshape(qa_input_tokens, [1, self.config["max_query_len"]+self.config["max_context_len"]]), tf.int32)
-            qa_input_mask = tf.cast(tf.reshape(qa_input_mask, [1, self.config["max_query_len"]+self.config["max_context_len"]]), tf.int32)
-            qa_input_token_type_mask = tf.cast(tf.reshape(qa_input_token_type_mask, [1, self.config["max_query_len"]+self.config["max_context_len"]]), tf.int32)
+            qa_input_tokens = tf.cast(tf.reshape(qa_input_tokens, [1, tf.math.add(self.config["max_query_len"], self.config["max_context_len"])]), tf.int32)
+            qa_input_mask = tf.cast(tf.reshape(qa_input_mask, [1, tf.math.add(self.config["max_query_len"], self.config["max_context_len"])]), tf.int32)
+            qa_input_token_type_mask = tf.cast(tf.reshape(qa_input_token_type_mask, [1, tf.math.add(self.config["max_query_len"], self.config["max_context_len"])]), tf.int32)
             k_start_in_sent = tf.convert_to_tensor(tf.cast(k_start_in_sent, tf.int32), dtype=tf.int32) 
             k_end_in_sent = tf.convert_to_tensor(tf.cast(k_end_in_sent, tf.int32), dtype=tf.int32) 
 
@@ -352,7 +351,7 @@ class CorefModel(object):
             start_in_sent = tf.cast(start_in_sent, tf.int32)
             end_in_sent = tf.cast(end_in_sent, tf.int32)
 
-            return [i+1, tf.concat([rank_qa_input_ids, qa_input_tokens],axis=0),
+            return [tf.math.add(i, 1), tf.concat([rank_qa_input_ids, qa_input_tokens],axis=0),
                 tf.concat([rank_qa_input_mask, qa_input_mask], axis=0), 
                 tf.concat([rank_qa_input_type_mask, qa_input_token_type_mask], axis=0), 
                 tf.concat([start_in_sent, k_start_in_sent], axis=0), 
@@ -365,8 +364,8 @@ class CorefModel(object):
             shape_invariants=[i0.get_shape(), tf.TensorShape([None, None]), tf.TensorShape([None, None]), tf.TensorShape([None, None]), 
             tf.TensorShape([None]), tf.TensorShape([None])])
 
-        self.batch_backward_start_sent = tf.gather(batch_backward_start_sent, tf.range(1, k * c+1))
-        self.batch_backward_end_sent = tf.gather(batch_backward_end_sent, tf.range(1, k*c+1)) 
+        self.batch_backward_start_sent = tf.gather(batch_backward_start_sent, tf.range(1, tf.math.add(k * c, 1)))
+        self.batch_backward_end_sent = tf.gather(batch_backward_end_sent, tf.range(1, tf.math.add(k*c, 1)) )
 
         backward_bert_qa_model = modeling.BertModel(config=self.bert_config, is_training=is_training, 
             input_ids=batch_backward_input_ids, input_mask=batch_backward_input_mask, 
@@ -388,8 +387,8 @@ class CorefModel(object):
 
         ##### batch_backward_start_sent = tf.reshape(self.batch_backward_start_sent, [c*k]) + tf.reshape(backward_pos_offset, [-1])
         ##### batch_backward_end_sent = tf.reshape(self.batch_backward_end_sent, [c*k]) + tf.reshape(backward_pos_offset, [-1])
-        batch_backward_start_sent = tf.reshape(self.batch_backward_start_sent, [-1]) + tf.reshape(backward_pos_offset, [-1])
-        batch_backward_end_sent = tf.reshape(self.batch_backward_end_sent, [-1]) + tf.reshape(backward_pos_offset, [-1])
+        batch_backward_start_sent = tf.math.add(tf.reshape(self.batch_backward_start_sent, [-1]) , tf.reshape(backward_pos_offset, [-1]))
+        batch_backward_end_sent = tf.math.add(tf.reshape(self.batch_backward_end_sent, [-1]) , tf.reshape(backward_pos_offset, [-1]))
 
 
         backward_qa_start_emb = tf.gather(backward_k_sent_emb, tf.reshape(batch_backward_start_sent, [-1])) # (c*k, emb)
@@ -444,6 +443,7 @@ class CorefModel(object):
         #         topc_forward_antecedent, top_antecedent_scores], loss
         ####################################################################################################################################################
         return loss
+        # return loss, [self.topk_span_starts, self.topk_span_ends, top_span_mention_scores], top_antecedent_scores
 
     def flatten_emb_by_sentence(self, emb, segment_overlap_mask):
         """
@@ -496,7 +496,7 @@ class CorefModel(object):
         # span_end_emb = tf.gather(context_outputs, tf.reshape(span_ends, [-1]))
         span_emb_list.append(span_end_emb)
         
-        span_width = 1 + span_ends - span_starts # [k]
+        span_width = tf.math.add([1, span_ends]) - span_starts # [k]
 
         if self.config["use_features"]:
             span_width_index = span_width -1 # [k]
@@ -528,7 +528,7 @@ class CorefModel(object):
             word_attn = tf.squeeze(
                 util.projection(encoded_doc, 1, initializer=tf.truncated_normal_initializer(stddev=0.02)), 1)
 
-        mention_word_attn = tf.nn.softmax(tf.log(tf.to_float(mention_mask)) + tf.expand_dims(word_attn, 0))
+        mention_word_attn = tf.math.add_n([tf.nn.softmax(tf.log(tf.to_float(mention_mask)), tf.expand_dims(word_attn, 0))])
         return mention_word_attn  # [num_candidates, num_words] 
 
 
@@ -660,7 +660,7 @@ class CorefModel(object):
         Returns:
             a scalar of loss 
         """
-        gold_scores = antecedent_scores + tf.log(tf.to_float(antecedent_labels))
+        gold_scores = tf.math.add_n([antecedent_scores, tf.log(tf.to_float(antecedent_labels))])
         marginalized_gold_scores = tf.math.reduce_logsumexp(gold_scores, [1])  # [k]
         log_norm = tf.math.reduce_logsumexp(antecedent_scores, [1])  # [k]
         loss = log_norm - marginalized_gold_scores  # [k]
