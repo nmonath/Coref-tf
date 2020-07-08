@@ -38,6 +38,7 @@ flags.DEFINE_integer("num_tpu_cores", 1, "Only used if `use_tpu` is True. Total 
 FLAGS = tf.flags.FLAGS
 
 
+
 def model_fn_builder(config):
 
     def model_fn(features, labels, mode, params):  # pylint: disable=unused-argument
@@ -45,6 +46,7 @@ def model_fn_builder(config):
         config = util.initialize_from_env(use_tpu=FLAGS.use_tpu)
 
         tmp_features = {}
+        max_f1 = 0 
         input_ids = features["flattened_input_ids"]
         input_mask = features["flattened_input_mask"]
         text_len = features["text_len"]
@@ -68,6 +70,7 @@ def model_fn_builder(config):
         tmp_features["cluster_ids"] = cluster_ids
         tmp_features["sentence_map"] = sentence_map
         tmp_features["span_mention"] = span_mention 
+        coref_evaluator = metrics.CorefEvaluator()
 
 
         tf.logging.info("********* Features *********")
@@ -110,12 +113,17 @@ def model_fn_builder(config):
 
         if mode == tf.estimator.ModeKeys.TRAIN:
             tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
-            tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
 
 
-            if tf.train.get_global_step() // 10 == 0:
+            if tf.train.get_global_step() // 1000 == 0:
                 tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
-                tf.logging.info("current loss is : {}".format(str(total_loss.value)))
+                predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(topk_span_starts, topk_span_ends, top_antecedent_scores, cluster_ids)
+                coref_evaluator.update(predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold)
+
+                p, r, eval_f1 = coref_evaluator.get_prf()
+                if eval_f1 >= max_f1:
+                    max_f1 = eval_f1 
+                tf.logging.info("evaL_f1={}, max_f1={}".format(str(eval_f1), str(max_f1)))
 
             if config["device"] == "tpu":
                 optimizer = tf.train.AdamOptimizer(learning_rate=config['bert_learning_rate'], beta1=0.9, beta2=0.999, epsilon=1e-08)
@@ -133,7 +141,7 @@ def model_fn_builder(config):
                     scaffold_fn=scaffold_fn, 
                     training_hooks=[training_logging_hook])
 
-        elif mode == tf.estimator.ModeKeys.PREDICT:
+        elif mode == tf.estimator.ModeKeys.PREDICT or mode == tf.estimator.ModeKeys.EVAL:
 
             predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(topk_span_starts, topk_span_ends, top_antecedent_scores, cluster_ids)
             

@@ -111,7 +111,7 @@ class CorefModel(object):
         candidate_ends = self.boolean_mask_1d(tf.reshape(candidate_ends, [-1]), flattened_candidate_mask, use_tpu=self.config["tpu"] )
         candidate_cluster_ids = self.get_candidate_labels(candidate_starts, candidate_ends, gold_starts, gold_ends, cluster_ids)
 
-        candidate_binary_labels = candidate_cluster_ids > 0 
+        # candidate_binary_labels = candidate_cluster_ids > 0 
         # [num_candidates, emb] -> 候选答案的向量表示
         # [num_candidates, ] -> 候选答案的得分
 
@@ -122,7 +122,7 @@ class CorefModel(object):
         mention_proposal_loss = self.get_mention_proposal_loss(pred_probs, span_mention, candidate_starts, candidate_ends)
 
         # beam size 所有span的数量小于num_words * top_span_ratio
-        k = tf.minimum(2, tf.to_int32(tf.floor(tf.to_float(num_words) * self.config["top_span_ratio"])))
+        k = tf.minimum(self.config["max_candidate_mentions"], tf.to_int32(tf.floor(tf.to_float(num_words) * self.config["top_span_ratio"])))
         c = tf.to_int32(tf.minimum(self.config["max_top_antecedents"], k))  # 初筛挑出0.4*500=200个候选，细筛再挑出50个候选
 
         top_span_scores, top_span_indices = tf.nn.top_k(candidate_mention_scores, k)
