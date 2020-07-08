@@ -379,7 +379,6 @@ class CorefModel(object):
         backward_pos_offset = tf.cast(tf.reshape(tf.range(0, k*c) * self.config["max_context_len"], [-1, 1]), tf.int32) 
         # #forward_pos_offset = tf.cast(tf.tile(tf.reshape(tf.range(0, k) * non_overlap_doc_len, [-1, 1]), [1, k]), tf.int32)
 
-
         batch_backward_start_sent = tf.math.add(tf.reshape(self.batch_backward_start_sent, [-1]) , tf.reshape(backward_pos_offset, [-1]))
         batch_backward_end_sent = tf.math.add(tf.reshape(self.batch_backward_end_sent, [-1]) , tf.reshape(backward_pos_offset, [-1]))
 
@@ -423,14 +422,11 @@ class CorefModel(object):
         dummy_labels = tf.logical_not(tf.reduce_any(pairwise_labels, 1, keepdims=True))  # [k, 1]
         top_antecedent_labels = tf.concat([dummy_labels, pairwise_labels], 1)  # [k, c + 1]
         
-        # loss = self.marginal_likelihood_loss(top_antecedent_scores, top_antecedent_labels)  # [k]
+        loss = self.marginal_likelihood_loss(top_antecedent_scores, top_antecedent_labels)  # [k]
 
         loss += mention_proposal_loss * self.config["mention_proposal_loss_ratio"]
 
         return loss, self.topk_span_starts, self.topk_span_ends, top_antecedent_scores 
-
-        # top_span_starts, top_span_ends, predicted_antecedents, gold_clusters
-        # return loss, [self.topk_span_starts, self.topk_span_ends, top_span_mention_scores], top_antecedent_scores
 
     def flatten_emb_by_sentence(self, emb, segment_overlap_mask):
         """
@@ -617,10 +613,7 @@ class CorefModel(object):
         span_mention = tf.reshape(span_mention, [-1,self.config["max_segment_len"],self.config["max_segment_len"]])
         span_mention = tf.gather_nd(span_mention, start_end_mask)
 
-
         span_mention = tf.cast(tf.one_hot(tf.reshape(span_mention, [-1]), 2, axis=-1),tf.float32)
-
-
         span_loss = tf.keras.losses.binary_crossentropy(span_mention, span_scores,)
         if span_mention_loss_mask is not None:
             span_loss = tf.math.reduce_mean(tf.multiply(span_loss, tf.cast(span_mention_loss_mask, tf.float32)))
