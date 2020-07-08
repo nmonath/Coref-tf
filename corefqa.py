@@ -109,6 +109,7 @@ class CorefModel(object):
         flattened_candidate_mask = tf.reshape(candidate_mask, [-1]) # [num_words * max_span_width]
         candidate_starts = self.boolean_mask_1d(tf.reshape(candidate_starts, [-1]), flattened_candidate_mask, use_tpu=self.config["tpu"] )
         candidate_ends = self.boolean_mask_1d(tf.reshape(candidate_ends, [-1]), flattened_candidate_mask, use_tpu=self.config["tpu"] )
+        # add an assert that the length of candidate_starts must equal to the length of candidate_ends 
         candidate_cluster_ids = self.get_candidate_labels(candidate_starts, candidate_ends, gold_starts, gold_ends, cluster_ids)
 
         # candidate_binary_labels = candidate_cluster_ids > 0 
@@ -227,27 +228,68 @@ class CorefModel(object):
         non_overlap_doc_len = self.shape(flat_forward_doc_emb, 1)
         top_span_starts = tf.reshape(top_span_starts, [-1])
         top_span_ends = tf.reshape(top_span_ends, [-1])
-        top_span_starts = tf.reshape(tf.tile(tf.expand_dims(top_span_starts, 0), [k, 1]), [k, k])
-        top_span_ends = tf.reshape(tf.tile(tf.expand_dims(top_span_ends, 0), [k, 1]), [k,k])
 
-        forward_pos_offset = tf.cast(tf.tile(tf.reshape(tf.range(0, k) * non_overlap_doc_len, [-1, 1]), [1, k]), tf.int32)
-        top_span_starts = tf.reshape(tf.cast(tf.math.add(top_span_starts, forward_pos_offset), tf.int32), [-1])
-        top_span_ends = tf.reshape(tf.cast(tf.math.add(top_span_ends, forward_pos_offset), tf.int32), [-1])
+        ###########################################################################################################
+        # 
+        #                       the following is edited by xiaoyli at 2020.07.08 
+        # 
+        ###########################################################################################################
 
-        forward_mention_start_emb = tf.gather(tf.reshape(flat_forward_doc_emb, [-1, self.config["hidden_size"]]), top_span_starts,) # (k, k, emb)
+        # top_span_starts = tf.reshape(tf.tile(tf.expand_dims(top_span_starts, 0), [k, 1]), [k, k])
+        # top_span_ends = tf.reshape(tf.tile(tf.expand_dims(top_span_ends, 0), [k, 1]), [k,k])
 
-        forward_mention_end_emb = tf.gather(tf.reshape(flat_forward_doc_emb, [-1, self.config["hidden_size"]]), top_span_ends)
+        # forward_pos_offset = tf.cast(tf.tile(tf.reshape(tf.range(0, k) * non_overlap_doc_len, [-1, 1]), [1, k]), tf.int32)
+        # top_span_starts = tf.reshape(tf.cast(tf.math.add(top_span_starts, forward_pos_offset), tf.int32), [-1])
+        # top_span_ends = tf.reshape(tf.cast(tf.math.add(top_span_ends, forward_pos_offset), tf.int32), [-1])
 
-        forward_mention_start_emb = tf.reshape(forward_mention_start_emb, [k*k, self.config["hidden_size"]])
-        forward_mention_end_emb = tf.reshape(forward_mention_end_emb, [k*k, self.config["hidden_size"]])
+        # forward_mention_start_emb = tf.gather(tf.reshape(flat_forward_doc_emb, [-1, self.config["hidden_size"]]), top_span_starts,) # (k, k, emb)
+
+        # forward_mention_end_emb = tf.gather(tf.reshape(flat_forward_doc_emb, [-1, self.config["hidden_size"]]), top_span_ends)
+
+        # forward_mention_start_emb = tf.reshape(forward_mention_start_emb, [k*k, self.config["hidden_size"]])
+        # forward_mention_end_emb = tf.reshape(forward_mention_end_emb, [k*k, self.config["hidden_size"]])
+        # forward_mention_span_emb = tf.concat([forward_mention_start_emb, forward_mention_end_emb], 1) # (k, k emb * 2) 
+
+        # forward_mention_span_emb = tf.reshape(forward_mention_span_emb, [k*k, self.config["hidden_size"]*2])
+        # forward_mention_ij_score = self.ffnn(forward_mention_span_emb, 1, self.config["hidden_size"]*2, 1, self.dropout)
+
+        # forward_mention_ij_score = tf.reshape(forward_mention_ij_score, [k, k])
+
+        ###########################################################################################################
+        # 
+        #                       the bottom is edited by xiaoyli at 2020.07.08 
+        # 
+        ###########################################################################################################
+
+        #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+        #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+        #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+        forward_candidate_starts = tf.reshape(tf.tile(tf.expand_dims(candidate_starts, 0), [k, 1]), [k, -1]) # (k, num_candidates)
+        forward_candidate_ends = tf.reshape(tf.tile(tf.expand_dims(candidate_ends, 0), [k, 1]), [k, -1]) # (k, num_candidates)
+        num_candidate = self.shape(candidate_starts, 0)
+        forward_pos_offset = tf.cast(tf.tile(tf.reshape(tf.range(0, num_candidate) * non_overlap_doc_len, [-1, 1]), [1, k]), tf.int32)
+
+        forward_candidate_starts = tf.reshape(tf.cast(tf.math.add(forward_candidate_starts, forward_pos_offset), tf.int32), [-1])
+        forward_candidate_ends = tf.reshape(tf.cast(tf.math.add(forward_candidate_ends, forward_pos_offset), tf.int32), [-1])
+
+        forward_mention_start_emb = tf.gather(tf.reshape(flat_forward_doc_emb, [-1, self.config["hidden_size"]]), forward_candidate_starts) # (k, k, emb)
+        forward_mention_end_emb = tf.gather(tf.reshape(flat_forward_doc_emb, [-1, self.config["hidden_size"]]), forward_candidate_ends)
+
+        forward_mention_start_emb = tf.reshape(forward_mention_start_emb, [-1, self.config["hidden_size"]])
+        forward_mention_end_emb = tf.reshape(forward_mention_end_emb, [-1, self.config["hidden_size"]])
         forward_mention_span_emb = tf.concat([forward_mention_start_emb, forward_mention_end_emb], 1) # (k, k emb * 2) 
 
-        forward_mention_span_emb = tf.reshape(forward_mention_span_emb, [k*k, self.config["hidden_size"]*2])
+        forward_mention_span_emb = tf.reshape(forward_mention_span_emb, [-1, self.config["hidden_size"]*2])
         forward_mention_ij_score = self.ffnn(forward_mention_span_emb, 1, self.config["hidden_size"]*2, 1, self.dropout)
+        forward_mention_ij_score = tf.reshape(forward_mention_ij_score, [k, -1])
 
-        forward_mention_ij_score = tf.reshape(forward_mention_ij_score, [k, k])
         topc_forward_scores, topc_forward_indices = tf.nn.top_k(forward_mention_ij_score, c, sorted=False)
         # topc_forward_scores, topc_forward_indices : [k, c]
+
+        #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+        #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+        #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
         flat_topc_forward_indices = tf.reshape(topc_forward_indices, [-1])
 
