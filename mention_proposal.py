@@ -100,7 +100,7 @@ class MentionProposalModel(object):
         return 1 - (tf.to_float(is_training) * dropout_rate)
 
     def get_mention_proposal_and_loss(self, input_ids, input_mask, text_len, speaker_ids, genre, is_training,
-        gold_starts, gold_ends, cluster_ids, sentence_map, span_mention=None):
+        gold_starts, gold_ends, cluster_ids, sentence_map, span_mention=None, concat_only=False):
         """get mention proposals"""
 
         start_end_loss_mask = tf.cast(tf.where(tf.cast(tf.math.greater_equal(input_ids, tf.zeros_like(input_ids)),tf.bool), x=tf.ones_like(input_ids), y=tf.zeros_like(input_ids)), tf.float32) 
@@ -186,6 +186,10 @@ class MentionProposalModel(object):
         end_loss = tf.reduce_mean(tf.multiply(end_loss, tf.cast(start_end_loss_mask, tf.float32))) 
         span_loss = tf.reduce_mean(tf.multiply(span_loss, tf.cast(span_mention_loss_mask, tf.float32))) 
 
+
+        if concat_only:
+            loss = span_loss 
+            return loss, start_scores, end_scores, span_scores 
 
         if span_mention is None :
             loss = self.config["start_ratio"] * start_loss + self.config["end_ratio"] * end_loss 
