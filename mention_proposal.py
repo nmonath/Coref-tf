@@ -167,6 +167,9 @@ class MentionProposalModel(object):
         end_scores = tf.cast(tf.reshape(tf.sigmoid(end_scores), [-1]),tf.float32)
         span_scores = tf.cast(tf.reshape(tf.sigmoid(span_scores), [-1]), tf.float32)
         # span_mention = tf.cast(span_mention, tf.float32)
+        uniform_start_scores = start_scores 
+        uniform_end_scores = end_scores 
+        uniform_span_scores = span_scores 
 
         start_scores = tf.stack([(1 - start_scores), start_scores], axis=-1) 
         end_scores = tf.stack([(1 - end_scores), end_scores], axis=-1) 
@@ -186,17 +189,16 @@ class MentionProposalModel(object):
         end_loss = tf.reduce_mean(tf.multiply(end_loss, tf.cast(start_end_loss_mask, tf.float32))) 
         span_loss = tf.reduce_mean(tf.multiply(span_loss, tf.cast(span_mention_loss_mask, tf.float32))) 
 
-
         if concat_only:
             loss = span_loss 
-            return loss, start_scores, end_scores, span_scores 
+            return loss, uniform_start_scores, uniform_end_scores, uniform_span_scores
 
         if span_mention is None :
             loss = self.config["start_ratio"] * start_loss + self.config["end_ratio"] * end_loss 
-            return loss, start_scores, end_scores
+            return loss, uniform_start_scores, uniform_end_scores
         else:
             loss = self.config["start_ratio"] * start_loss + self.config["end_ratio"] * end_loss +self.config["mention_ratio"] * span_loss 
-            return loss, start_scores, end_scores, span_scores 
+            return loss, uniform_start_scores, uniform_end_scores, uniform_span_scores
 
 
     def flatten_emb_by_sentence(self, emb, text_len_mask):
