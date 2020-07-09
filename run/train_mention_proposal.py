@@ -90,7 +90,6 @@ def model_fn_builder(config):
             def tpu_scaffold():
                 init_from_checkpoint(config['init_checkpoint'], assignment_map)
                 return tf.train.Scaffold()
-
             scaffold_fn = tpu_scaffold
         else:
             init_from_checkpoint(config['init_checkpoint'], assignment_map)
@@ -159,17 +158,11 @@ def main(_):
     config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_file=FLAGS.config_filename)
 
     tf.logging.set_verbosity(tf.logging.INFO)
-
-
-    # if FLAGS.do_exp:
     num_train_steps = config["num_docs"] * config["num_epochs"]
-    # else:
-    #     num_train_steps = config["num_train_steps"]
 
 
     save_checkpoints_steps = int(num_train_steps / 20)
 
-    # use_tpu = FLAGS.use_tpu
     if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
         raise ValueError("At least one of `do_train`, `do_eval` or `do_predict' must be True.")
 
@@ -187,7 +180,7 @@ def main(_):
         cluster=tpu_cluster_resolver,
         master=FLAGS.master,
         model_dir=FLAGS.output_dir,
-        keep_checkpoint_max = 10,
+        keep_checkpoint_max = 20,
         save_checkpoints_steps=save_checkpoints_steps,
         tpu_config=tf.contrib.tpu.TPUConfig(
             iterations_per_loop=FLAGS.iterations_per_loop,
@@ -208,6 +201,14 @@ def main(_):
         estimator.train(input_fn=file_based_input_fn_builder(config["train_path"], seq_length, config, 
             is_training=True, drop_remainder=True),
             max_steps=num_train_steps)
+
+    if FLAGS.do_eval:
+        all_results = []
+        for result in estimator.predict(file_based_input_fn_builder(config["eval_path"], seq_length, config,is_training=False, drop_remainder=False), yield_single_examples=True):
+            all_results.append(result)
+            # coref_evaluator.update(result["predicted_clusters"], result["gold_clusters"], result["mention_to_predicted"], result["mention_to_gold"])
+        tf.logging.info("Average precision: {:.2f}, Average recall: {:.2f}, Average F1 {:.4f}".format(p, r, f))
+
 
 
 if __name__ == '__main__':
