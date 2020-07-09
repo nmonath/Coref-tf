@@ -22,7 +22,7 @@ tf.app.flags.DEFINE_string('f', '', 'kernel')
 flags = tf.app.flags
 flags.DEFINE_string("output_dir", "data", "The output directory of the model training.")
 flags.DEFINE_bool("do_train", True, "Whether to run training.")
-flags.DEFINE_bool("do_eval", True, "Whether to run training.")
+flags.DEFINE_bool("do_eval", False, "Whether to run training.")
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
 flags.DEFINE_bool("concat_only", False, "Whether to use TPU or GPU/CPU.")
 flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
