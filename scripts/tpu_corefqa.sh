@@ -10,6 +10,7 @@ export TPU_NAME=tensorflow-tpu
 GCP_PROJECT=xiaoyli-20-04-274510
 OUTPUT_DIR=gs://corefqa/span_all_128_5_output_bertbase
 
+CONFIG_FILENAME=experiments_tinybert.conf
 
 
 python3 ${REPO_PATH}/run/train_corefqa.py \
@@ -17,6 +18,7 @@ python3 ${REPO_PATH}/run/train_corefqa.py \
 --do_train=True \
 --use_tpu=True \
 --iterations_per_loop=500 \
+--config_filename=${CONFIG_FILENAME} \
 --tpu_name=${TPU_NAME} \
 --tpu_zone=us-central1-f \
 --gcp_project=${GCP_PROJECT} \

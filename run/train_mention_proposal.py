@@ -27,6 +27,7 @@ flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
 flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
 flags.DEFINE_integer("slide_window_size", 156, "size of sliding window.")
 flags.DEFINE_integer("max_seq_length", 200, "Max sequence length for the input sequence.")
+flags.DEFINE_string("config_filename", "experiments.conf", "the input config file name.")
 flags.DEFINE_string("tpu_name", None, "The Cloud TPU to use for training. This should be either the name "
                        "used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 url.")
 flags.DEFINE_string("tpu_zone", None, "[Optional] GCE zone where the Cloud TPU is located in. If not "
@@ -155,7 +156,7 @@ def model_fn_builder(config):
 
 
 def main(_):
-    config = util.initialize_from_env(use_tpu=FLAGS.use_tpu)
+    config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_file=FLAGS.config_filename)
 
     tf.logging.set_verbosity(tf.logging.INFO)
 
