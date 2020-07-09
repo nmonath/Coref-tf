@@ -87,6 +87,8 @@ class CorefModel(object):
         doc_seq_emb = model.get_sequence_output() # (max_sentence_len, max_seg_len)
         doc_seq_emb, doc_overlap_mask = self.flatten_emb_by_sentence(doc_seq_emb, input_mask) # (max_sent_len * )
         doc_seq_emb = self.boolean_mask_2d(doc_seq_emb, input_mask)
+        # doc_seq_emb = self.boolean_mask_1d(doc_seq_emb, input_mask)
+
         doc_seq_emb = tf.reshape(doc_seq_emb, [-1, self.config["hidden_size"]])
 
 
@@ -116,11 +118,21 @@ class CorefModel(object):
         # [num_candidates, emb] -> 候选答案的向量表示
         # [num_candidates, ] -> 候选答案的得分
 
-        candidate_span_emb = self.get_span_emb(doc_seq_emb, candidate_starts, candidate_ends) # (candidate_mention, embedding)
-        candidate_mention_scores = self.get_mention_scores(candidate_span_emb, candidate_starts, candidate_ends)
-        
+        candidate_span_emb, candidate_start_emb, candidate_end_emb = self.get_span_emb(doc_seq_emb, candidate_starts, candidate_ends) # (candidate_mention, embedding)
+        if self.config["mention_proposal_only_concate"]:
+            candidate_mention_scores = self.get_mention_scores(span_emb = candidate_span_emb, span_name = "mention_proposal")
+        else:
+            candidate_mention_scores = self.get_mention_scores(span_emb = candidate_span_emb, span_name = "mention_proposal", \
+                                                           start_emb = candidate_start_emb, start_name = "mention_starts", \
+                                                           end_emb =  candidate_end_emb, end_name = "mention_ends"    )
+        #get_mention_scores(self, span_emb, span_name, start_emb=None,start_name=None , end_emb=None , end_name=None):
+
+
         pred_probs = tf.sigmoid(candidate_mention_scores)
         mention_proposal_loss = self.get_mention_proposal_loss(pred_probs, span_mention, candidate_starts, candidate_ends)
+
+
+
 
         # beam size 所有span的数量小于num_words * top_span_ratio
         k = tf.minimum(self.config["max_candidate_mentions"], tf.to_int32(tf.floor(tf.to_float(num_words) * self.config["top_span_ratio"])))
@@ -213,7 +225,7 @@ class CorefModel(object):
         forward_qa_emb = tf.reshape(forward_qa_emb, [-1, tf.math.add(self.config["max_query_len"], self.config["max_segment_len"]), self.config["hidden_size"]])
         forward_qa_input_token_type_mask_bool = tf.reshape(forward_qa_input_token_type_mask_bool, [-1, tf.math.add(self.config["max_query_len"], self.config["max_segment_len"])])
 
-        forward_doc_emb = self.boolean_mask_2d(forward_qa_emb, forward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"], dims=2)
+        forward_doc_emb = self.boolean_mask_2d(forward_qa_emb, forward_qa_input_token_type_mask_bool,  dims=2)
         # (k * max_train_sent, max_segment_len, hidden_size)
         forward_doc_emb = tf.reshape(forward_doc_emb, [-1, self.config["hidden_size"]]) 
         # (k * max_train_sent * max_segment_len, hidden_size)
@@ -281,7 +293,12 @@ class CorefModel(object):
         forward_mention_span_emb = tf.concat([forward_mention_start_emb, forward_mention_end_emb], 1) # (k, k emb * 2) 
 
         forward_mention_span_emb = tf.reshape(forward_mention_span_emb, [-1, self.config["hidden_size"]*2])
-        forward_mention_ij_score = self.ffnn(forward_mention_span_emb, 1, self.config["hidden_size"]*2, 1, self.dropout)
+        ### with tf.variable_scope("forward_qa"):
+        forward_mention_ij_score = self.get_mention_scores(forward_mention_span_emb, "forward")
+        #get_mention_scores(self, span_emb, span_name, start_emb=None,start_name=None , end_emb=None , end_name=None):
+
+
+        #forward_mention_ij_score = self.ffnn(forward_mention_span_emb, 1, self.config["hidden_size"]*2, 1, self.dropout)
         forward_mention_ij_score = tf.reshape(forward_mention_ij_score, [k, -1])
 
         topc_forward_scores, topc_forward_indices = tf.nn.top_k(forward_mention_ij_score, c, sorted=False)
@@ -380,7 +397,7 @@ class CorefModel(object):
         backward_qa_emb = backward_bert_qa_model.get_sequence_output() # (c*k, num_ques_token+ max_context_len, embedding)
         # 1. (c*k
         backward_qa_input_token_type_mask_bool = tf.cast(batch_backward_token_type_mask ,tf.bool)
-        backward_k_sent_emb = self.boolean_mask_2d(backward_qa_emb, backward_qa_input_token_type_mask_bool, use_tpu=self.config["tpu"], dims=2)
+        backward_k_sent_emb = self.boolean_mask_2d(backward_qa_emb, backward_qa_input_token_type_mask_bool,  dims=2)
         # backward_k_sent_emb -> (c*k, max_context_len, embedding)
 
         backward_k_sent_emb =  tf.reshape(backward_k_sent_emb, [-1, self.config["hidden_size"]]) 
@@ -394,8 +411,9 @@ class CorefModel(object):
         backward_qa_end_emb = tf.gather(backward_k_sent_emb, tf.reshape(batch_backward_end_sent, [-1]))  # (c*k, emb)
         backward_qa_span_emb = tf.concat([backward_qa_start_emb,backward_qa_end_emb], axis=1) # (c*k, 2*emb)
 
-        with tf.variable_scope("backward_qa",):
-            backard_mention_ji_score = self.ffnn(tf.reshape(backward_qa_span_emb, [-1, self.config["hidden_size"]*2]), 1, self.config["hidden_size"]*2, 1, self.dropout)
+        # with tf.variable_scope("backward_qa"):
+        backard_mention_ji_score = self.get_mention_scores(backward_qa_span_emb, "backward")
+        #backard_mention_ji_score = self.ffnn(tf.reshape(backward_qa_span_emb, [-1, self.config["hidden_size"]*2]), 1, self.config["hidden_size"]*2, 1, self.dropout)
         # inputs, num_hidden_layers, hidden_size, output_size, dropout,
         # s(j) topc_span_scores # (k*c)
         # s(i) top_span_mention_scores # k
@@ -428,7 +446,7 @@ class CorefModel(object):
         
         loss = self.marginal_likelihood_loss(top_antecedent_scores, top_antecedent_labels)  # [k]
 
-        loss += mention_proposal_loss * self.config["mention_proposal_loss_ratio"]
+        # loss += mention_proposal_loss * self.config["mention_proposal_loss_ratio"]
 
         return loss, self.topk_span_starts, self.topk_span_ends, top_antecedent_scores 
 
@@ -501,7 +519,7 @@ class CorefModel(object):
 
         span_emb = tf.concat([span_start_emb, span_end_emb], 1) # [k, emb] origin span_emb_list 
         span_emb = tf.reshape(span_emb, [-1, self.config["hidden_size"]*2])
-        return span_emb # [k, emb]
+        return span_emb, span_start_emb, span_end_emb # [k, emb]
 
     def get_masked_mention_word_scores(self, encoded_doc, span_starts, span_ends):
         num_words = self.shape(encoded_doc, 0) # T 
@@ -521,10 +539,34 @@ class CorefModel(object):
         return mention_word_attn  # [num_candidates, num_words] 
 
 
-    def get_mention_scores(self, span_emb, span_starts, span_ends):
-        with tf.variable_scope("mention_scores", ):
-            span_scores = self.ffnn(span_emb, 1, self.config["hidden_size"]*2, 1, self.dropout)
-        return   tf.squeeze(span_scores, 1)
+    def get_mention_scores(self, span_emb, span_name, start_emb=None,start_name=None,\
+        end_emb=None, end_name=None):
+        # get scores for a span 
+        mention_scores_lst = []
+
+        if span_name is not None:
+            with tf.variable_scope(span_name):
+                # use specifc concate_scores
+                concate_scores = self.ffnn(span_emb, 1, self.config["hidden_size"]*2, 1, self.dropout)
+                mention_scores_lst.append(concate_scores)
+
+        if start_name is not None:
+            # we need to use whether a token is the start of a span for score computing
+            with tf.variable_scope(start_name):
+                start_scores = self.ffnn(start_emb, 1, self.config["hidden_size"]*2, 1, self.dropout)
+                mention_scores_lst.append(start_scores)
+
+
+        if end_name is not None:
+            # we need to use whether a token is the end of a span for score computing
+            with tf.variable_scope(end_name):
+                end_scores = self.ffnn(end_emb, 1, self.config["hidden_size"]*2, 1, self.dropout)
+                mention_scores_lst.append(end_scores)
+
+
+        mention_scores = tf.math.add_n(mention_scores_lst)/len(mention_scores_lst)
+        return   tf.squeeze(mention_scores, 1)
+
 
     def get_question_token_ids(self, input_ids, flat_input_mask, sentence_map, top_start, top_end, special=True, pad=True):
         """
@@ -731,8 +773,8 @@ class CorefModel(object):
         ValueError: if `indicator` is not a rank-1 boolean tensor.
         """
 
-        # if not use_tpu:
-        #  return tf.boolean_mask(itemlist, indicator)
+        if use_tpu:
+            return tf.boolean_mask(itemlist, indicator)
         with tf.name_scope(scope, 'BooleanMask'):
             sum_idx = self.shape(itemlist, 0) 
             start_mask_lst = tf.cast(tf.zeros_like(tf.gather(itemlist, 0)), tf.float32) 
