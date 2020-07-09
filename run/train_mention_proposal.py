@@ -123,17 +123,21 @@ def model_fn_builder(config):
                     loss=total_loss,
                     train_op=train_op,
                     scaffold_fn=scaffold_fn)
-        else:
+        elif mode == tf.estimator.ModeKeys.EVAL or mode == tf.estimator.ModeKeys.PREDICT:
             total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(input_ids, input_mask, \
                 text_len, speaker_ids, genre, is_training, gold_starts,
                 gold_ends, cluster_ids, sentence_map, span_mention)
 
             predictions = {"total_loss": total_loss,
                     "start_scores": start_scores,
+                    "start_gold": gold_starts,
+                    "end_gold": gold_ends,
                     "end_scores": end_scores, 
-                    "span_scores": span_scores}
+                    "span_scores": span_scores, 
+                    "span_gold": span_mention}
 
-            def metric_fn(logits, span_scores, start_scores, start_label, end_scores, end_label, span_mention_label, concat_only=True):
+            def metric_fn(span_scores, span_mention_label,  start_scores, start_label, end_scores, end_label, concat_only=True):
+                # [span_scores, span_mention, start_scores, start_label, end_scores, end_label]
                 span_scores = tf.reshape(span_scores, [config["max_training_sentences"], config["max_segment_len"], config["max_segment_len"],]) # span_scores
                 start_scores = tf.reshape(start_scores, [-1])
                 end_scores = tf.reshape(end_scores, [-1])
@@ -142,43 +146,90 @@ def model_fn_builder(config):
 
                 tp, fp, fn = 0, 0, 0
                 epsilon = 1e-10 
+                threshold = tf.constant([config["threshold"]])
+
 
                 if concat_only:
-                    threshold = tf.constant([config["threshold"]])
-                    pred_span_label = tf.math.greater_equal(span_scores, threshold) 
-                    pred_span_label = tf.reshape(tf.cast(pred_span_label, tf.int32), [-1]) 
-                    gold_span_label = tf.reshape(tf.cast(span_mention_label, tf.int32), [-1])
-
-                    tp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
-                    fp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
-                    fn += tf.math.reduce_sum(tf.math.logical_and(tf.math.logical_not(pred_span_label), gold_span_label)) 
-
-                    p = tp / (tp+fp+epsilon)
-                    r = tp / (tp+fn+epsilon)
-                    f = 2*p*r/(p+r+epsilon)
-
-                    tf.logging.info("=*="*20)
-                    tf.logging.info("if final span score is concat only :")
-                    tf.logging.info("precision is {}, recall is {}, f1 is {}. ".format(str(p), str(r), str(f)))
+                    scores = span_scores
                 else:
-                    start_scores = # start_scores -> max_training_sent, max_segment_len  
-                    end_scores = # end_scores -> max_training_sent, max_segment_len 
-                    span_scores = 
+                    start_scores = tf.tile(tf.expand_dims(start_scores, 2), [1, 1, config["max_segment_len"]])
+                    # start_scores -> max_training_sent, max_segment_len  
+                    end_scores = tf.tile(tf.expand_dims(end_scores, 2), [1, 1, config["max_segment_len"]])
+                    # end_scores -> max_training_sent, max_segment_len 
+                    scores = (start_scores + end_scores + span_scores)/3
+
+                pred_span_label = tf.math.greater_equal(scores, threshold)
+                pred_span_label = tf.reshape(tf.cast(pred_span_label, tf.int32), [-1]) 
+                gold_span_label = tf.reshape(tf.cast(span_mention_label, tf.int32), [-1])
+
+                tp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
+                fp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
+                fn += tf.math.reduce_sum(tf.math.logical_and(tf.math.logical_not(pred_span_label), gold_span_label)) 
+
+                p = tp / (tp+fp+epsilon)
+                r = tp / (tp+fn+epsilon)
+                f = 2*p*r/(p+r+epsilon)
+
+                tf.logging.info("=*="*20)
+                tf.logging.info("if final span score is concat only :")
+                tf.logging.info("precision is {}, recall is {}, f1 is {}. ".format(str(p), str(r), str(f)))
 
 
-
-
-            eval_metrics = (metric_fn, [span_scores, span_mention, start_scores, start_label, end_scores, end_label])
+            eval_metrics = (metric_fn, [span_scores, span_mention, start_scores, gold_starts, end_scores, gold_ends])
 
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                 mode=tf.estimator.ModeKeys.PREDICT,
                 predictions=predictions,
                 eval_metrics=eval_metrics, 
                 scaffold_fn=scaffold_fn)
+        else:
+            raise ValueError("Please check the the mode the current value ! ")
         
         return output_spec
 
     return model_fn
+
+
+def eval_metric_fn(config, span_scores, span_mention_label,  start_scores, start_label, end_scores, end_label, concat_only=True):
+    # [span_scores, span_mention, start_scores, start_label, end_scores, end_label]
+    span_scores = tf.reshape(span_scores, [config["max_training_sentences"], config["max_segment_len"], config["max_segment_len"],]) # span_scores
+    start_scores = tf.reshape(start_scores, [-1])
+    end_scores = tf.reshape(end_scores, [-1])
+    start_label = tf.reshape(start_label, [-1])
+    end_label = tf.reshape(end_label, [-1])
+
+    tp, fp, fn = 0, 0, 0
+    epsilon = 1e-10 
+    threshold = tf.constant([config["threshold"]])
+
+
+    if concat_only:
+        scores = span_scores
+    else:
+        start_scores = tf.tile(tf.expand_dims(start_scores, 2), [1, 1, config["max_segment_len"]])
+        # start_scores -> max_training_sent, max_segment_len  
+        end_scores = tf.tile(tf.expand_dims(end_scores, 2), [1, 1, config["max_segment_len"]])
+        # end_scores -> max_training_sent, max_segment_len 
+        scores = (start_scores + end_scores + span_scores)/3
+
+    pred_span_label = tf.math.greater_equal(scores, threshold)
+    pred_span_label = tf.reshape(tf.cast(pred_span_label, tf.int32), [-1]) 
+    gold_span_label = tf.reshape(tf.cast(span_mention_label, tf.int32), [-1])
+
+    tp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
+    fp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
+    fn += tf.math.reduce_sum(tf.math.logical_and(tf.math.logical_not(pred_span_label), gold_span_label)) 
+
+    p = tp / (tp+fp+epsilon)
+    r = tp / (tp+fn+epsilon)
+    f = 2*p*r/(p+r+epsilon)
+
+    tf.logging.info("=*="*20)
+    tf.logging.info("MiCRO F1 score for current document is  :")
+    tf.logging.info("precision is {}, recall is {}, f1 is {}. ".format(str(p), str(r), str(f)))
+
+    return tp, fp, fn, p, r, f 
+
 
 
 def main(_):
@@ -231,9 +282,18 @@ def main(_):
 
     if FLAGS.do_eval:
         all_results = []
+        tp, fp, fn = 0, 0, 0
+        epsilon = 1e-10
         for result in estimator.predict(file_based_input_fn_builder(config["eval_path"], seq_length, config,is_training=False, drop_remainder=False), yield_single_examples=True):
             all_results.append(result)
-            # coref_evaluator.update(result["predicted_clusters"], result["gold_clusters"], result["mention_to_predicted"], result["mention_to_gold"])
+            tmp_tp, tmp_fp, tmp_fn, micro_p, micro_r, micro_f = eval_metric_fn(result["span_scores"], result["span_gold"], result["start_scores"], 
+                result["start_gold"], result["end_scores"], result["end_gold"])
+            tp += tmp_tp
+            fp += tmp_fp
+            fn += tmp_fn
+        p = tp / (tp+fp+epsilon)
+        r = tp / (tp+fn+epsilon)
+        f = 2*p*r/(p+r+epsilon)
         tf.logging.info("Average precision: {:.2f}, Average recall: {:.2f}, Average F1 {:.4f}".format(p, r, f))
 
 
