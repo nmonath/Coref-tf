@@ -10,6 +10,7 @@ export TPU_NAME=tensorflow-tpu
 GCP_PROJECT=xiaoyli-20-04-274510
 OUTPUT_DIR=gs://corefqa/span_all_128_5_output_bertbase
 
+
 CONFIG_FILENAME=experiments_tinybert.conf
 
 
