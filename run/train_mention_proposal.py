@@ -19,10 +19,10 @@ logger.setLevel(logging.INFO)
 
 
 tf.app.flags.DEFINE_string('f', '', 'kernel')
-
 flags = tf.app.flags
 flags.DEFINE_string("output_dir", "data", "The output directory of the model training.")
 flags.DEFINE_bool("do_train", True, "Whether to run training.")
+flags.DEFINE_bool("do_eval", True, "Whether to run training.")
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
 flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
 flags.DEFINE_integer("slide_window_size", 156, "size of sliding window.")
@@ -133,12 +133,39 @@ def model_fn_builder(config):
                     "end_scores": end_scores, 
                     "span_scores": span_scores}
 
-            def metric_fn(logits, span_scores, span_mention_label, start_scores, start_label, end_scores, end_label):
+            def metric_fn(logits, span_scores, start_scores, start_label, end_scores, end_label, span_mention_label, concat_only=True):
                 span_scores = tf.reshape(span_scores, [config["max_training_sentences"], config["max_segment_len"], config["max_segment_len"],]) # span_scores
                 start_scores = tf.reshape(start_scores, [-1])
                 end_scores = tf.reshape(end_scores, [-1])
                 start_label = tf.reshape(start_label, [-1])
                 end_label = tf.reshape(end_label, [-1])
+
+                tp, fp, fn = 0, 0, 0
+                epsilon = 1e-10 
+
+                if concat_only:
+                    threshold = tf.constant([config["threshold"]])
+                    pred_span_label = tf.math.greater_equal(span_scores, threshold) 
+                    pred_span_label = tf.reshape(tf.cast(pred_span_label, tf.int32), [-1]) 
+                    gold_span_label = tf.reshape(tf.cast(span_mention_label, tf.int32), [-1])
+
+                    tp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
+                    fp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
+                    fn += tf.math.reduce_sum(tf.math.logical_and(tf.math.logical_not(pred_span_label), gold_span_label)) 
+
+                    p = tp / (tp+fp+epsilon)
+                    r = tp / (tp+fn+epsilon)
+                    f = 2*p*r/(p+r+epsilon)
+
+                    tf.logging.info("=*="*20)
+                    tf.logging.info("if final span score is concat only :")
+                    tf.logging.info("precision is {}, recall is {}, f1 is {}. ".format(str(p), str(r), str(f)))
+                else:
+                    start_scores = # start_scores -> max_training_sent, max_segment_len  
+                    end_scores = # end_scores -> max_training_sent, max_segment_len 
+                    span_scores = 
+
+
 
 
             eval_metrics = (metric_fn, [span_scores, span_mention, start_scores, start_label, end_scores, end_label])
