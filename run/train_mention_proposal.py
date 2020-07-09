@@ -24,6 +24,7 @@ flags.DEFINE_string("output_dir", "data", "The output directory of the model tra
 flags.DEFINE_bool("do_train", True, "Whether to run training.")
 flags.DEFINE_bool("do_eval", True, "Whether to run training.")
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
+flags.DEFINE_bool("concat_only", False, "Whether to use TPU or GPU/CPU.")
 flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
 flags.DEFINE_integer("slide_window_size", 156, "size of sliding window.")
 flags.DEFINE_integer("max_seq_length", 200, "Max sequence length for the input sequence.")
@@ -287,7 +288,7 @@ def main(_):
         for result in estimator.predict(file_based_input_fn_builder(config["eval_path"], seq_length, config,is_training=False, drop_remainder=False), yield_single_examples=True):
             all_results.append(result)
             tmp_tp, tmp_fp, tmp_fn, micro_p, micro_r, micro_f = eval_metric_fn(result["span_scores"], result["span_gold"], result["start_scores"], 
-                result["start_gold"], result["end_scores"], result["end_gold"])
+                result["start_gold"], result["end_scores"], result["end_gold"], concat_only=FLAGS.concat_only)
             tp += tmp_tp
             fp += tmp_fp
             fn += tmp_fn
