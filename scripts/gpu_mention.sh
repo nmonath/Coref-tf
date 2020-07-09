@@ -12,6 +12,8 @@ CONFIG_FILENAME=experiments_tinybert.conf
 
 
 OUTPUT_DIR=/xiaoya/export_dir_mention
+
+rm -rf ${OUTPUT_DIR}
 mkdir -p ${OUTPUT_DIR}
 
 
