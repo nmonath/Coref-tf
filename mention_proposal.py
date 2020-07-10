@@ -100,7 +100,7 @@ class MentionProposalModel(object):
         return 1 - (tf.to_float(is_training) * dropout_rate)
 
     def get_mention_proposal_and_loss(self, input_ids, input_mask, text_len, speaker_ids, genre, is_training,
-        gold_starts, gold_ends, cluster_ids, sentence_map, span_mention=None):
+        gold_starts, gold_ends, cluster_ids, sentence_map, span_mention=None, concat_only=False):
         """get mention proposals"""
 
         start_end_loss_mask = tf.cast(tf.where(tf.cast(tf.math.greater_equal(input_ids, tf.zeros_like(input_ids)),tf.bool), x=tf.ones_like(input_ids), y=tf.zeros_like(input_ids)), tf.float32) 
@@ -145,11 +145,11 @@ class MentionProposalModel(object):
         # # (max_train_sent * max_segment_len * max_segment_len, embed * 2)
 
         with tf.variable_scope("span_scores", reuse=tf.AUTO_REUSE):  # [k, 1] 每个候选span的得分
-            span_scores = util.ffnn(span_mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"]*2, 1, self.dropout) # (max_train_sent, max_segment_len, 1)
+            span_scores = util.ffnn_bk(span_mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"]*2, 1, self.dropout) # (max_train_sent, max_segment_len, 1)
         with tf.variable_scope("start_scores", reuse=tf.AUTO_REUSE):  # [k, 1] 每个候选span的得分
-            start_scores = util.ffnn(mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout) # (max_train_sent, max_segment_len, 1) 
+            start_scores = util.ffnn_bk(mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout) # (max_train_sent, max_segment_len, 1) 
         with tf.variable_scope("end_scores", reuse=tf.AUTO_REUSE):  # [k, 1] 每个候选span的得分
-            end_scores = util.ffnn(mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout) # (max_train_sent, max_segment_len, 1)
+            end_scores = util.ffnn_bk(mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout) # (max_train_sent, max_segment_len, 1)
 
         gold_start_label = tf.reshape(gold_starts, [-1, 1])  
         # gold_starts -> [1, 3, 5, 8, -1, -1, -1, -1]
@@ -167,6 +167,9 @@ class MentionProposalModel(object):
         end_scores = tf.cast(tf.reshape(tf.sigmoid(end_scores), [-1]),tf.float32)
         span_scores = tf.cast(tf.reshape(tf.sigmoid(span_scores), [-1]), tf.float32)
         # span_mention = tf.cast(span_mention, tf.float32)
+        uniform_start_scores = start_scores 
+        uniform_end_scores = end_scores 
+        uniform_span_scores = tf.reshape(span_scores, [self.config["max_training_sentences"], self.config["max_segment_len"], self.config["max_segment_len"]])
 
         start_scores = tf.stack([(1 - start_scores), start_scores], axis=-1) 
         end_scores = tf.stack([(1 - end_scores), end_scores], axis=-1) 
@@ -186,13 +189,16 @@ class MentionProposalModel(object):
         end_loss = tf.reduce_mean(tf.multiply(end_loss, tf.cast(start_end_loss_mask, tf.float32))) 
         span_loss = tf.reduce_mean(tf.multiply(span_loss, tf.cast(span_mention_loss_mask, tf.float32))) 
 
+        if concat_only:
+            loss = span_loss 
+            return loss, uniform_start_scores, uniform_end_scores, uniform_span_scores
 
         if span_mention is None :
             loss = self.config["start_ratio"] * start_loss + self.config["end_ratio"] * end_loss 
-            return loss, start_scores, end_scores
+            return loss, uniform_start_scores, uniform_end_scores
         else:
             loss = self.config["start_ratio"] * start_loss + self.config["end_ratio"] * end_loss +self.config["mention_ratio"] * span_loss 
-            return loss, start_scores, end_scores, span_scores 
+            return loss, uniform_start_scores, uniform_end_scores, uniform_span_scores
 
 
     def flatten_emb_by_sentence(self, emb, text_len_mask):

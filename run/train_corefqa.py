@@ -3,7 +3,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
+import metrics
 import logging
 import tensorflow as tf
 import util
@@ -24,9 +24,10 @@ flags = tf.app.flags
 flags.DEFINE_string("output_dir", "data", "The output directory of the model training.")
 flags.DEFINE_bool("do_train", True, "Whether to run training.")
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
-flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
+flags.DEFINE_integer("iterations_per_loop", 100, "How many steps to make in each estimator call.")
 flags.DEFINE_integer("slide_window_size", 156, "size of sliding window.")
 flags.DEFINE_integer("max_seq_length", 200, "Max sequence length for the input sequence.")
+flags.DEFINE_string("config_filename", "experiments.conf", "the input config file name.")
 flags.DEFINE_string("tpu_name", None, "The Cloud TPU to use for training. This should be either the name "
                        "used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 url.")
 flags.DEFINE_string("tpu_zone", None, "[Optional] GCE zone where the Cloud TPU is located in. If not "
@@ -38,6 +39,7 @@ flags.DEFINE_integer("num_tpu_cores", 1, "Only used if `use_tpu` is True. Total 
 FLAGS = tf.flags.FLAGS
 
 
+
 def model_fn_builder(config):
 
     def model_fn(features, labels, mode, params):  # pylint: disable=unused-argument
@@ -45,6 +47,7 @@ def model_fn_builder(config):
         config = util.initialize_from_env(use_tpu=FLAGS.use_tpu)
 
         tmp_features = {}
+        max_f1 = 0 
         input_ids = features["flattened_input_ids"]
         input_mask = features["flattened_input_mask"]
         text_len = features["text_len"]
@@ -68,6 +71,7 @@ def model_fn_builder(config):
         tmp_features["cluster_ids"] = cluster_ids
         tmp_features["sentence_map"] = sentence_map
         tmp_features["span_mention"] = span_mention 
+        coref_evaluator = metrics.CorefEvaluator()
 
 
         tf.logging.info("********* Features *********")
@@ -104,28 +108,51 @@ def model_fn_builder(config):
                 init_string = ", *INIT_FROM_CKPT*"
             tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape, init_string)
 
-        #  is training 
 
-        tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
-        tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
+        total_loss, topk_span_starts, topk_span_ends, top_antecedent_scores = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
+                genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention)
 
-        total_loss = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
-            genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention)
+        if mode == tf.estimator.ModeKeys.TRAIN:
+            tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
 
-        if config["device"] == "tpu":
-            optimizer = tf.train.AdamOptimizer(learning_rate=config['bert_learning_rate'], beta1=0.9, beta2=0.999, epsilon=1e-08)
-            optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer)
-            train_op = optimizer.minimize(total_loss, tf.train.get_global_step()) 
-        else:
-            optimizer = RAdam(learning_rate=config['bert_learning_rate'], epsilon=1e-8, beta1=0.9, beta2=0.999)
-            train_op = optimizer.minimize(total_loss, tf.train.get_global_step())
+
+            if tf.train.get_global_step() // 1000 == 0:
+                tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
+                predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(topk_span_starts, topk_span_ends, top_antecedent_scores, cluster_ids)
+                coref_evaluator.update(predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold)
+
+                p, r, eval_f1 = coref_evaluator.get_prf()
+                if eval_f1 >= max_f1:
+                    max_f1 = eval_f1 
+                tf.logging.info("evaL_f1={}, max_f1={}".format(str(eval_f1), str(max_f1)))
+
+            if config["device"] == "tpu":
+                optimizer = tf.train.AdamOptimizer(learning_rate=config['bert_learning_rate'], beta1=0.9, beta2=0.999, epsilon=1e-08)
+                optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer)
+                train_op = optimizer.minimize(total_loss, tf.train.get_global_step()) 
+            else:
+                optimizer = RAdam(learning_rate=config['bert_learning_rate'], epsilon=1e-8, beta1=0.9, beta2=0.999)
+                train_op = optimizer.minimize(total_loss, tf.train.get_global_step())
         
-        # logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=1)
-        output_spec = tf.contrib.tpu.TPUEstimatorSpec(
-                mode=tf.estimator.ModeKeys.TRAIN,
-                loss=total_loss,
-                train_op=train_op,
-                scaffold_fn=scaffold_fn)
+            training_logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=50)
+            output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+                    mode=tf.estimator.ModeKeys.TRAIN,
+                    loss=total_loss,
+                    train_op=train_op,
+                    scaffold_fn=scaffold_fn, 
+                    training_hooks=[training_logging_hook])
+
+        elif mode == tf.estimator.ModeKeys.PREDICT or mode == tf.estimator.ModeKeys.EVAL:
+
+            predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(topk_span_starts, topk_span_ends, top_antecedent_scores, cluster_ids)
+            
+            predictions = {"predicted_clusters": predicted_clusters, 
+            "gold_clusters": gold_clusters, 
+            "mention_to_predicted": mention_to_predicted,
+            "mention_to_gold": mention_to_gold}   
+            output_spec = tf.contrib.tpu.TPUEstimatorSpec(mode=mode, predictions=predictions, scaffold_fn=scaffold_fn)
+        else:
+            raise ValueError
         
         return output_spec
 
@@ -133,7 +160,7 @@ def model_fn_builder(config):
 
 
 def main(_):
-    config = util.initialize_from_env(use_tpu=FLAGS.use_tpu)
+    config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_file=FLAGS.config_filename)
 
     tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -179,6 +206,15 @@ def main(_):
         estimator.train(input_fn=file_based_input_fn_builder(config["train_path"], seq_length, config, 
             is_training=True, drop_remainder=True),
             max_steps=num_train_steps)
+
+    if FLAGS.do_eval:
+        coref_evaluator = metrics.CorefEvaluator()
+        all_results = []
+        for result in estimator.predict(file_based_input_fn_builder(config["eval_path"], seq_length, config,is_training=False, drop_remainder=False), yield_single_examples=True):
+            all_results.append(result)
+            coref_evaluator.update(result["predicted_clusters"], result["gold_clusters"], result["mention_to_predicted"], result["mention_to_gold"])
+        p, r, f = coref_evaluator.get_prf()
+        tf.logging.info("Average precision: {:.2f}, Average recall: {:.2f}, Average F1 {:.4f}".format(p, r, f))
 
 
 if __name__ == '__main__':

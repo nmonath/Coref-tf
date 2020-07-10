@@ -4,11 +4,11 @@
 
 
 # author: operations for running experiments on TPU device 
-# https://github.com/tensorflow/tpu/blob/5a5d62339b08eb4366515c05e405104ab79297a4/models/official/detection/utils/object_detection/box_list_ops.py
 
 
 import tensorflow as tf 
 from operation_funcs import ops 
+import util 
 
 VERY_LARGE_NEGATIVE_VALUE = -1e12
 
@@ -35,7 +35,7 @@ def exp_mask(logits, mask, mask_is_length=True):
 
 
 def boolean_mask(itemlist, indicator, fields=None, scope=None,
-                 use_static_shapes=False, indicator_sum=None, use_tpu=True):
+                 use_static_shapes=False, indicator_sum=None, use_tpu=True, dims=1):
   """Select boxes from BoxList according to indicator and return new BoxList.
   `boolean_mask` returns the subset of boxes that are marked as "True" by the
   indicator tensor. By default, `boolean_mask` returns boxes corresponding to
@@ -59,16 +59,15 @@ def boolean_mask(itemlist, indicator, fields=None, scope=None,
   Raises:
     ValueError: if `indicator` is not a rank-1 boolean tensor.
   """
-  if not use_tpu:
-    return tf.boolean_mask(itemlist, indicator)
+  # if not use_tpu:
+  #  return tf.boolean_mask(itemlist, indicator)
   with tf.name_scope(scope, 'BooleanMask'):
-    if indicator.shape.ndims:
-      raise ValueError('indicator should have rank 1')
-    if indicator.dtype != tf.bool:
-      raise ValueError('indicator should be a boolean tensor')
-    if use_static_shapes or use_tpu:
-      if not (indicator_sum and isinstance(indicator_sum, int)):
-        raise ValueError('`indicator_sum` must be a of type int')
+      # shape_itemlist = util.shape(itemlist, -1)
+      # itemlist = tf.reshape(itemlist, [-1, shape_itemlist])
+      # indicator = tf.reshape(indicator, [-1])
+    if dims == 1:
+      indicator_sum = tf.reduce_sum(tf.cast(indicator, tf.int32))
+
       selected_positions = tf.cast(indicator, dtype=tf.float32)
       indexed_positions = tf.cast(
           tf.multiply(
@@ -82,11 +81,31 @@ def boolean_mask(itemlist, indicator, fields=None, scope=None,
               one_hot_selector,
               axes=[0, 0]),
           dtype=tf.int32)
-      return tf.gather(itemlist, sampled_indices)
+      mask_itemlist = tf.gather(itemlist, sampled_indices)
+      # mask_itemlist = tf.reshape(mask_itemlist, [-1, shape_itemlist])
+      return mask_itemlist
       # return gather(boxlist, sampled_indices, use_static_shapes=True)
     else:
-      return tf.boolean_mask(itemlist, indicator)
+      sum_idx = util.shape(itemlist, 0) 
+      start_mask_lst = tf.cast(tf.zeros_like(tf.gather(itemlist, 0)), tf.float32) 
+      i0 = tf.constant(0)
 
+      @tf.function
+      def mask_loop(i, stack_mask_itemlist):
+        tmp_itemlist = tf.gather(itemlist, i) 
+        tmp_indicator = tf.gather(indicator, i)
+        tmp_mask_itemlist = boolean_mask(tmp_itemlist, tmp_indicator, use_tpu=use_tpu, dims=1)
+        return [tf.math.add(i, 1), tf.concat([stack_mask_itemlist, tmp_mask_itemlist], axis=0)]
+
+      _, mask_itemlist_tensor = tf.while_loop(
+        cond=lambda i, o1, : i < sum_idx,
+        body=mask_loop, 
+        loop_vars=[i0, start_mask_lst],
+        shape_invariants=[i0.get_shape(), tf.TensorShape([None, None])],
+        maximum_iterations=20
+        )
+
+      return mask_itemlist_tensor
 
 def gather(boxlist, indices, fields=None, scope=None, use_static_shapes=False, use_tpu=True):
   """Gather boxes from BoxList according to indices and return new BoxList.

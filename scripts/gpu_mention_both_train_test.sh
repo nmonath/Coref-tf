@@ -17,5 +17,4 @@ CUDA_VISIBLE_DEVICES=0 python3 ${REPO_PATH}/run/train_mention_proposal.py \
 --do_train=True \
 --do_eval=True \
 --use_tpu=False \
---concat_only=True \
 --iterations_per_loop=500

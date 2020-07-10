@@ -8,13 +8,13 @@ export PYTHONPATH="$PYTHONPATH:/home/xiaoyli1110/xiaoya/Coref-tf"
 export TPU_NAME=tensorflow-tpu
 # export TPU_NAME=tf-tpu
 GCP_PROJECT=xiaoyli-20-04-274510
-OUTPUT_DIR=gs://mention_proposal/span_all_128_5_output_bertlarge
+OUTPUT_DIR=gs://corefqa/span_all_128_5_output_bertbase
 
 
 CONFIG_FILENAME=experiments_tinybert.conf
 
 
-python3 ${REPO_PATH}/run/train_mention_proposal.py \
+python3 ${REPO_PATH}/run/train_corefqa.py \
 --output_dir=${OUTPUT_DIR} \
 --do_train=True \
 --use_tpu=True \
