@@ -41,7 +41,7 @@ def file_based_input_fn_builder(input_file, seq_length, config, is_training, dro
 
     def input_fn_from_tfrecord(params):
         """The actual input function."""
-        batch_size = 1 # params["batch_size"]
+        batch_size = params["batch_size"]
 
         # For training, we want a lot of parallel reading and shuffling.
         # For eval, we want no shuffling and parallel reading doesn't matter.
