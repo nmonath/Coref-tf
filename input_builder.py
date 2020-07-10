@@ -41,14 +41,14 @@ def file_based_input_fn_builder(input_file, seq_length, config, is_training, dro
 
     def input_fn_from_tfrecord(params):
         """The actual input function."""
-        batch_size = params["batch_size"]
+        batch_size = 1 # params["batch_size"]
 
         # For training, we want a lot of parallel reading and shuffling.
         # For eval, we want no shuffling and parallel reading doesn't matter.
         d = tf.data.TFRecordDataset(input_file)
         if is_training:
             d = d.repeat() 
-            # d = d.shuffle(buffer_size=100)
+            d = d.shuffle(buffer_size=100)
     
         d = d.apply(
         tf.contrib.data.map_and_batch(

@@ -145,11 +145,11 @@ class MentionProposalModel(object):
         # # (max_train_sent * max_segment_len * max_segment_len, embed * 2)
 
         with tf.variable_scope("span_scores", reuse=tf.AUTO_REUSE):  # [k, 1] 每个候选span的得分
-            span_scores = util.ffnn(span_mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"]*2, 1, self.dropout) # (max_train_sent, max_segment_len, 1)
+            span_scores = util.ffnn_bk(span_mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"]*2, 1, self.dropout) # (max_train_sent, max_segment_len, 1)
         with tf.variable_scope("start_scores", reuse=tf.AUTO_REUSE):  # [k, 1] 每个候选span的得分
-            start_scores = util.ffnn(mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout) # (max_train_sent, max_segment_len, 1) 
+            start_scores = util.ffnn_bk(mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout) # (max_train_sent, max_segment_len, 1) 
         with tf.variable_scope("end_scores", reuse=tf.AUTO_REUSE):  # [k, 1] 每个候选span的得分
-            end_scores = util.ffnn(mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout) # (max_train_sent, max_segment_len, 1)
+            end_scores = util.ffnn_bk(mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout) # (max_train_sent, max_segment_len, 1)
 
         gold_start_label = tf.reshape(gold_starts, [-1, 1])  
         # gold_starts -> [1, 3, 5, 8, -1, -1, -1, -1]

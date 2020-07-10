@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+"""
+this file contains pre-training and testing the mention proposal model
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -21,13 +25,11 @@ logger.setLevel(logging.INFO)
 tf.app.flags.DEFINE_string('f', '', 'kernel')
 flags = tf.app.flags
 flags.DEFINE_string("output_dir", "data", "The output directory of the model training.")
-flags.DEFINE_bool("do_train", True, "Whether to run training.")
-flags.DEFINE_bool("do_eval", False, "Whether to run training.")
+flags.DEFINE_bool("do_train", True, "Whether to train a model.")
+flags.DEFINE_bool("do_eval", False, "Whether to test a model.")
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
 flags.DEFINE_bool("concat_only", False, "Whether to use TPU or GPU/CPU.")
 flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
-flags.DEFINE_integer("slide_window_size", 156, "size of sliding window.")
-flags.DEFINE_integer("max_seq_length", 200, "Max sequence length for the input sequence.")
 flags.DEFINE_string("config_filename", "experiments.conf", "the input config file name.")
 flags.DEFINE_string("tpu_name", None, "The Cloud TPU to use for training. This should be either the name "
                        "used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 url.")
@@ -46,7 +48,6 @@ def model_fn_builder(config):
         """The `model_fn` for TPUEstimator."""
         config = util.initialize_from_env(use_tpu=FLAGS.use_tpu)
 
-        tmp_features = {}
         input_ids = features["flattened_input_ids"]
         input_mask = features["flattened_input_mask"]
         text_len = features["text_len"]
@@ -59,22 +60,11 @@ def model_fn_builder(config):
         sentence_map = features["sentence_map"] 
         span_mention = features["span_mention"]
         
-        tmp_features["input_ids"] = input_ids 
-        tmp_features["input_mask"] = input_mask 
-        tmp_features["text_len"] = text_len 
-        tmp_features["speaker_ids"] = speaker_ids
-        tmp_features["genre"] = genre
-        tmp_features["gold_starts"] = gold_starts
-        tmp_features["gold_ends"] =  gold_ends
-        tmp_features["speaker_ids"] = speaker_ids
-        tmp_features["cluster_ids"] = cluster_ids
-        tmp_features["sentence_map"] = sentence_map
-        tmp_features["span_mention"] = span_mention 
 
 
         tf.logging.info("********* Features *********")
-        for name in sorted(tmp_features.keys()):
-            tf.logging.info("  name = %s, shape = %s" % (name, tmp_features[name].shape))
+        for name in sorted(features.keys()):
+            tf.logging.info("  name = %s, shape = %s" % (name, features[name].shape))
 
         is_training = (mode == tf.estimator.ModeKeys.TRAIN)
 
@@ -90,10 +80,12 @@ def model_fn_builder(config):
         if FLAGS.use_tpu:
             def tpu_scaffold():
                 init_from_checkpoint(config['init_checkpoint'], assignment_map)
+                # load model from tf check point
                 return tf.train.Scaffold()
             scaffold_fn = tpu_scaffold
         else:
             init_from_checkpoint(config['init_checkpoint'], assignment_map)
+            # load model from tf check point
             scaffold_fn = None 
         
 
@@ -118,70 +110,32 @@ def model_fn_builder(config):
                 optimizer = RAdam(learning_rate=config['bert_learning_rate'], epsilon=1e-8, beta1=0.9, beta2=0.999)
                 train_op = optimizer.minimize(total_loss, tf.train.get_global_step())
         
-            # logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=1)
+            logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=1)
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                     mode=mode,
                     loss=total_loss,
                     train_op=train_op,
-                    scaffold_fn=scaffold_fn)
+                    scaffold_fn=scaffold_fn, 
+                    training_hooks=[logging_hook])
         elif mode == tf.estimator.ModeKeys.EVAL or mode == tf.estimator.ModeKeys.PREDICT:
             total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(input_ids, input_mask, \
                 text_len, speaker_ids, genre, is_training, gold_starts,
                 gold_ends, cluster_ids, sentence_map, span_mention)
 
-            predictions = {"total_loss": total_loss,
+            predictions = {
+                    "total_loss": total_loss,
                     "start_scores": start_scores,
                     "start_gold": gold_starts,
                     "end_gold": gold_ends,
                     "end_scores": end_scores, 
                     "span_scores": span_scores, 
-                    "span_gold": span_mention}
+                    "span_gold": span_mention
+            }
 
-            def metric_fn(span_scores, span_mention_label,  start_scores, start_label, end_scores, end_label, concat_only=True):
-                # [span_scores, span_mention, start_scores, start_label, end_scores, end_label]
-                span_scores = tf.reshape(span_scores, [config["max_training_sentences"], config["max_segment_len"], config["max_segment_len"],]) # span_scores
-                start_scores = tf.reshape(start_scores, [-1])
-                end_scores = tf.reshape(end_scores, [-1])
-                start_label = tf.reshape(start_label, [-1])
-                end_label = tf.reshape(end_label, [-1])
-
-                tp, fp, fn = 0, 0, 0
-                epsilon = 1e-10 
-                threshold = tf.constant([config["threshold"]])
-
-
-                if concat_only:
-                    scores = span_scores
-                else:
-                    start_scores = tf.tile(tf.expand_dims(start_scores, 2), [1, 1, config["max_segment_len"]])
-                    # start_scores -> max_training_sent, max_segment_len  
-                    end_scores = tf.tile(tf.expand_dims(end_scores, 2), [1, 1, config["max_segment_len"]])
-                    # end_scores -> max_training_sent, max_segment_len 
-                    scores = (start_scores + end_scores + span_scores)/3
-
-                pred_span_label = tf.math.greater_equal(scores, threshold)
-                pred_span_label = tf.reshape(tf.cast(pred_span_label, tf.int32), [-1]) 
-                gold_span_label = tf.reshape(tf.cast(span_mention_label, tf.int32), [-1])
-
-                tp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
-                fp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
-                fn += tf.math.reduce_sum(tf.math.logical_and(tf.math.logical_not(pred_span_label), gold_span_label)) 
-
-                p = tp / (tp+fp+epsilon)
-                r = tp / (tp+fn+epsilon)
-                f = 2*p*r/(p+r+epsilon)
-
-                tf.logging.info("=*="*20)
-                tf.logging.info("if final span score is concat only :")
-                tf.logging.info("precision is {}, recall is {}, f1 is {}. ".format(str(p), str(r), str(f)))
-
-
-            eval_metrics = (metric_fn, [span_scores, span_mention, start_scores, gold_starts, end_scores, gold_ends])
 
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                 mode=tf.estimator.ModeKeys.PREDICT,
                 predictions=predictions,
-                eval_metrics=eval_metrics, 
                 scaffold_fn=scaffold_fn)
         else:
             raise ValueError("Please check the the mode the current value ! ")
@@ -191,46 +145,42 @@ def model_fn_builder(config):
     return model_fn
 
 
-def eval_metric_fn(config, span_scores, span_mention_label,  start_scores, start_label, end_scores, end_label, concat_only=True):
-    # [span_scores, span_mention, start_scores, start_label, end_scores, end_label]
+def mention_proposal_prediction(config, current_doc_result, concat_only=True):
+    """
+    current_doc_result: 
+                    "total_loss": total_loss,
+                    "start_scores": start_scores,
+                    "start_gold": gold_starts,
+                    "end_gold": gold_ends,
+                    "end_scores": end_scores, 
+                    "span_scores": span_scores, 
+                    "span_gold": span_mention
+
+    """
+
+    span_scores = current_doc_result["span_scores"]
     span_scores = tf.reshape(span_scores, [config["max_training_sentences"], config["max_segment_len"], config["max_segment_len"],]) # span_scores
-    start_scores = tf.reshape(start_scores, [-1])
-    end_scores = tf.reshape(end_scores, [-1])
-    start_label = tf.reshape(start_label, [-1])
-    end_label = tf.reshape(end_label, [-1])
+    span_gold = current_doc_result["span_gold"] 
 
-    tp, fp, fn = 0, 0, 0
-    epsilon = 1e-10 
-    threshold = tf.constant([config["threshold"]])
-
+    score_threshold = tf.constant([config["threshold"]])
+    # spans with scores larger than score_threshold with be selected 
 
     if concat_only:
         scores = span_scores
     else:
+        start_scores = current_doc_result["start_scores"], 
+        end_scores = current_doc_result["end_scores"]   
         start_scores = tf.tile(tf.expand_dims(start_scores, 2), [1, 1, config["max_segment_len"]])
         # start_scores -> max_training_sent, max_segment_len  
         end_scores = tf.tile(tf.expand_dims(end_scores, 2), [1, 1, config["max_segment_len"]])
         # end_scores -> max_training_sent, max_segment_len 
         scores = (start_scores + end_scores + span_scores)/3
 
-    pred_span_label = tf.math.greater_equal(scores, threshold)
+    pred_span_label = tf.math.greater_equal(scores, score_threshold)
     pred_span_label = tf.reshape(tf.cast(pred_span_label, tf.int32), [-1]) 
-    gold_span_label = tf.reshape(tf.cast(span_mention_label, tf.int32), [-1])
+    gold_span_label = tf.reshape(tf.cast(span_gold, tf.int32), [-1])
 
-    tp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
-    fp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
-    fn += tf.math.reduce_sum(tf.math.logical_and(tf.math.logical_not(pred_span_label), gold_span_label)) 
-
-    p = tp / (tp+fp+epsilon)
-    r = tp / (tp+fn+epsilon)
-    f = 2*p*r/(p+r+epsilon)
-
-    tf.logging.info("=*="*20)
-    tf.logging.info("MiCRO F1 score for current document is  :")
-    tf.logging.info("precision is {}, recall is {}, f1 is {}. ".format(str(p), str(r), str(f)))
-
-    return tp, fp, fn, p, r, f 
-
+    return pred_span_label, gold_span_label
 
 
 def main(_):
@@ -282,16 +232,17 @@ def main(_):
             max_steps=num_train_steps)
 
     if FLAGS.do_eval:
-        all_results = []
         tp, fp, fn = 0, 0, 0
         epsilon = 1e-10
-        for result in estimator.predict(file_based_input_fn_builder(config["eval_path"], seq_length, config,is_training=False, drop_remainder=False), yield_single_examples=True):
-            all_results.append(result)
-            tmp_tp, tmp_fp, tmp_fn, micro_p, micro_r, micro_f = eval_metric_fn(result["span_scores"], result["span_gold"], result["start_scores"], 
-                result["start_gold"], result["end_scores"], result["end_gold"], concat_only=FLAGS.concat_only)
-            tp += tmp_tp
-            fp += tmp_fp
-            fn += tmp_fn
+        for doc_output in estimator.predict(file_based_input_fn_builder(config["eval_path"], seq_length, config,is_training=False, drop_remainder=False), 
+            yield_single_examples=True):
+            # iterate over each doc for evaluation
+            pred_span_label, gold_span_label = mention_proposal_prediction(config,doc_output,concat_only=FLAGS.concat_only)
+
+            tp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
+            fp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
+            fn += tf.math.reduce_sum(tf.math.logical_and(tf.math.logical_not(pred_span_label), gold_span_label)) 
+
         p = tp / (tp+fp+epsilon)
         r = tp / (tp+fn+epsilon)
         f = 2*p*r/(p+r+epsilon)
