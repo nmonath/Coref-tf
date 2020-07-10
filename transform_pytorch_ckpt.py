@@ -12,7 +12,7 @@ import os
 import shutil 
 from bert import modeling 
 import tensorflow as tf  
-from load_pytorch_to_tf import load_from_pytorch_checkpoint 
+from operation_funcs.load_pytorch_to_tf import load_from_pytorch_checkpoint 
 
 
 def load_models(bert_config_path, ):
