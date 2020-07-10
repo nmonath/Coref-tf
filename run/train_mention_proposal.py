@@ -9,6 +9,7 @@ from __future__ import print_function
 
 
 import logging
+import numpy as np 
 import tensorflow as tf
 import util
 from radam import RAdam
@@ -159,26 +160,25 @@ def mention_proposal_prediction(config, current_doc_result, concat_only=True):
     """
 
     span_scores = current_doc_result["span_scores"]
-    span_scores = tf.reshape(span_scores, [config["max_training_sentences"], config["max_segment_len"], config["max_segment_len"],]) # span_scores
     span_gold = current_doc_result["span_gold"] 
-
-    score_threshold = tf.constant([config["threshold"]])
-    # spans with scores larger than score_threshold with be selected 
 
     if concat_only:
         scores = span_scores
     else:
         start_scores = current_doc_result["start_scores"], 
         end_scores = current_doc_result["end_scores"]   
-        start_scores = tf.tile(tf.expand_dims(start_scores, 2), [1, 1, config["max_segment_len"]])
-        # start_scores -> max_training_sent, max_segment_len  
-        end_scores = tf.tile(tf.expand_dims(end_scores, 2), [1, 1, config["max_segment_len"]])
+        # start_scores = tf.tile(tf.expand_dims(start_scores, 2), [1, 1, config["max_segment_len"]])
+        start_scores = np.tile(np.expand_dims(start_scores, axis=2), (1, 1, config["max_segment_len"]))
+        end_scores = np.tile(np.expand_dims(end_scores, axis=2), (1, 1, config["max_segment_len"]))
+        start_scores = np.reshape(start_scores, [-1, config["max_segment_len"], config["max_segment_len"]])
+        end_scores = np.reshape(end_scores, [-1, config["max_segment_len"], config["max_segment_len"]])
+
         # end_scores -> max_training_sent, max_segment_len 
         scores = (start_scores + end_scores + span_scores)/3
 
-    pred_span_label = tf.math.greater_equal(scores, score_threshold)
-    pred_span_label = tf.reshape(tf.cast(pred_span_label, tf.int32), [-1]) 
-    gold_span_label = tf.reshape(tf.cast(span_gold, tf.int32), [-1])
+    pred_span_label = scores >= 0.5
+    pred_span_label = np.reshape(pred_span_label, [-1])
+    gold_span_label = np.reshape(span_gold, [-1])
 
     return pred_span_label, gold_span_label
 
@@ -187,10 +187,12 @@ def main(_):
     config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_file=FLAGS.config_filename)
 
     tf.logging.set_verbosity(tf.logging.INFO)
-    num_train_steps = config["num_docs"] * config["num_epochs"]
+    #    num_train_steps = config["num_docs"] * config["num_epochs"]
+    num_train_steps = 500
 
 
     save_checkpoints_steps = int(num_train_steps / 20)
+
 
     if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
         raise ValueError("At least one of `do_train`, `do_eval` or `do_predict' must be True.")
@@ -235,13 +237,21 @@ def main(_):
         tp, fp, fn = 0, 0, 0
         epsilon = 1e-10
         for doc_output in estimator.predict(file_based_input_fn_builder(config["eval_path"], seq_length, config,is_training=False, drop_remainder=False), 
-            yield_single_examples=True):
+            yield_single_examples=False): 
             # iterate over each doc for evaluation
             pred_span_label, gold_span_label = mention_proposal_prediction(config,doc_output,concat_only=FLAGS.concat_only)
 
-            tp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
-            fp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
-            fn += tf.math.reduce_sum(tf.math.logical_and(tf.math.logical_not(pred_span_label), gold_span_label)) 
+            # tp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
+            # fp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
+            # fn += tf.math.reduce_sum(tf.math.logical_and(tf.math.logical_not(pred_span_label), gold_span_label)) 
+            tem_tp = np.sum(np.logical_and(pred_span_label, gold_span_label))
+            tem_fp = np.sum(np.logical_and(pred_span_label, gold_span_label))
+            tem_fn = np.sum(np.logical_and(np.logical_not(pred_span_label), gold_span_label))
+
+            tp += tem_tp
+            fp += tem_fp
+            fn += tem_fn
+            # print(tem_tp, tem_fp, tem_fn)
 
         p = tp / (tp+fp+epsilon)
         r = tp / (tp+fn+epsilon)

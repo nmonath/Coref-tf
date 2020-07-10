@@ -169,7 +169,7 @@ class MentionProposalModel(object):
         # span_mention = tf.cast(span_mention, tf.float32)
         uniform_start_scores = start_scores 
         uniform_end_scores = end_scores 
-        uniform_span_scores = span_scores 
+        uniform_span_scores = tf.reshape(span_scores, [self.config["max_training_sentences"], self.config["max_segment_len"], self.config["max_segment_len"]])
 
         start_scores = tf.stack([(1 - start_scores), start_scores], axis=-1) 
         end_scores = tf.stack([(1 - end_scores), end_scores], axis=-1) 
