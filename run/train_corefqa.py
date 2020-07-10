@@ -46,7 +46,6 @@ def model_fn_builder(config):
         """The `model_fn` for TPUEstimator."""
         config = util.initialize_from_env(use_tpu=FLAGS.use_tpu)
 
-        tmp_features = {}
         max_f1 = 0 
         input_ids = features["flattened_input_ids"]
         input_mask = features["flattened_input_mask"]
@@ -60,23 +59,13 @@ def model_fn_builder(config):
         sentence_map = features["sentence_map"] 
         span_mention = features["span_mention"]
         
-        tmp_features["input_ids"] = input_ids 
-        tmp_features["input_mask"] = input_mask 
-        tmp_features["text_len"] = text_len 
-        tmp_features["speaker_ids"] = speaker_ids
-        tmp_features["genre"] = genre
-        tmp_features["gold_starts"] = gold_starts
-        tmp_features["gold_ends"] =  gold_ends
-        tmp_features["speaker_ids"] = speaker_ids
-        tmp_features["cluster_ids"] = cluster_ids
-        tmp_features["sentence_map"] = sentence_map
-        tmp_features["span_mention"] = span_mention 
+        
         coref_evaluator = metrics.CorefEvaluator()
 
 
         tf.logging.info("********* Features *********")
-        for name in sorted(tmp_features.keys()):
-            tf.logging.info("  name = %s, shape = %s" % (name, tmp_features[name].shape))
+        for name in sorted(features.keys()):
+            tf.logging.info("  name = %s, shape = %s" % (name, features[name].shape))
 
         is_training = (mode == tf.estimator.ModeKeys.TRAIN)
 

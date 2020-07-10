@@ -52,7 +52,6 @@ def model_fn_builder(config):
         input_ids = features["flattened_input_ids"]
         input_mask = features["flattened_input_mask"]
         text_len = features["text_len"]
-
         speaker_ids = features["speaker_ids"]
         genre = features["genre"] 
         gold_starts = features["span_starts"]
@@ -77,7 +76,7 @@ def model_fn_builder(config):
         # Depending on the extension, use TF/Pytorch to load weights.
         assignment_map, initialized_variable_names = get_assignment_map_from_checkpoint(tvars, config['tf_checkpoint'])
         init_from_checkpoint = tf.train.init_from_checkpoint # if config['init_checkpoint'].endswith('ckpt') # else load_from_pytorch_checkpoint
-          
+        
         if FLAGS.use_tpu:
             def tpu_scaffold():
                 init_from_checkpoint(config['init_checkpoint'], assignment_map)
