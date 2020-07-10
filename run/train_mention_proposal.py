@@ -47,7 +47,7 @@ def model_fn_builder(config):
 
     def model_fn(features, labels, mode, params):  # pylint: disable=unused-argument
         """The `model_fn` for TPUEstimator."""
-        config = util.initialize_from_env(use_tpu=FLAGS.use_tpu)
+        config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_file=FLAGS.config_filename)
 
         input_ids = features["flattened_input_ids"]
         input_mask = features["flattened_input_mask"]

@@ -44,7 +44,7 @@ def model_fn_builder(config):
 
     def model_fn(features, labels, mode, params):  # pylint: disable=unused-argument
         """The `model_fn` for TPUEstimator."""
-        config = util.initialize_from_env(use_tpu=FLAGS.use_tpu)
+        config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_file=FLAGS.config_filename)
 
         max_f1 = 0 
         input_ids = features["flattened_input_ids"]
@@ -70,7 +70,6 @@ def model_fn_builder(config):
         is_training = (mode == tf.estimator.ModeKeys.TRAIN)
 
         model = util.get_model(config, model_sign="corefqa")
-
         tvars = tf.trainable_variables()
         # If you're using TF weights only, tf_checkpoint and init_checkpoint can be the same
         # Get the assignment map from the tensorflow checkpoint.
