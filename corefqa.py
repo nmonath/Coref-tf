@@ -135,15 +135,10 @@ class CorefModel(object):
                 candidate_start_scores=candidate_start_scores, candidate_end_scores=candidate_end_scores,
                 gold_starts=candidate_gold_starts, gold_ends=candidate_gold_ends)
 
-        # original mention_scores 
-
-        pred_probs = tf.sigmoid(candidate_mention_scores)
-        mention_proposal_loss = self.get_mention_proposal_loss(pred_probs, span_mention, candidate_starts, candidate_ends, )
-
-
         # beam size 所有span的数量小于num_words * top_span_ratio
         k = tf.minimum(self.config["max_candidate_mentions"], tf.to_int32(tf.floor(tf.to_float(num_words) * self.config["top_span_ratio"])))
         c = tf.to_int32(tf.minimum(self.config["max_top_antecedents"], k))  # 初筛挑出0.4*500=200个候选，细筛再挑出50个候选
+        candidate_mention_scores = tf.reshape(candidate_mention_scores, [-1])
 
         top_span_scores, top_span_indices = tf.nn.top_k(candidate_mention_scores, k)
 
@@ -417,7 +412,7 @@ class CorefModel(object):
         
         loss = self.marginal_likelihood_loss(top_antecedent_scores, top_antecedent_labels)  # [k]
 
-        # loss += mention_proposal_loss * self.config["mention_proposal_loss_ratio"]
+        loss += mention_proposal_loss * self.config["mention_proposal_loss_ratio"]
 
         return loss, self.topk_span_starts, self.topk_span_ends, top_antecedent_scores 
 
@@ -614,31 +609,6 @@ class CorefModel(object):
             question_token_ids = original_tokens 
             return question_token_ids, mention_start_in_sentence, mention_end_in_sentence  
 
-
-    def get_mention_proposal_loss_bk(self, span_scores, span_mention, start_pos, end_pos, span_mention_loss_mask=None):
-
-        span_mention = tf.reshape(span_mention, [-1])
-
-        if span_mention_loss_mask is None:
-            span_mention_loss_mask = tf.reshape(tf.ones_like(span_mention), [-1])
-
-        span_scores = tf.cast(tf.reshape(span_scores, [-1]), tf.float32)
-        span_scores = tf.stack([(1 - span_scores), span_scores], axis=-1)
-
-        start_end_mask = tf.concat([tf.reshape(start_pos, [-1, 1]), tf.reshape(end_pos, [-1, 1])], 1)
-        start_end_mask = tf.reshape(start_end_mask, [self.config["max_training_sentences"], -1, 2])
-        span_mention = tf.reshape(span_mention, [-1,self.config["max_segment_len"],self.config["max_segment_len"]])
-        span_mention = tf.gather_nd(span_mention, start_end_mask)
-
-        span_mention = tf.cast(tf.one_hot(tf.reshape(span_mention, [-1]), 2, axis=-1),tf.float32)
-        span_loss = tf.keras.losses.binary_crossentropy(span_mention, span_scores,)
-        if span_mention_loss_mask is not None:
-            span_loss = tf.math.reduce_mean(tf.multiply(span_loss, tf.cast(span_mention_loss_mask, tf.float32)))
-        else:
-            span_loss = tf.math.reduce_mean(span_loss)
-        
-        return span_loss 
-
     def get_mention_proposal_loss(self, candidate_mention_scores, gold_span_mention, mention_proposal_only_concate,
                 candidate_start_scores=None, candidate_end_scores=None,
                 gold_starts=None, gold_ends=None):
@@ -648,7 +618,8 @@ class CorefModel(object):
         gold_span_mention = tf.reshape(gold_span_mention, [-1])
         gold_span_mention = tf.cast(tf.one_hot(tf.reshape(gold_span_mention, [-1]), 2, axis=-1), tf.float32)
 
-        span_mention_loss = tf.keras.losses.binary_crossentropy(gold_span_mention, probs_span_mention)
+        span_mention_loss = tf.math.reduce_mean(tf.keras.losses.binary_crossentropy(gold_span_mention, probs_span_mention))
+
         if mention_proposal_only_concate:
             return span_mention_loss 
     
@@ -662,7 +633,7 @@ class CorefModel(object):
         start_loss = tf.math.reduce_mean(tf.keras.losses.binary_crossentropy(gold_starts, probs_start_mention,))
         end_loss = tf.math.reduce_mean(tf.keras.losses.binary_crossentropy(gold_ends, probs_end_mention))
 
-        total_loss = (start_loss + end_loss) /2 + span_mention_loss
+        total_loss = start_loss + end_loss + span_mention_loss
         return total_loss 
 
     def marginal_likelihood_loss(self, antecedent_scores, antecedent_labels):
