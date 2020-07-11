@@ -24,5 +24,5 @@ CUDA_VISIBLE_DEVICES=3 python3 ${REPO_PATH}/run/train_corefqa.py \
 --do_train=True \
 --use_tpu=False \
 --config_filename=${CONFIG_FILENAME} \
---iterations_per_loop=50 \
+--iterations_per_loop=5604 \
 --config_filename=${CONFIG_FILENAME}

@@ -81,7 +81,7 @@ class CorefModel(object):
             input_ids = input_ids, 
             input_mask = flat_input_mask, 
             use_one_hot_embeddings=False, 
-            scope="bert")
+            scope="mention_proposal") # original is bert 
         self.dropout = self.get_dropout(self.config["dropout_rate"], is_training)
 
         doc_seq_emb = model.get_sequence_output() # (max_sentence_len, max_seg_len)
@@ -120,7 +120,7 @@ class CorefModel(object):
         # [num_candidates, ] -> 候选答案的得分
 
         candidate_span_emb, candidate_start_emb, candidate_end_emb = self.get_span_emb(doc_seq_emb, candidate_starts, candidate_ends) # (candidate_mention, embedding)
-        gold_candidate_mention_label = self.get_mention_labels(gold_starts, gold_ends, candidate_starts, candidate_ends, num_words)
+        gold_candidate_mention_label = self.get_candidate_span_label(gold_starts, gold_ends, candidate_starts, candidate_ends, num_words)
 
         if self.config["mention_proposal_only_concate"]:
             candidate_mention_scores = self.get_mention_scores(span_emb = candidate_span_emb, span_name = "mention_proposal")
@@ -387,8 +387,11 @@ class CorefModel(object):
         # backard_mention_ji_score # (k*c) 
         tile_top_span_mention_scores = tf.tile(tf.expand_dims(tf.reshape(top_span_mention_scores, [-1]), 1), [1, c])
         
-        top_antecedent_scores = tf.math.add_n([tf.reshape(topc_forward_scores, [-1]), tf.reshape(backard_mention_ji_score, [-1]), \
-            tf.reshape(topc_span_scores, [-1]),tf.reshape(tile_top_span_mention_scores, [-1])])
+        # top_antecedent_scores = tf.math.add_n([tf.reshape(topc_forward_scores, [-1]), tf.reshape(backard_mention_ji_score, [-1]), \
+        #     tf.reshape(topc_span_scores, [-1]),tf.reshape(tile_top_span_mention_scores, [-1])])
+
+        top_antecedent_scores = tf.math.add_n([tf.reshape(topc_forward_scores, [-1]), tf.reshape(backard_mention_ji_score, [-1])]) * self.config["score_ratio"]
+        top_antecedent_scores += tf.math.add_n([tf.reshape(topc_span_scores, [-1]), tf.reshape(tile_top_span_mention_scores, [-1])])
 
         
         top_antecedent_scores = tf.reshape(top_antecedent_scores, [k, c])
@@ -859,7 +862,26 @@ class CorefModel(object):
         return predicted_clusters, mention_to_predicted
 
 
-    def get_mention_labels(self, gold_starts, gold_ends, candidate_starts, candidate_ends, doc_len):
+    def get_candidate_span_label(self, gold_starts, gold_ends, candidate_starts, candidate_ends, doc_len):
+        """
+        Desc:
+            according to the golden start/end mention position index, get the golden candidate starts/end 
+            mention span labels. 
+        Args:
+            gold_starts: a tf.int32 tensor containing golden mention start position index in document, 
+                tf.Tensor([2, 3, 4, 5])
+            gold_ends: a tf.int32 tensor containing golden mention end position index in document, 
+                tf.Tensor([3, 9, 10, 12])
+            candidate_starts: a tf.int32 tensor containing candidate mention start position index in document, 
+                tf.Tensor([3, 3, 10, 12, 16, 17])
+            candidate_ends: a tf.int32 tensor containing candidate mention end position index in document,
+            doc_len: an integer containing the length of the document. 
+                tf.Tensor([3, 9, 14, 19, 19, 37])
+        Return:
+            a tf.int32 tensor containing the 0/1 label coresponds to every start-end 
+            (candidate_starts, candidate_ends) span pairs. 
+            tf.Tensor([1, 1, 0, 0, 0, 0])
+        """
         gold_mention_sparse_label = tf.stack([gold_starts, gold_ends], axis=1)
         gold_span_value = tf.reshape(tf.ones_like(gold_starts, tf.int32), [-1])
         gold_span_shape = tf.constant([doc_len, doc_len])

@@ -428,10 +428,10 @@ if __name__ == "__main__":
     # def prepare_train_dataset(input_file, output_data_dir, output_filename, sliding_window_size, config, tokenizer=None,
     # vocab_file=None, language="english", max_doc_length: int = None, is_training=True, demo=False)
     # 
-    demo = False 
+    demo = True 
     lowercase = True # expermental dataset should be False 
     config = util.initialize_from_env(use_tpu=False, config_file="experiments_tinybert.conf")
-    for sliding_window_size in [64,]: #  128, 384,]:  # 512]:
+    for sliding_window_size in [128]: #  128, 384,]:  # 512]:
         for max_training_sentences in [2]:
             config["max_segment_len"] = sliding_window_size
             config["max_training_sentences"] = max_training_sentences

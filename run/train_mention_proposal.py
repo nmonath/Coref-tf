@@ -31,6 +31,7 @@ flags.DEFINE_bool("do_eval", False, "Whether to test a model.")
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
 flags.DEFINE_bool("concat_only", False, "Whether to use TPU or GPU/CPU.")
 flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
+flags.DEFINE_integer("keep_checkpoint_max", 30, "How many checkpoint models keep at most.")
 flags.DEFINE_string("config_filename", "experiments.conf", "the input config file name.")
 flags.DEFINE_string("tpu_name", None, "The Cloud TPU to use for training. This should be either the name "
                        "used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 url.")
@@ -208,8 +209,9 @@ def main(_):
         cluster=tpu_cluster_resolver,
         master=FLAGS.master,
         model_dir=FLAGS.output_dir,
-        keep_checkpoint_max = 20,
+        keep_checkpoint_max = FLAGS.keep_checkpoint_max,
         save_checkpoints_steps=save_checkpoints_steps,
+        session_config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True),
         tpu_config=tf.contrib.tpu.TPUConfig(
             iterations_per_loop=FLAGS.iterations_per_loop,
             num_shards=FLAGS.num_tpu_cores,
@@ -221,6 +223,7 @@ def main(_):
         model_fn=model_fn,
         config=run_config,
         train_batch_size=1,
+        eval_batch_size=1,
         predict_batch_size=1)
 
     seq_length = config["max_segment_len"] * config["max_training_sentences"]
