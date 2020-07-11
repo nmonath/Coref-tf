@@ -186,9 +186,7 @@ def main(_):
     config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_file=FLAGS.config_filename)
 
     tf.logging.set_verbosity(tf.logging.INFO)
-    #    num_train_steps = config["num_docs"] * config["num_epochs"]
-    num_train_steps = 500
-
+    num_train_steps = config["num_docs"] * config["num_epochs"]
 
     save_checkpoints_steps = int(num_train_steps / 20)
 
@@ -240,12 +238,9 @@ def main(_):
             # iterate over each doc for evaluation
             pred_span_label, gold_span_label = mention_proposal_prediction(config,doc_output,concat_only=FLAGS.concat_only)
 
-            # tp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
-            # fp += tf.math.reduce_sum(tf.math.logical_and(pred_span_label, gold_span_label))
-            # fn += tf.math.reduce_sum(tf.math.logical_and(tf.math.logical_not(pred_span_label), gold_span_label)) 
-            tem_tp = np.sum(np.logical_and(pred_span_label, gold_span_label))
-            tem_fp = np.sum(np.logical_and(pred_span_label, gold_span_label))
-            tem_fn = np.sum(np.logical_and(np.logical_not(pred_span_label), gold_span_label))
+            tem_tp = np.logical_and(pred_span_label, gold_span_label).sum()
+            tem_fp = np.logical_and(pred_span_label, np.logical_not(gold_span_label)).sum()
+            tem_fn = np.logical_and(np.logical_not(pred_span_label), gold_span_label).sum()
 
             tp += tem_tp
             fp += tem_fp

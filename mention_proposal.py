@@ -21,7 +21,8 @@ import util
 import metrics 
 from bert import modeling
 from bert import tokenization
-
+np.random.seed(seed=2333)
+tf.set_random_seed(2333)
 
 
 
