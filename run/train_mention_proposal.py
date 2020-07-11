@@ -111,14 +111,39 @@ def model_fn_builder(config):
                 optimizer = RAdam(learning_rate=config['bert_learning_rate'], epsilon=1e-8, beta1=0.9, beta2=0.999)
                 train_op = optimizer.minimize(total_loss, tf.train.get_global_step())
         
-            logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=1)
+            train_logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=1)
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                     mode=mode,
                     loss=total_loss,
                     train_op=train_op,
                     scaffold_fn=scaffold_fn, 
-                    training_hooks=[logging_hook])
-        elif mode == tf.estimator.ModeKeys.EVAL or mode == tf.estimator.ModeKeys.PREDICT:
+                    training_hooks=[train_logging_hook])
+
+        elif mode == tf.estimator.ModeKeys.EVAL: 
+            total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(input_ids, input_mask, \
+                text_len, speaker_ids, genre, is_training, gold_starts,
+                gold_ends, cluster_ids, sentence_map, span_mention)
+
+            predictions = {
+                "total_loss": total_loss, 
+            }
+
+            def metric_fn(start_scores, end_scores, span_scores, gold_span_label):
+                pred_span_label = tf.cast(tf.reshape(tf.math.greater_equal(span_scores, config["threshold"]), [-1]), tf.bool)
+                gold_span_label = tf.cast(tf.reshape(gold_span_label, [-1]), tf.bool)
+
+                return {"precision": tf.compat.v1.metrics.precision(gold_span_label, pred_span_label), 
+                        "recall": tf.compat.v1.metrics.recall(gold_span_label, pred_span_label)}
+
+            eval_metrics = (metric_fn, [start_scores, end_scores, span_scores, span_mention])
+            output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+                mode=tf.estimator.ModeKeys.EVAL,
+                loss=total_loss,
+                eval_metrics=eval_metrics,
+                scaffold_fn=scaffold_fn)
+
+
+        elif mode == tf.estimator.ModeKeys.PREDICT:
             total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(input_ids, input_mask, \
                 text_len, speaker_ids, genre, is_training, gold_starts,
                 gold_ends, cluster_ids, sentence_map, span_mention)
@@ -132,7 +157,6 @@ def model_fn_builder(config):
                     "span_scores": span_scores, 
                     "span_gold": span_mention
             }
-
 
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                 mode=tf.estimator.ModeKeys.PREDICT,
@@ -188,6 +212,7 @@ def main(_):
 
     tf.logging.set_verbosity(tf.logging.INFO)
     num_train_steps = config["num_docs"] * config["num_epochs"]
+    num_train_steps = 100
 
     save_checkpoints_steps = int(num_train_steps / 20)
 
@@ -208,6 +233,7 @@ def main(_):
     run_config = tf.contrib.tpu.RunConfig(
         cluster=tpu_cluster_resolver,
         master=FLAGS.master,
+        evaluation_master=FLAGS.master,
         model_dir=FLAGS.output_dir,
         keep_checkpoint_max = FLAGS.keep_checkpoint_max,
         save_checkpoints_steps=save_checkpoints_steps,
@@ -232,12 +258,18 @@ def main(_):
         estimator.train(input_fn=file_based_input_fn_builder(config["train_path"], seq_length, config, 
             is_training=True, drop_remainder=True),
             max_steps=num_train_steps)
+        eval_result = estimator.evaluate(
+            input_fn=file_based_input_fn_builder(config["eval_path"], seq_length, config,is_training=False, drop_remainder=False),
+            steps=698)
+        f1 = 2*eval_result["precision"] * eval_result["recall"] / (eval_result["precision"] + eval_result["recall"])
+        tf.logging.info("********** [EVAL] ********** : precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(eval_result["precision"], eval_result["recall"], f1))
+
 
     if FLAGS.do_eval:
         tp, fp, fn = 0, 0, 0
         epsilon = 1e-10
-        for doc_output in estimator.predict(file_based_input_fn_builder(config["eval_path"], seq_length, config,is_training=False, drop_remainder=False), 
-            yield_single_examples=False): 
+        for doc_output in estimator.predict(file_based_input_fn_builder(config["eval_path"], seq_length, config,
+            is_training=False, drop_remainder=False), yield_single_examples=False): 
             # iterate over each doc for evaluation
             pred_span_label, gold_span_label = mention_proposal_prediction(config,doc_output,concat_only=FLAGS.concat_only)
 
@@ -248,7 +280,6 @@ def main(_):
             tp += tem_tp
             fp += tem_fp
             fn += tem_fn
-            # print(tem_tp, tem_fp, tem_fn)
 
         p = tp / (tp+fp+epsilon)
         r = tp / (tp+fn+epsilon)
