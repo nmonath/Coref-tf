@@ -135,10 +135,10 @@ class MentionProposalModel(object):
             return loss, uniform_start_scores, uniform_end_scores, uniform_span_scores
 
         if span_mention is None :
-            loss = tf.math.add_n([self.config["start_ratio"] * start_loss, self.config["end_ratio"] * end_loss])
+            loss = self.config["start_ratio"] * start_loss +  self.config["end_ratio"] * end_loss
             return loss, uniform_start_scores, uniform_end_scores
         else:
-            loss = tf.math.add_n([self.config["start_ratio"] * start_loss, self.config["end_ratio"] * end_loss, self.config["mention_ratio"] * span_loss])
+            loss = self.config["start_ratio"] * start_loss + self.config["end_ratio"] * end_loss + self.config["mention_ratio"] * span_loss
             return loss, uniform_start_scores, uniform_end_scores, uniform_span_scores
 
 
