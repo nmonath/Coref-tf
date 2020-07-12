@@ -5,8 +5,8 @@
 
 REPO_PATH=/home/xiaoyli1110/xiaoya/Coref-tf
 export PYTHONPATH="$PYTHONPATH:/home/xiaoyli1110/xiaoya/Coref-tf"
-export TPU_NAME=tensorflow-tpu
-# export TPU_NAME=tf-tpu
+export TPU_NAME=tf-tpu-2
+# export TPU_NAME=
 GCP_PROJECT=xiaoyli-20-04-274510
 OUTPUT_DIR=gs://mention_proposal/spanbert_large_overlap_128_5_output_2e-5
 

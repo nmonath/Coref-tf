@@ -2,11 +2,9 @@
 # -*- coding: utf-8 -*- 
 
 
-import json
+
 import os
 import sys 
-import random
-import threading
 
 repo_path = "/".join(os.path.realpath(__file__).split("/")[:-1])
 print(repo_path)
@@ -39,63 +37,8 @@ class MentionProposalModel(object):
         self.bert_config = modeling.BertConfig.from_json_file(config["bert_config_file"])
         self.bert_config.hidden_dropout_prob = self.config["dropout_rate"]
         self.tokenizer = tokenization.FullTokenizer(vocab_file=config['vocab_file'], do_lower_case=False)
-
-        input_props = []
-        input_props.append((tf.int32, [None, None]))  # input_ids. (batch_size, seq_len)
-        input_props.append((tf.int32, [None, None]))  # input_mask (batch_size, seq_len)
-        input_props.append((tf.int32, [None]))  # Text lengths.
-        input_props.append((tf.int32, [None, None]))  # Speaker IDs.  (batch_size, seq_len)
-        input_props.append((tf.int32, []))  # Genre.  能确保整个batch都是同主题，能因为一篇文章的多段放在一个batch里
-        input_props.append((tf.bool, []))  # Is training.
-        input_props.append((tf.int32, [None]))  # Gold starts. 一个instance只有一个start?是整篇文章的所有mention的start
-        input_props.append((tf.int32, [None]))  # Gold ends. 整篇文章的所有mention的end
-        input_props.append((tf.int32, [None]))  # Cluster ids. 整篇文章的所有mention的id
-        input_props.append((tf.int32, [None]))  # Sentence Map 整篇文章的每个token属于哪个句子
-
-        self.queue_input_tensors = [tf.placeholder(dtype, shape) for dtype, shape in input_props]
-        dtypes, shapes = zip(*input_props)
-        queue = tf.PaddingFIFOQueue(capacity=10, dtypes=dtypes, shapes=shapes)  # 10是batch_size?
-        self.enqueue_op = queue.enqueue(self.queue_input_tensors)
-        self.input_tensors = queue.dequeue()  # self.queue_input_tensors 不一样？
-
-        if self.config["run"] == "session":
-            self.loss, self.pred_start_scores, self.pred_end_scores = self.get_mention_proposal_and_loss(*self.input_tensors)
-            tvars = tf.trainable_variables()
-            # If you're using TF weights only, tf_checkpoint and init_checkpoint can be the same
-            # Get the assignment map from the tensorflow checkpoint.
-            # Depending on the extension, use TF/Pytorch to load weights.
-            assignment_map, initialized_variable_names = modeling.get_assignment_map_from_checkpoint(tvars, config['tf_checkpoint'])
-            init_from_checkpoint = tf.train.init_from_checkpoint  
-            init_from_checkpoint(config['init_checkpoint'], assignment_map)
-            print("**** Trainable Variables ****")
-            for var in tvars:
-                init_string = ""
-                if var.name in initialized_variable_names:
-                    init_string = ", *INIT_FROM_CKPT*"
-                    tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape, init_string)
-                    print("  name = %s, shape = %s%s" % (var.name, var.shape, init_string))
-
-            num_train_steps = int(self.config['num_docs'] * self.config['num_epochs'])  # 文章数 * 训练轮数
-            num_warmup_steps = int(num_train_steps * 0.1)  # 前1/10做warm_up
-            self.global_step = tf.train.get_or_create_global_step()  # 根据不同的model得到不同的optimizer
-            self.train_op = optimization.create_custom_optimizer(tvars, self.loss, self.config['bert_learning_rate'],
-                                                            self.config['task_learning_rate'],
-                                                            num_train_steps, num_warmup_steps, False, self.global_step,
-                                                            freeze=-1, task_opt=self.config['task_optimizer'],
-                                                            eps=config['adam_eps'])
         
         self.coref_evaluator = metrics.CorefEvaluator()
-
-    def restore(self, session):
-        """在evaluate和predict阶段加载整个模型"""
-        # Don't try to restore unused variables from the TF-Hub ELMo module.
-        vars_to_restore = [v for v in tf.global_variables()]
-        saver = tf.train.Saver(vars_to_restore)
-        checkpoint_path = os.path.join(self.config["log_dir"], "model.max.ckpt")
-        print("Restoring from {}".format(checkpoint_path))
-        session.run(tf.global_variables_initializer())
-        saver.restore(session, checkpoint_path)
-
 
     def get_dropout(self, dropout_rate, is_training):  # is_training为True时keep=1-drop, 为False时keep=1
         return 1 - (tf.to_float(is_training) * dropout_rate)
@@ -216,52 +159,6 @@ class MentionProposalModel(object):
         return flattened_emb 
         ##### return tf.boolean_mask(flattened_emb, tf.reshape(text_len_mask, [num_sentences * max_sentence_length]))
 
-
-    def load_eval_data(self):  # lazy加载，真正需要evaluate的时候加载，加载一次常驻内存
-        if self.eval_data is None:
-            def load_line(line):
-                example = json.loads(line)
-                return self.tensorize_example(example, is_training=False), example
-
-            with open(self.config["eval_path"]) as f:
-                self.eval_data = [load_line(l) for l in f.readlines()]
-            # num_words = sum(tensorized_example[2].sum() for tensorized_example, _ in self.eval_data) 所有token数
-            print("Loaded {} eval examples.".format(len(self.eval_data)))
-
-
-    def evaluate_mention_proposal(self, session, official_stdout=False, eval_mode=False):
-        self.load_eval_data()
-        summary_dict = {}
-        tp = 0
-        fp = 0
-        fn = 0
-        epsilon = 1e-10
-        for example_num, (tensorized_example, example) in enumerate(self.eval_data):
-            _, _, _, _, _, _, gold_starts, gold_ends, _, _ = tensorized_example
-            feed_dict = {i: t for i, t in zip(self.input_tensors, tensorized_example)}
-            pred_labels, gold_labels = session.run([self.pred_mention_labels, self.gold_mention_labels],
-                                                   feed_dict=feed_dict)
-
-            tp += np.logical_and(pred_labels, gold_labels).sum()
-            fp += np.logical_and(pred_labels, np.logical_not(gold_labels)).sum()
-            fn += np.logical_and(np.logical_not(pred_labels), gold_labels).sum()
-
-            if (example_num + 1) % 100 == 0:
-                print("Evaluated {}/{} examples.".format(example_num + 1, len(self.eval_data)))
-
-        p = tp / (tp+fp+epsilon)
-        r = tp / (tp+fn+epsilon)
-        f = 2*p*r/(p+r+epsilon)
-        summary_dict["Average F1 (py)"] = f
-        print("Average F1 (py): {:.2f}% on {} docs".format(f * 100, len(self.eval_data)))
-        summary_dict["Average precision (py)"] = p
-        print("Average precision (py): {:.2f}%".format(p * 100))
-        summary_dict["Average recall (py)"] = r
-        print("Average recall (py): {:.2f}%".format(r * 100))
-
-        return util.make_summary(summary_dict), f
-
-
     def mention_proposal_loss(self, mention_span_score, gold_mention_span):
         """
         Desc:
@@ -270,36 +167,6 @@ class MentionProposalModel(object):
         mention_span_score = tf.reshape(mention_span_score, [-1])
         gold_mention_span = tf.reshape(gold_mention_span, [-1])
         return tf.nn.sigmoid_cross_entropy_with_logits(labels=gold_mention_span, logits=mention_span_score) 
-
-
-    def start_enqueue_thread(self, session):
-        with open(self.config["train_path"]) as f:
-            train_examples = [json.loads(jsonline) for jsonline in f.readlines()]
-
-        def _enqueue_loop():
-            while True:  # 每个例子是一篇文章，同一篇文章的所有段落一起做session run
-                random.shuffle(train_examples)
-                if self.config['single_example']:
-                    for example in train_examples:
-                        tensorized_example = self.tensorize_example(example, is_training=True)
-                        feed_dict = dict(zip(self.queue_input_tensors, tensorized_example))
-                        session.run(self.enqueue_op, feed_dict=feed_dict)
-                else:  
-                    examples = []
-                    for example in train_examples:
-                        tensorized = self.tensorize_example(example, is_training=True)
-                        if type(tensorized) is not list:
-                            tensorized = [tensorized]
-                        examples += tensorized
-                    random.shuffle(examples)
-                    print('num examples', len(examples))
-                    for example in examples:
-                        feed_dict = dict(zip(self.queue_input_tensors, example))
-                        session.run(self.enqueue_op, feed_dict=feed_dict)
-
-        enqueue_thread = threading.Thread(target=_enqueue_loop)
-        enqueue_thread.daemon = True
-        enqueue_thread.start()
 
 
     def ffnn(self, inputs, num_hidden_layers, hidden_size, output_size, dropout,
