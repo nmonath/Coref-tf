@@ -88,12 +88,9 @@ class MentionProposalModel(object):
         span_mention_doc = tf.reshape(span_mention_doc, (self.config["max_training_sentences"]*self.config["max_segment_len"]*self.config["max_segment_len"], -1))
         # # (max_train_sent * max_segment_len * max_segment_len, embed * 2)
 
-        with tf.variable_scope("span_scores", reuse=tf.AUTO_REUSE):  # [k, 1] 每个候选span的得分
-            span_scores = self.ffnn(span_mention_doc, self.config["hidden_size"]*2, 1, self.dropout) # (max_train_sent, max_segment_len, 1)
-        with tf.variable_scope("start_scores", reuse=tf.AUTO_REUSE):  # [k, 1] 每个候选span的得分
-            start_scores = self.ffnn(mention_doc, self.config["hidden_size"], 1, self.dropout) # (max_train_sent, max_segment_len, 1) 
-        with tf.variable_scope("end_scores", reuse=tf.AUTO_REUSE):  # [k, 1] 每个候选span的得分
-            end_scores = self.ffnn(mention_doc, self.config["hidden_size"], 1, self.dropout) # (max_train_sent, max_segment_len, 1)
+        span_scores = self.ffnn(span_mention_doc, self.config["hidden_size"]*2, 1, self.dropout, scope_name="span_scores") # (max_train_sent, max_segment_len, 1)
+        start_scores = self.ffnn(mention_doc, self.config["hidden_size"], 1, self.dropout, scope_name="start_scores") # (max_train_sent, max_segment_len, 1) 
+        end_scores = self.ffnn(mention_doc, self.config["hidden_size"], 1, self.dropout, scope_name="end_scores") # (max_train_sent, max_segment_len, 1)
 
         gold_start_label = tf.reshape(gold_starts, [-1, 1])  
         # gold_starts -> [1, 3, 5, 8, -1, -1, -1, -1]
@@ -169,18 +166,17 @@ class MentionProposalModel(object):
         return tf.nn.sigmoid_cross_entropy_with_logits(labels=gold_mention_span, logits=mention_span_score) 
 
 
-    def ffnn(self, inputs, hidden_size, output_size, dropout,
+    def ffnn(self, inputs, hidden_size, output_size, dropout, scope_name="variable",
         output_weights_initializer=tf.truncated_normal_initializer(stddev=0.02),
         hidden_initializer=tf.truncated_normal_initializer(stddev=0.02)):
 
         if len(inputs.get_shape()) > 3:
             raise ValueError("FFNN with rank {} not supported".format(len(inputs.get_shape())))
         current_inputs = inputs
-
-        hidden_weights = tf.get_variable("hidden_weights", [hidden_size, output_size],
-                                        initializer=hidden_initializer)
-        hidden_bias = tf.get_variable("hidden_bias", [output_size], initializer=tf.zeros_initializer())
-        current_outputs = tf.nn.relu(tf.nn.xw_plus_b(current_inputs, hidden_weights, hidden_bias))
+        with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE):
+            hidden_weights = tf.get_variable("hidden_weights", [hidden_size, output_size],initializer=hidden_initializer)
+            hidden_bias = tf.get_variable("hidden_bias", [output_size], initializer=tf.zeros_initializer())
+            current_outputs = tf.nn.relu(tf.nn.xw_plus_b(current_inputs, hidden_weights, hidden_bias))
 
         return current_outputs
 
