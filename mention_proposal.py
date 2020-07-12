@@ -101,7 +101,7 @@ class MentionProposalModel(object):
         return 1 - (tf.to_float(is_training) * dropout_rate)
 
     def get_mention_proposal_and_loss(self, input_ids, input_mask, text_len, speaker_ids, genre, is_training,
-        gold_starts, gold_ends, cluster_ids, sentence_map, span_mention=None, concat_only=False):
+        gold_starts, gold_ends, cluster_ids, sentence_map, span_mention=None):
         """get mention proposals"""
 
         start_end_loss_mask = tf.cast(tf.where(tf.cast(tf.math.greater_equal(input_ids, tf.zeros_like(input_ids)),tf.bool), x=tf.ones_like(input_ids), y=tf.zeros_like(input_ids)), tf.float32) 
@@ -146,11 +146,11 @@ class MentionProposalModel(object):
         # # (max_train_sent * max_segment_len * max_segment_len, embed * 2)
 
         with tf.variable_scope("span_scores", reuse=tf.AUTO_REUSE):  # [k, 1] 每个候选span的得分
-            span_scores = util.ffnn_bk(span_mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"]*2, 1, self.dropout) # (max_train_sent, max_segment_len, 1)
+            span_scores = self.ffnn(span_mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"]*2, 1, self.dropout) # (max_train_sent, max_segment_len, 1)
         with tf.variable_scope("start_scores", reuse=tf.AUTO_REUSE):  # [k, 1] 每个候选span的得分
-            start_scores = util.ffnn_bk(mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout) # (max_train_sent, max_segment_len, 1) 
+            start_scores = self.ffnn(mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout) # (max_train_sent, max_segment_len, 1) 
         with tf.variable_scope("end_scores", reuse=tf.AUTO_REUSE):  # [k, 1] 每个候选span的得分
-            end_scores = util.ffnn_bk(mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout) # (max_train_sent, max_segment_len, 1)
+            end_scores = self.ffnn(mention_doc, self.config["ffnn_depth"], self.config["ffnn_size"], 1, self.dropout) # (max_train_sent, max_segment_len, 1)
 
         gold_start_label = tf.reshape(gold_starts, [-1, 1])  
         # gold_starts -> [1, 3, 5, 8, -1, -1, -1, -1]
@@ -190,7 +190,7 @@ class MentionProposalModel(object):
         end_loss = tf.reduce_mean(tf.multiply(end_loss, tf.cast(start_end_loss_mask, tf.float32))) 
         span_loss = tf.reduce_mean(tf.multiply(span_loss, tf.cast(span_mention_loss_mask, tf.float32))) 
 
-        if concat_only:
+        if self.config["mention_proposal_only_concate"]:
             loss = span_loss 
             return loss, uniform_start_scores, uniform_end_scores, uniform_span_scores
 
@@ -300,3 +300,48 @@ class MentionProposalModel(object):
         enqueue_thread = threading.Thread(target=_enqueue_loop)
         enqueue_thread.daemon = True
         enqueue_thread.start()
+
+
+    def ffnn(self, inputs, num_hidden_layers, hidden_size, output_size, dropout,
+        output_weights_initializer=tf.truncated_normal_initializer(stddev=0.02),
+        hidden_initializer=tf.truncated_normal_initializer(stddev=0.02)):
+
+        if len(inputs.get_shape()) > 3:
+            raise ValueError("FFNN with rank {} not supported".format(len(inputs.get_shape())))
+
+        if len(inputs.get_shape()) == 3:
+            batch_size = util.shape(inputs, 0)
+            seqlen = util.shape(inputs, 1)
+            emb_size = util.shape(inputs, 2)
+            current_inputs = tf.reshape(inputs, [batch_size * seqlen, emb_size])
+        else:
+            current_inputs = inputs
+
+        for i in range(num_hidden_layers):
+            hidden_weights = tf.get_variable("hidden_weights_{}".format(i), [util.shape(current_inputs, 1), hidden_size],
+                                         initializer=hidden_initializer)
+            hidden_bias = tf.get_variable("hidden_bias_{}".format(i), [hidden_size], initializer=tf.zeros_initializer())
+            current_outputs = tf.nn.relu(tf.nn.xw_plus_b(current_inputs, hidden_weights, hidden_bias))
+
+        if dropout is not None:
+            current_outputs = tf.nn.dropout(current_outputs, dropout)
+        
+        current_inputs = current_outputs
+
+        output_weights = tf.get_variable("output_weights", [util.shape(current_inputs, 1), output_size],
+                                     initializer=output_weights_initializer)
+        output_bias = tf.get_variable("output_bias", [output_size], initializer=tf.zeros_initializer())
+        outputs = tf.nn.xw_plus_b(current_inputs, output_weights, output_bias)
+
+        if len(inputs.get_shape()) == 3:
+            outputs = tf.reshape(outputs, [batch_size, seqlen, output_size])
+        return outputs
+
+
+
+
+
+
+
+
+
