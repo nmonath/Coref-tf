@@ -85,7 +85,7 @@ def model_fn_builder(config):
                 text_len, speaker_ids, genre, is_training, gold_starts,
                 gold_ends, cluster_ids, sentence_map, span_mention=span_mention)
 
-            if config["device"] == "tpu":
+            if config["tpu"]:
                 optimizer = tf.train.AdamOptimizer(learning_rate=config['bert_learning_rate'], beta1=0.9, beta2=0.999, epsilon=1e-08)
                 optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer)
                 train_op = optimizer.minimize(total_loss, tf.train.get_global_step()) 
