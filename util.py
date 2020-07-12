@@ -37,7 +37,7 @@ def initialize_from_env(eval_test=False, config_name="train_spanbert_base", conf
         config = pyhocon.ConfigFactory.parse_file(os.path.join(repo_path, config_file)) 
     else: 
         print("loading experiments_tpu.conf ... ")
-        config = pyhocon.ConfigFactory.parse_file(os.path.join(repo_path, "experiments_tpu.conf"))
+        config = pyhocon.ConfigFactory.parse_file(os.path.join(repo_path, config_file))
 
     if print_info:
         tf.logging.info("=*="*10)
