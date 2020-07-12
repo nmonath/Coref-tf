@@ -16,7 +16,7 @@ output_dir=/xiaoya/corefqa_data_output
 input_file=/xiaoya/data/test.english.v4_gold_conll
 
 
-python3 ${REPO_PATH}/run/train_mention_proposal.py \
+python3 {REPO_PATH}/run/train_mention_proposal.py \
 --output_dir=${output_dir} \
 --do_eval=True \
 --do_train=False \

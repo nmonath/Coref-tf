@@ -9,6 +9,7 @@ from __future__ import print_function
 
 
 import os 
+import math 
 import logging
 import numpy as np 
 import tensorflow as tf
@@ -130,7 +131,6 @@ def model_fn_builder(config):
                 eval_metrics=eval_metrics,
                 scaffold_fn=scaffold_fn)
 
-
         elif mode == tf.estimator.ModeKeys.PREDICT:
             tf.logging.info("****************************** PREDICT MODE ******************************")
             total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(input_ids, input_mask, \
@@ -213,13 +213,15 @@ def main(_):
         tf.config.experimental_connect_to_cluster(tpu_cluster_resolver)
         tf.tpu.experimental.initialize_tpu_system(tpu_cluster_resolver)
 
+    keep_chceckpoint_max = max(math.ceil(num_train_steps / config["save_checkpoints_steps"]), FLAGS.keep_checkpoint_max)
+
     is_per_host = tf.contrib.tpu.InputPipelineConfig.PER_HOST_V2
     run_config = tf.contrib.tpu.RunConfig(
         cluster=tpu_cluster_resolver,
         master=FLAGS.master,
         evaluation_master=FLAGS.master,
         model_dir=FLAGS.output_dir,
-        keep_checkpoint_max = FLAGS.keep_checkpoint_max,
+        keep_checkpoint_max = keep_chceckpoint_max,
         save_checkpoints_steps=config["save_checkpoints_steps"],
         session_config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True),
         tpu_config=tf.contrib.tpu.TPUConfig(
@@ -275,9 +277,10 @@ def main(_):
         tp, fp, fn = 0, 0, 0
         epsilon = 1e-10
         for doc_output in estimator.predict(file_based_input_fn_builder(config["test_path"], seq_length, config,
-            is_training=False, drop_remainder=False), yield_single_examples=False): 
+            is_training=False, drop_remainder=False), checkpoint_path=config["eval_checkpoint"],
+            yield_single_examples=False): 
             # iterate over each doc for evaluation
-            pred_span_label, gold_span_label = mention_proposal_prediction(config,doc_output,concat_only=FLAGS.concat_only)
+            pred_span_label, gold_span_label = mention_proposal_prediction(config, doc_output,concat_only=FLAGS.concat_only)
 
             tem_tp = np.logical_and(pred_span_label, gold_span_label).sum()
             tem_fp = np.logical_and(pred_span_label, np.logical_not(gold_span_label)).sum()
@@ -290,7 +293,7 @@ def main(_):
         p = tp / (tp+fp+epsilon)
         r = tp / (tp+fn+epsilon)
         f = 2*p*r/(p+r+epsilon)
-        tf.logging.info("Average precision: {:.2f}, Average recall: {:.2f}, Average F1 {:.4f}".format(p, r, f))
+        tf.logging.info("Average precision: {:.4f}, Average recall: {:.4f}, Average F1 {:.4f}".format(p, r, f))
 
 
 

@@ -103,7 +103,6 @@ def model_fn_builder(config):
         if mode == tf.estimator.ModeKeys.TRAIN:
             tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
 
-
             if tf.train.get_global_step() // 1000 == 0:
                 tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
                 predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(topk_span_starts, topk_span_ends, top_antecedent_scores, cluster_ids)

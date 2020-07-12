@@ -425,9 +425,6 @@ def construct_sliding_windows(sequence_length: int, sliding_window_size: int):
 if __name__ == "__main__":
     # ---------
     # python3 build_data_to_tfrecord.py 
-    # def prepare_train_dataset(input_file, output_data_dir, output_filename, sliding_window_size, config, tokenizer=None,
-    # vocab_file=None, language="english", max_doc_length: int = None, is_training=True, demo=False)
-    # 
     demo = True 
     lowercase = True # expermental dataset should be False 
     config = util.initialize_from_env(use_tpu=False, config_file="experiments_tinybert.conf")
