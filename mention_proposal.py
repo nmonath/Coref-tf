@@ -130,16 +130,17 @@ class MentionProposalModel(object):
         end_loss = tf.reduce_mean(tf.multiply(end_loss, tf.cast(start_end_loss_mask, tf.float32))) 
         span_loss = tf.reduce_mean(tf.multiply(span_loss, tf.cast(span_mention_loss_mask, tf.float32))) 
 
-        if self.config["mention_proposal_only_concate"]:
-            loss = span_loss 
-            return loss, uniform_start_scores, uniform_end_scores, uniform_span_scores
+        total_loss = self.config["start_ratio"] * start_loss + self.config["end_ratio"] * end_loss + self.config["mention_ratio"] * span_loss
 
-        if span_mention is None :
-            loss = self.config["start_ratio"] * start_loss +  self.config["end_ratio"] * end_loss
-            return loss, uniform_start_scores, uniform_end_scores
-        else:
-            loss = self.config["start_ratio"] * start_loss + self.config["end_ratio"] * end_loss + self.config["mention_ratio"] * span_loss
-            return loss, uniform_start_scores, uniform_end_scores, uniform_span_scores
+        # if self.config["mention_proposal_only_concate"]:
+        #     loss = span_loss 
+        #     return loss, uniform_start_scores, uniform_end_scores, uniform_span_scores
+
+        # if span_mention is None :
+        #     loss = self.config["start_ratio"] * start_loss +  self.config["end_ratio"] * end_loss
+        #     return loss, uniform_start_scores, uniform_end_scores
+        # else:
+        return total_loss, uniform_start_scores, uniform_end_scores, uniform_span_scores
 
 
     def flatten_emb_by_sentence(self, emb, text_len_mask):
