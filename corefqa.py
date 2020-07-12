@@ -34,7 +34,6 @@ class CorefModel(object):
         self.dropout = None
         self.bert_config = modeling.BertConfig.from_json_file(config["bert_config_file"])
         self.tokenizer = tokenization.FullTokenizer(vocab_file=config['vocab_file'], do_lower_case=False)
-
         self.pad_idx = 0 
         self.mention_start_idx = 37
         self.mention_end_idx = 42
@@ -81,7 +80,7 @@ class CorefModel(object):
             input_ids = input_ids, 
             input_mask = flat_input_mask, 
             use_one_hot_embeddings=False, 
-            scope="mention_proposal") # original is bert 
+            scope="bert")  
         self.dropout = self.get_dropout(self.config["dropout_rate"], is_training)
 
         doc_seq_emb = model.get_sequence_output() # (max_sentence_len, max_seg_len)

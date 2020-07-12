@@ -1,7 +1,10 @@
 #!/usr/bin/env python
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+# -*- coding: utf-8 -*- 
+
+"""
+this file contains training and testing the CorefQA model. 
+"""
+
 
 import metrics
 import logging
@@ -12,14 +15,7 @@ from input_builder import file_based_input_fn_builder
 from bert.modeling import get_assignment_map_from_checkpoint
 
 
-format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
-logging.basicConfig(format=format)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-
 tf.app.flags.DEFINE_string('f', '', 'kernel')
-
 flags = tf.app.flags
 flags.DEFINE_string("output_dir", "data", "The output directory of the model training.")
 flags.DEFINE_bool("do_train", True, "Whether to run training.")
@@ -28,6 +24,8 @@ flags.DEFINE_integer("iterations_per_loop", 100, "How many steps to make in each
 flags.DEFINE_integer("slide_window_size", 156, "size of sliding window.")
 flags.DEFINE_integer("max_seq_length", 200, "Max sequence length for the input sequence.")
 flags.DEFINE_string("config_filename", "experiments.conf", "the input config file name.")
+flags.DEFINE_string("config_params", "train_spanbert_large", "specify the hyper-parameters in the config file.")
+flags.DEFINE_string("logfile_path", "/home/lixiaoya/spanbert_large_mention_proposal.log", "the path to the exported log file.")
 flags.DEFINE_string("tpu_name", None, "The Cloud TPU to use for training. This should be either the name "
                        "used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 url.")
 flags.DEFINE_string("tpu_zone", None, "[Optional] GCE zone where the Cloud TPU is located in. If not "
@@ -39,12 +37,18 @@ flags.DEFINE_integer("num_tpu_cores", 1, "Only used if `use_tpu` is True. Total 
 FLAGS = tf.flags.FLAGS
 
 
+format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+logging.basicConfig(format=format, filename=FLAGS.logfile_path, level=logging.INFO)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+
 
 def model_fn_builder(config):
 
     def model_fn(features, labels, mode, params):  # pylint: disable=unused-argument
         """The `model_fn` for TPUEstimator."""
-        config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_file=FLAGS.config_filename)
+        config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_params=FLAGS.config_params, config_file=FLAGS.config_filename)
 
         max_f1 = 0 
         input_ids = features["flattened_input_ids"]
@@ -147,14 +151,12 @@ def model_fn_builder(config):
 
 
 def main(_):
-    config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_file=FLAGS.config_filename)
+    config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_params=FLAGS.config_params, config_file=FLAGS.config_filename)
 
     tf.logging.set_verbosity(tf.logging.INFO)
 
-
     num_train_steps = config["num_docs"] * config["num_epochs"]
 
-    # use_tpu = FLAGS.use_tpu
     if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
         raise ValueError("At least one of `do_train`, `do_eval` or `do_predict' must be True.")
 

@@ -1,12 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*- 
+
+
 """
 this file contains pre-training and testing the mention proposal model
 """
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 
 import os 
 import math 
@@ -16,13 +14,7 @@ import tensorflow as tf
 import util
 from radam import RAdam
 from input_builder import file_based_input_fn_builder
-# from bert.modeling import get_assignment_map_from_checkpoint
 
-
-format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
-logging.basicConfig(format=format)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 tf.app.flags.DEFINE_string('f', '', 'kernel')
@@ -36,6 +28,8 @@ flags.DEFINE_bool("concat_only", False, "Whether to use TPU or GPU/CPU.")
 flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
 flags.DEFINE_integer("keep_checkpoint_max", 30, "How many checkpoint models keep at most.")
 flags.DEFINE_string("config_filename", "experiments.conf", "the input config file name.")
+flags.DEFINE_string("config_params", "train_spanbert_base", "specify the hyper-parameters in the config file.")
+flags.DEFINE_string("logfile_path", "/home/lixiaoya/spanbert_large_mention_proposal.log", "the path to the exported log file.")
 flags.DEFINE_string("tpu_name", None, "The Cloud TPU to use for training. This should be either the name "
                        "used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 url.")
 flags.DEFINE_string("tpu_zone", None, "[Optional] GCE zone where the Cloud TPU is located in. If not "
@@ -47,11 +41,18 @@ flags.DEFINE_integer("num_tpu_cores", 1, "Only used if `use_tpu` is True. Total 
 FLAGS = tf.flags.FLAGS
 
 
+format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+logging.basicConfig(format=format, filename=FLAGS.logfile_path, level=logging.INFO)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+
+
 def model_fn_builder(config):
 
     def model_fn(features, labels, mode, params):  # pylint: disable=unused-argument
         """The `model_fn` for TPUEstimator."""
-        config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_file=FLAGS.config_filename)
+        config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_params=FLAGS.config_params, config_file=FLAGS.config_filename)
 
         input_ids = features["flattened_input_ids"]
         input_mask = features["flattened_input_mask"]
@@ -86,20 +87,20 @@ def model_fn_builder(config):
                 gold_ends, cluster_ids, sentence_map, span_mention=span_mention)
 
             if config["tpu"]:
-                optimizer = tf.train.AdamOptimizer(learning_rate=config['bert_learning_rate'], beta1=0.9, beta2=0.999, epsilon=1e-08)
+                optimizer = tf.train.AdamOptimizer(learning_rate=config['learning_rate'], beta1=0.9, beta2=0.999, epsilon=1e-08)
                 optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer)
                 train_op = optimizer.minimize(total_loss, tf.train.get_global_step()) 
             else:
-                optimizer = RAdam(learning_rate=config['bert_learning_rate'], epsilon=1e-8, beta1=0.9, beta2=0.999)
+                optimizer = RAdam(learning_rate=config['learning_rate'], epsilon=1e-8, beta1=0.9, beta2=0.999)
                 train_op = optimizer.minimize(total_loss, tf.train.get_global_step())
         
-            # train_logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=1)
+            train_logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=1)
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                     mode=mode,
                     loss=total_loss,
                     train_op=train_op,
-                    scaffold_fn=scaffold_fn) 
-                    # training_hooks=[train_logging_hook])
+                    scaffold_fn=scaffold_fn,
+                    training_hooks=[train_logging_hook])
 
         elif mode == tf.estimator.ModeKeys.EVAL: 
             tf.logging.info("****************************** EVAL MODE ******************************")
@@ -196,7 +197,7 @@ def mention_proposal_prediction(config, current_doc_result, concat_only=True):
 
 
 def main(_):
-    config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_file=FLAGS.config_filename, print_info=True)
+    config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_params=FLAGS.config_params, config_file=FLAGS.config_filename, print_info=True)
 
     tf.logging.set_verbosity(tf.logging.INFO)
     num_train_steps = config["num_docs"] * config["num_epochs"]

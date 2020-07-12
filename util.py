@@ -26,11 +26,9 @@ def get_model(config, model_sign="corefqa"):
         return mention_proposal.MentionProposalModel(config)
 
 
-def initialize_from_env(eval_test=False, config_name="train_spanbert_base", config_file="experiments_tinybert.conf", use_tpu=False, print_info=False):
+def initialize_from_env(eval_test=False, config_params="train_spanbert_base", config_file="experiments_tinybert.conf", use_tpu=False, print_info=False):
     # if "GPU" in os.environ:
     #     set_gpus(int(os.environ["GPU"]))
-
-    name = config_name # sys.argv[1]
 
     if not use_tpu:
         print("loading experiments.conf ... ")
@@ -39,12 +37,19 @@ def initialize_from_env(eval_test=False, config_name="train_spanbert_base", conf
         print("loading experiments_tpu.conf ... ")
         config = pyhocon.ConfigFactory.parse_file(os.path.join(repo_path, config_file))
 
+    config = config[config_params]
+
     if print_info:
-        tf.logging.info("=*="*10)
-        tf.logging.info("check config name :")
-        tf.logging.info(config.keys())
-    config = config[name]
-    config["log_dir"] = mkdirs(os.path.join(config["log_root"], name))
+        tf.logging.info("%*%"*20)
+        tf.logging.info("%*%"*20)
+        tf.logging.info("%%%%%%%% Configs are showed as follows : %%%%%%%%")
+        for tmp_key, tmp_value in config.items():
+            tf.logging.info(str(tmp_key) + " : " + str(tmp_value)) 
+    
+        tf.logging.info("%*%"*20)
+        tf.logging.info("%*%"*20)
+
+    config["log_dir"] = mkdirs(os.path.join(config["log_root"], config_params))
 
     if print_info:
         tf.logging.info(pyhocon.HOCONConverter.convert(config, "hocon"))
