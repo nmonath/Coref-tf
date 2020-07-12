@@ -12,15 +12,12 @@ if repo_path not in sys.path:
     sys.path.insert(0, repo_path)
 
 
-import numpy as np
 import tensorflow as tf
 
 import util
 import metrics 
 from bert import modeling
 from bert import tokenization
-np.random.seed(seed=2333)
-tf.set_random_seed(2333)
 
 
 
@@ -108,13 +105,9 @@ class MentionProposalModel(object):
         end_scores = tf.cast(tf.reshape(tf.sigmoid(end_scores), [-1]),tf.float32)
         span_scores = tf.cast(tf.reshape(tf.sigmoid(span_scores), [-1]), tf.float32)
         # span_mention = tf.cast(span_mention, tf.float32)
-        uniform_start_scores = start_scores 
-        uniform_end_scores = end_scores 
-        uniform_span_scores = tf.reshape(span_scores, [self.config["max_training_sentences"], self.config["max_segment_len"], self.config["max_segment_len"]])
-
-        start_scores = tf.stack([(1 - start_scores), start_scores], axis=-1) 
-        end_scores = tf.stack([(1 - end_scores), end_scores], axis=-1) 
-        span_scores = tf.stack([(1 - span_scores), span_scores], axis=-1)
+        start_probs = tf.stack([(1 - start_scores), start_scores], axis=-1) 
+        end_probs = tf.stack([(1 - end_scores), end_scores], axis=-1) 
+        span_probs = tf.stack([(1 - span_scores), span_scores], axis=-1)
 
         gold_start_label = tf.cast(tf.one_hot(tf.reshape(gold_start_label, [-1]), 2, axis=-1), tf.float32)
         gold_end_label = tf.cast(tf.one_hot(tf.reshape(gold_end_label, [-1]), 2, axis=-1), tf.float32)
@@ -126,9 +119,9 @@ class MentionProposalModel(object):
         # end_loss = tf.keras.losses.binary_crossentropy(gold_end_label, end_scores)
         # span_loss = tf.keras.losses.binary_crossentropy(span_mention, span_scores,)
 
-        start_loss = self.binary_crossentropy(gold_start_label, start_scores)
-        end_loss = self.binary_crossentropy(gold_end_label, end_scores)
-        span_loss = self.binary_crossentropy(span_mention, span_scores)
+        start_loss = self.binary_crossentropy(gold_start_label, start_probs, scope_name="start_loss")
+        end_loss = self.binary_crossentropy(gold_end_label, end_probs, scope_name="end_loss")
+        span_loss = self.binary_crossentropy(span_mention, span_probs, scope_name="span_loss")
 
         start_loss = tf.reduce_mean(tf.multiply(start_loss, tf.cast(start_end_loss_mask, tf.float32))) 
         end_loss = tf.reduce_mean(tf.multiply(end_loss, tf.cast(start_end_loss_mask, tf.float32))) 
@@ -147,7 +140,7 @@ class MentionProposalModel(object):
         #     loss = self.config["start_ratio"] * start_loss +  self.config["end_ratio"] * end_loss
         #     return loss, uniform_start_scores, uniform_end_scores
         # else:
-        return total_loss, uniform_start_scores, uniform_end_scores, uniform_span_scores
+        return total_loss, start_scores, end_scores, tf.reshape(span_scores, [self.config["max_training_sentences"], self.config["max_segment_len"], self.config["max_segment_len"]])
 
 
     def flatten_emb_by_sentence(self, emb, text_len_mask):
@@ -189,11 +182,12 @@ class MentionProposalModel(object):
         return current_outputs
 
 
-    def binary_crossentropy(self, target, output):
+    def binary_crossentropy(self, target, output, scope_name="loss"):
         epsilon = 1e-3
-        bce = target * tf.math.log(output + epsilon)
-        bce += (1 - target) * tf.math.log(1 - output + epsilon)
-        bce = -tf.reduce_mean(bce, axis=-1)
+        with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE):
+            bce = target * tf.math.log(output + epsilon)
+            bce += (1 - target) * tf.math.log(1 - output + epsilon)
+            bce = -tf.reduce_mean(bce, axis=-1)
         return bce
 
 
