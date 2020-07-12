@@ -44,9 +44,8 @@ def model_fn_builder(config):
 
     def model_fn(features, labels, mode, params):  # pylint: disable=unused-argument
         """The `model_fn` for TPUEstimator."""
-        config = util.initialize_from_env(use_tpu=FLAGS.use_tpu)
+        config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_file=FLAGS.config_filename)
 
-        tmp_features = {}
         max_f1 = 0 
         input_ids = features["flattened_input_ids"]
         input_mask = features["flattened_input_mask"]
@@ -60,28 +59,17 @@ def model_fn_builder(config):
         sentence_map = features["sentence_map"] 
         span_mention = features["span_mention"]
         
-        tmp_features["input_ids"] = input_ids 
-        tmp_features["input_mask"] = input_mask 
-        tmp_features["text_len"] = text_len 
-        tmp_features["speaker_ids"] = speaker_ids
-        tmp_features["genre"] = genre
-        tmp_features["gold_starts"] = gold_starts
-        tmp_features["gold_ends"] =  gold_ends
-        tmp_features["speaker_ids"] = speaker_ids
-        tmp_features["cluster_ids"] = cluster_ids
-        tmp_features["sentence_map"] = sentence_map
-        tmp_features["span_mention"] = span_mention 
+        
         coref_evaluator = metrics.CorefEvaluator()
 
 
         tf.logging.info("********* Features *********")
-        for name in sorted(tmp_features.keys()):
-            tf.logging.info("  name = %s, shape = %s" % (name, tmp_features[name].shape))
+        for name in sorted(features.keys()):
+            tf.logging.info("  name = %s, shape = %s" % (name, features[name].shape))
 
         is_training = (mode == tf.estimator.ModeKeys.TRAIN)
 
         model = util.get_model(config, model_sign="corefqa")
-
         tvars = tf.trainable_variables()
         # If you're using TF weights only, tf_checkpoint and init_checkpoint can be the same
         # Get the assignment map from the tensorflow checkpoint.
@@ -115,7 +103,6 @@ def model_fn_builder(config):
         if mode == tf.estimator.ModeKeys.TRAIN:
             tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
 
-
             if tf.train.get_global_step() // 1000 == 0:
                 tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
                 predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(topk_span_starts, topk_span_ends, top_antecedent_scores, cluster_ids)
@@ -134,7 +121,7 @@ def model_fn_builder(config):
                 optimizer = RAdam(learning_rate=config['bert_learning_rate'], epsilon=1e-8, beta1=0.9, beta2=0.999)
                 train_op = optimizer.minimize(total_loss, tf.train.get_global_step())
         
-            training_logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=50)
+            training_logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=1)
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                     mode=tf.estimator.ModeKeys.TRAIN,
                     loss=total_loss,

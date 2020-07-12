@@ -81,12 +81,13 @@ class CorefModel(object):
             input_ids = input_ids, 
             input_mask = flat_input_mask, 
             use_one_hot_embeddings=False, 
-            scope="bert")
+            scope="mention_proposal") # original is bert 
         self.dropout = self.get_dropout(self.config["dropout_rate"], is_training)
 
         doc_seq_emb = model.get_sequence_output() # (max_sentence_len, max_seg_len)
         doc_seq_emb, doc_overlap_mask = self.flatten_emb_by_sentence(doc_seq_emb, input_mask) # (max_sent_len * )
-        doc_seq_emb = self.boolean_mask_2d(doc_seq_emb, input_mask)
+        # why add boolean mask 
+        # doc_seq_emb = self.boolean_mask_2d(doc_seq_emb, input_mask)
         # doc_seq_emb = self.boolean_mask_1d(doc_seq_emb, input_mask)
 
         doc_seq_emb = tf.reshape(doc_seq_emb, [-1, self.config["hidden_size"]])
@@ -119,24 +120,25 @@ class CorefModel(object):
         # [num_candidates, ] -> 候选答案的得分
 
         candidate_span_emb, candidate_start_emb, candidate_end_emb = self.get_span_emb(doc_seq_emb, candidate_starts, candidate_ends) # (candidate_mention, embedding)
+        gold_candidate_mention_label = self.get_candidate_span_label(gold_starts, gold_ends, candidate_starts, candidate_ends, num_words)
+
         if self.config["mention_proposal_only_concate"]:
             candidate_mention_scores = self.get_mention_scores(span_emb = candidate_span_emb, span_name = "mention_proposal")
+            mention_proposal_loss = self.get_mention_proposal_loss(candidate_mention_scores, gold_candidate_mention_label, self.config["mention_proposal_only_concate"])
         else:
-            candidate_mention_scores = self.get_mention_scores(span_emb = candidate_span_emb, span_name = "mention_proposal", \
+            candidate_mention_scores, candidate_start_scores, candidate_end_scores = self.get_mention_scores(span_emb = candidate_span_emb, span_name = "mention_proposal", \
                                                            start_emb = candidate_start_emb, start_name = "mention_starts", \
-                                                           end_emb =  candidate_end_emb, end_name = "mention_ends"    )
-        #get_mention_scores(self, span_emb, span_name, start_emb=None,start_name=None , end_emb=None , end_name=None):
-
-
-        pred_probs = tf.sigmoid(candidate_mention_scores)
-        mention_proposal_loss = self.get_mention_proposal_loss(pred_probs, span_mention, candidate_starts, candidate_ends)
-
-
-
+                                                           end_emb = candidate_end_emb, end_name = "mention_ends")
+            candidate_gold_starts = tf.gather(gold_starts, candidate_starts)
+            candidate_gold_ends = tf.gather(gold_ends, candidate_ends)
+            mention_proposal_loss = self.get_mention_proposal_loss(candidate_mention_scores, gold_candidate_mention_label, self.config["mention_proposal_only_concate"],
+                candidate_start_scores=candidate_start_scores, candidate_end_scores=candidate_end_scores,
+                gold_starts=candidate_gold_starts, gold_ends=candidate_gold_ends)
 
         # beam size 所有span的数量小于num_words * top_span_ratio
         k = tf.minimum(self.config["max_candidate_mentions"], tf.to_int32(tf.floor(tf.to_float(num_words) * self.config["top_span_ratio"])))
         c = tf.to_int32(tf.minimum(self.config["max_top_antecedents"], k))  # 初筛挑出0.4*500=200个候选，细筛再挑出50个候选
+        candidate_mention_scores = tf.reshape(candidate_mention_scores, [-1])
 
         top_span_scores, top_span_indices = tf.nn.top_k(candidate_mention_scores, k)
 
@@ -207,7 +209,6 @@ class CorefModel(object):
             shape_invariants=[i0.get_shape(), tf.TensorShape([None, None, None]), 
                 tf.TensorShape([None, None, None]), tf.TensorShape([None, None, None]), 
                 tf.TensorShape([None, None])])
-        # 
 
         # forward_qa_input_ids -> (k, max_train_sent, max_query_len + max_segment_len) -> (k * max_train_sent, max_query_len + max_segment_len)
         forward_qa_input_ids = tf.reshape(forward_qa_input_ids, [-1, tf.math.add(self.config["max_query_len"], self.config["max_segment_len"])]) 
@@ -241,46 +242,11 @@ class CorefModel(object):
         top_span_starts = tf.reshape(top_span_starts, [-1])
         top_span_ends = tf.reshape(top_span_ends, [-1])
 
-        ###########################################################################################################
-        # 
-        #                       the following is edited by xiaoyli at 2020.07.08 
-        # 
-        ###########################################################################################################
-
-        # top_span_starts = tf.reshape(tf.tile(tf.expand_dims(top_span_starts, 0), [k, 1]), [k, k])
-        # top_span_ends = tf.reshape(tf.tile(tf.expand_dims(top_span_ends, 0), [k, 1]), [k,k])
-
-        # forward_pos_offset = tf.cast(tf.tile(tf.reshape(tf.range(0, k) * non_overlap_doc_len, [-1, 1]), [1, k]), tf.int32)
-        # top_span_starts = tf.reshape(tf.cast(tf.math.add(top_span_starts, forward_pos_offset), tf.int32), [-1])
-        # top_span_ends = tf.reshape(tf.cast(tf.math.add(top_span_ends, forward_pos_offset), tf.int32), [-1])
-
-        # forward_mention_start_emb = tf.gather(tf.reshape(flat_forward_doc_emb, [-1, self.config["hidden_size"]]), top_span_starts,) # (k, k, emb)
-
-        # forward_mention_end_emb = tf.gather(tf.reshape(flat_forward_doc_emb, [-1, self.config["hidden_size"]]), top_span_ends)
-
-        # forward_mention_start_emb = tf.reshape(forward_mention_start_emb, [k*k, self.config["hidden_size"]])
-        # forward_mention_end_emb = tf.reshape(forward_mention_end_emb, [k*k, self.config["hidden_size"]])
-        # forward_mention_span_emb = tf.concat([forward_mention_start_emb, forward_mention_end_emb], 1) # (k, k emb * 2) 
-
-        # forward_mention_span_emb = tf.reshape(forward_mention_span_emb, [k*k, self.config["hidden_size"]*2])
-        # forward_mention_ij_score = self.ffnn(forward_mention_span_emb, 1, self.config["hidden_size"]*2, 1, self.dropout)
-
-        # forward_mention_ij_score = tf.reshape(forward_mention_ij_score, [k, k])
-
-        ###########################################################################################################
-        # 
-        #                       the bottom is edited by xiaoyli at 2020.07.08 
-        # 
-        ###########################################################################################################
-
-        #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-        #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-        #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-
         forward_candidate_starts = tf.reshape(tf.tile(tf.expand_dims(candidate_starts, 0), [k, 1]), [k, -1]) # (k, num_candidates)
         forward_candidate_ends = tf.reshape(tf.tile(tf.expand_dims(candidate_ends, 0), [k, 1]), [k, -1]) # (k, num_candidates)
         num_candidate = self.shape(candidate_starts, 0)
         forward_pos_offset = tf.cast(tf.tile(tf.reshape(tf.range(0, num_candidate) * non_overlap_doc_len, [-1, 1]), [1, k]), tf.int32)
+        forward_pos_offset = tf.reshape(forward_pos_offset, [k, -1])
 
         forward_candidate_starts = tf.reshape(tf.cast(tf.math.add(forward_candidate_starts, forward_pos_offset), tf.int32), [-1])
         forward_candidate_ends = tf.reshape(tf.cast(tf.math.add(forward_candidate_ends, forward_pos_offset), tf.int32), [-1])
@@ -303,10 +269,6 @@ class CorefModel(object):
 
         topc_forward_scores, topc_forward_indices = tf.nn.top_k(forward_mention_ij_score, c, sorted=False)
         # topc_forward_scores, topc_forward_indices : [k, c]
-
-        #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-        #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-        #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
         flat_topc_forward_indices = tf.reshape(topc_forward_indices, [-1])
 
@@ -421,8 +383,11 @@ class CorefModel(object):
         # backard_mention_ji_score # (k*c) 
         tile_top_span_mention_scores = tf.tile(tf.expand_dims(tf.reshape(top_span_mention_scores, [-1]), 1), [1, c])
         
-        top_antecedent_scores = tf.math.add_n([tf.reshape(topc_forward_scores, [-1]), tf.reshape(backard_mention_ji_score, [-1]), \
-            tf.reshape(topc_span_scores, [-1]),tf.reshape(tile_top_span_mention_scores, [-1])])
+        # top_antecedent_scores = tf.math.add_n([tf.reshape(topc_forward_scores, [-1]), tf.reshape(backard_mention_ji_score, [-1]), \
+        #     tf.reshape(topc_span_scores, [-1]),tf.reshape(tile_top_span_mention_scores, [-1])])
+
+        top_antecedent_scores = tf.math.add_n([tf.reshape(topc_forward_scores, [-1]), tf.reshape(backard_mention_ji_score, [-1])]) * self.config["score_ratio"]
+        top_antecedent_scores += tf.math.add_n([tf.reshape(topc_span_scores, [-1]), tf.reshape(tile_top_span_mention_scores, [-1])])
 
         
         top_antecedent_scores = tf.reshape(top_antecedent_scores, [k, c])
@@ -446,7 +411,7 @@ class CorefModel(object):
         
         loss = self.marginal_likelihood_loss(top_antecedent_scores, top_antecedent_labels)  # [k]
 
-        # loss += mention_proposal_loss * self.config["mention_proposal_loss_ratio"]
+        loss += mention_proposal_loss * self.config["mention_proposal_loss_ratio"]
 
         return loss, self.topk_span_starts, self.topk_span_ends, top_antecedent_scores 
 
@@ -553,19 +518,22 @@ class CorefModel(object):
         if start_name is not None:
             # we need to use whether a token is the start of a span for score computing
             with tf.variable_scope(start_name):
-                start_scores = self.ffnn(start_emb, 1, self.config["hidden_size"]*2, 1, self.dropout)
+                start_scores = self.ffnn(start_emb, 1, self.config["hidden_size"], 1, self.dropout)
                 mention_scores_lst.append(start_scores)
 
 
         if end_name is not None:
             # we need to use whether a token is the end of a span for score computing
             with tf.variable_scope(end_name):
-                end_scores = self.ffnn(end_emb, 1, self.config["hidden_size"]*2, 1, self.dropout)
+                end_scores = self.ffnn(end_emb, 1, self.config["hidden_size"], 1, self.dropout)
                 mention_scores_lst.append(end_scores)
 
-
         mention_scores = tf.math.add_n(mention_scores_lst)/len(mention_scores_lst)
-        return   tf.squeeze(mention_scores, 1)
+
+        if len(mention_scores_lst) == 1:
+            return  tf.squeeze(mention_scores, 1)
+        else:
+            return mention_scores, start_scores, end_scores 
 
 
     def get_question_token_ids(self, input_ids, flat_input_mask, sentence_map, top_start, top_end, special=True, pad=True):
@@ -608,7 +576,7 @@ class CorefModel(object):
         tmp_end = tf.gather(tmp_end, tf.constant(0))
 
         ## if pad:
-        ###     return original_tokens, tf.reshape(tmp_start, [-1]), tf.reshape(tmp_end, [-1]) 
+        return original_tokens, tf.reshape(tmp_start, [-1]), tf.reshape(tmp_end, [-1]) 
         # tf.reshape(mention_start, [-1]),  tf.reshape(mention_end, [-1]) 
 
         sentence_end = tf.where(tf.equal(nonoverlap_sentence, tf.gather(query_sentence_tokens, len_query_tokens -1 ))) 
@@ -640,31 +608,32 @@ class CorefModel(object):
             question_token_ids = original_tokens 
             return question_token_ids, mention_start_in_sentence, mention_end_in_sentence  
 
+    def get_mention_proposal_loss(self, candidate_mention_scores, gold_span_mention, mention_proposal_only_concate,
+                candidate_start_scores=None, candidate_end_scores=None,
+                gold_starts=None, gold_ends=None):
 
-    def get_mention_proposal_loss(self, span_scores, span_mention, start_pos, end_pos, span_mention_loss_mask=None):
+        probs_span_mention = tf.reshape(tf.sigmoid(candidate_mention_scores), [-1])
+        probs_span_mention = tf.stack([(1 - probs_span_mention), probs_span_mention], axis=-1)
+        gold_span_mention = tf.reshape(gold_span_mention, [-1])
+        gold_span_mention = tf.cast(tf.one_hot(tf.reshape(gold_span_mention, [-1]), 2, axis=-1), tf.float32)
 
-        span_mention = tf.reshape(span_mention, [-1])
+        span_mention_loss = tf.math.reduce_mean(tf.keras.losses.binary_crossentropy(gold_span_mention, probs_span_mention))
 
-        if span_mention_loss_mask is None:
-            span_mention_loss_mask = tf.reshape(tf.ones_like(span_mention), [-1])
+        if mention_proposal_only_concate:
+            return span_mention_loss 
+    
+        probs_start_mention = tf.reshape(tf.sigmoid(candidate_start_scores), [-1])
+        probs_end_mention = tf.reshape(tf.sigmoid(candidate_end_scores), [-1])
+        probs_start_mention = tf.stack([(1 - probs_start_mention), probs_start_mention], axis=-1)
+        probs_end_mention = tf.stack([(1 - probs_end_mention), probs_end_mention], axis=-1)
+        gold_starts = tf.cast(tf.one_hot(tf.reshape(gold_starts, [-1]), 2, axis=-1), tf.float32)
+        gold_ends = tf.cast(tf.one_hot(tf.reshape(gold_ends, [-1]), 2, axis=-1), tf.float32)
 
-        span_scores = tf.cast(tf.reshape(span_scores, [-1]), tf.float32)
-        span_scores = tf.stack([(1 - span_scores), span_scores], axis=-1)
+        start_loss = tf.math.reduce_mean(tf.keras.losses.binary_crossentropy(gold_starts, probs_start_mention,))
+        end_loss = tf.math.reduce_mean(tf.keras.losses.binary_crossentropy(gold_ends, probs_end_mention))
 
-        start_end_mask = tf.concat([tf.reshape(start_pos, [-1, 1]), tf.reshape(end_pos, [-1, 1])], 1)
-        start_end_mask = tf.reshape(start_end_mask, [self.config["max_training_sentences"], -1, 2])
-        span_mention = tf.reshape(span_mention, [-1,self.config["max_segment_len"],self.config["max_segment_len"]])
-        span_mention = tf.gather_nd(span_mention, start_end_mask)
-
-        span_mention = tf.cast(tf.one_hot(tf.reshape(span_mention, [-1]), 2, axis=-1),tf.float32)
-        span_loss = tf.keras.losses.binary_crossentropy(span_mention, span_scores,)
-        if span_mention_loss_mask is not None:
-            span_loss = tf.math.reduce_mean(tf.multiply(span_loss, tf.cast(span_mention_loss_mask, tf.float32)))
-        else:
-            span_loss = tf.math.reduce_mean(span_loss)
-        
-        
-        return span_loss 
+        total_loss = start_loss + end_loss + span_mention_loss
+        return total_loss 
 
     def marginal_likelihood_loss(self, antecedent_scores, antecedent_labels):
         """
@@ -773,8 +742,6 @@ class CorefModel(object):
         ValueError: if `indicator` is not a rank-1 boolean tensor.
         """
 
-        if use_tpu:
-            return tf.boolean_mask(itemlist, indicator)
         with tf.name_scope(scope, 'BooleanMask'):
             sum_idx = self.shape(itemlist, 0) 
             start_mask_lst = tf.cast(tf.zeros_like(tf.gather(itemlist, 0)), tf.float32) 
@@ -889,6 +856,38 @@ class CorefModel(object):
         mention_to_predicted = { m:predicted_clusters[i] for m,i in mention_to_predicted.items() }
 
         return predicted_clusters, mention_to_predicted
+
+
+    def get_candidate_span_label(self, gold_starts, gold_ends, candidate_starts, candidate_ends, doc_len):
+        """
+        Desc:
+            according to the golden start/end mention position index, get the golden candidate starts/end 
+            mention span labels. 
+        Args:
+            gold_starts: a tf.int32 tensor containing golden mention start position index in document, 
+                tf.Tensor([2, 3, 4, 5])
+            gold_ends: a tf.int32 tensor containing golden mention end position index in document, 
+                tf.Tensor([3, 9, 10, 12])
+            candidate_starts: a tf.int32 tensor containing candidate mention start position index in document, 
+                tf.Tensor([3, 3, 10, 12, 16, 17])
+            candidate_ends: a tf.int32 tensor containing candidate mention end position index in document,
+            doc_len: an integer containing the length of the document. 
+                tf.Tensor([3, 9, 14, 19, 19, 37])
+        Return:
+            a tf.int32 tensor containing the 0/1 label coresponds to every start-end 
+            (candidate_starts, candidate_ends) span pairs. 
+            tf.Tensor([1, 1, 0, 0, 0, 0])
+        """
+        gold_mention_sparse_label = tf.stack([gold_starts, gold_ends], axis=1)
+        gold_span_value = tf.reshape(tf.ones_like(gold_starts, tf.int32), [-1])
+        gold_span_shape = tf.constant([doc_len, doc_len])
+        gold_span_label = tf.cast(tf.scatter_nd(gold_mention_sparse_label, gold_span_value, gold_span_shape), tf.int32)
+
+        candidate_span = tf.stack([candidate_starts, candidate_ends], axis=1)
+        gold_candidate_span_label = tf.gather_nd(gold_span_label, tf.expand_dims(candidate_span, 1))
+        return gold_candidate_span_label 
+
+
 
 
 

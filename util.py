@@ -26,27 +26,28 @@ def get_model(config, model_sign="corefqa"):
         return mention_proposal.MentionProposalModel(config)
 
 
-def initialize_from_env(eval_test=False, config_name="train_spanbert_base", config_file="experiments_tinybert.conf", use_tpu=False):
+def initialize_from_env(eval_test=False, config_name="train_spanbert_base", config_file="experiments_tinybert.conf", use_tpu=False, print_info=False):
     # if "GPU" in os.environ:
     #     set_gpus(int(os.environ["GPU"]))
 
     name = config_name # sys.argv[1]
-    print("Running experiment: {}".format(name))
 
     if not use_tpu:
         print("loading experiments.conf ... ")
         config = pyhocon.ConfigFactory.parse_file(os.path.join(repo_path, config_file)) 
     else: 
         print("loading experiments_tpu.conf ... ")
-        config = pyhocon.ConfigFactory.parse_file(os.path.join(repo_path, "experiments_tpu.conf"))
+        config = pyhocon.ConfigFactory.parse_file(os.path.join(repo_path, config_file))
 
-    print("=*="*10)
-    print("check config name :")
-    print(config.keys())
+    if print_info:
+        tf.logging.info("=*="*10)
+        tf.logging.info("check config name :")
+        tf.logging.info(config.keys())
     config = config[name]
     config["log_dir"] = mkdirs(os.path.join(config["log_root"], name))
 
-    print(pyhocon.HOCONConverter.convert(config, "hocon"))
+    if print_info:
+        tf.logging.info(pyhocon.HOCONConverter.convert(config, "hocon"))
     return config
 
 

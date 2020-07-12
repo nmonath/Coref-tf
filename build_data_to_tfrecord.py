@@ -79,14 +79,13 @@ Args:
         3. ['everyone']
 """
 
-
 def prepare_train_dataset(input_file, output_data_dir, output_filename, sliding_window_size, config, tokenizer=None,
-    vocab_file=None, language="english", max_doc_length: int = None, is_training=True, demo=False):
+    vocab_file=None, language="english", max_doc_length: int = None, is_training=True, demo=False, lowercase=False):
     if vocab_file is None:
         vocab_file = os.path.join(REPO_PATH, "data_preprocess", "vocab.txt")
 
     if tokenizer is None:
-        tokenizer = FullTokenizer(vocab_file=vocab_file, do_lower_case=False)
+        tokenizer = FullTokenizer(vocab_file=vocab_file, do_lower_case=lowercase)
 
     writer = tf.python_io.TFRecordWriter(os.path.join(output_data_dir, "{}.{}.tfrecord".format(output_filename, language)))
     doc_map = {}
@@ -106,7 +105,7 @@ def prepare_train_dataset(input_file, output_data_dir, output_filename, sliding_
         instance = (input_id_windows, mask_windows, text_len, tmp_speaker_ids, tokenized_document["genre"], is_training, span_start, span_end, cluster_ids, tokenized_document['sentence_map'])   
         write_instance_to_example_file(writer, instance, doc_key, config)
         doc_map[doc_idx] = doc_key
-        if demo and doc_idx > 5:
+        if demo and doc_idx > 3:
             break 
     with open(os.path.join(output_data_dir, "{}.{}.map".format(output_filename, language)), 'w') as fo:
         json.dump(doc_map, fo, indent=2)
@@ -426,12 +425,11 @@ def construct_sliding_windows(sequence_length: int, sliding_window_size: int):
 if __name__ == "__main__":
     # ---------
     # python3 build_data_to_tfrecord.py 
-    # def prepare_train_dataset(input_file, output_data_dir, output_filename, sliding_window_size, config, tokenizer=None,
-    # vocab_file=None, language="english", max_doc_length: int = None, is_training=True, demo=False)
-    # 
+    demo = True 
+    lowercase = True # expermental dataset should be False 
     config = util.initialize_from_env(use_tpu=False, config_file="experiments_tinybert.conf")
-    for sliding_window_size in [128, 384,]:  # 512]:
-        for max_training_sentences in [5, 8]:
+    for sliding_window_size in [128]: #  128, 384,]:  # 512]:
+        for max_training_sentences in [2]:
             config["max_segment_len"] = sliding_window_size
             config["max_training_sentences"] = max_training_sentences
             print("=*="*20)
@@ -447,8 +445,18 @@ if __name__ == "__main__":
                 input_data_dir = "/xiaoya/data" 
                 input_filename = "{}.english.v4_gold_conll".format(data_sign)
                 input_file_path = os.path.join(input_data_dir, input_filename)
-    
-                output_data_dir = "/xiaoya/corefqa_data/overlap_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
+                
+                if lowercase:
+                    if demo:
+                        output_data_dir = "/xiaoya/corefqa_data/lowercase_demo_overlap_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
+                    else:
+                        output_data_dir = "/xiaoya/corefqa_data/lowercase_overlap_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
+                else:
+                    if demo:
+                        output_data_dir = "/xiaoya/corefqa_data/demo_overlap_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
+                    else:
+                        output_data_dir = "/xiaoya/corefqa_data/overlap_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
+
                 print("current max training sentence is : {}".format(str(config["max_training_sentences"])))
                 os.makedirs(output_data_dir, exist_ok=True)
                 output_filename = "{}.{}".format(data_sign, str(sliding_window_size))
@@ -456,7 +464,8 @@ if __name__ == "__main__":
                 print(output_data_dir, output_filename)
                 print("$^$"*30)
                 # prepare_training_data(input_data_dir, output_data_dir, input_filename, output_filename, language, config, vocab_file, sliding_window_size)
-                prepare_train_dataset(input_file_path, output_data_dir, output_filename, sliding_window_size, config, vocab_file=vocab_file)
+                prepare_train_dataset(input_file_path, output_data_dir, output_filename, 
+                    sliding_window_size, config, vocab_file=vocab_file, demo=demo, lowercase=lowercase)
 
 
 
