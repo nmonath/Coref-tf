@@ -102,7 +102,6 @@ def model_fn_builder(config):
                     training_hooks=[train_logging_hook])
 
         elif mode == tf.estimator.ModeKeys.EVAL: 
-
             tf.logging.info("****************************** EVAL MODE ******************************")
             total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(input_ids, input_mask, \
                 text_len, speaker_ids, genre, is_training, gold_starts,

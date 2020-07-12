@@ -122,9 +122,13 @@ class MentionProposalModel(object):
 
         start_end_loss_mask = tf.reshape(start_end_loss_mask, [-1])
         # true, pred 
-        start_loss = tf.keras.losses.binary_crossentropy(gold_start_label, start_scores,)
-        end_loss = tf.keras.losses.binary_crossentropy(gold_end_label, end_scores)
-        span_loss = tf.keras.losses.binary_crossentropy(span_mention, span_scores,)
+        # start_loss = tf.keras.losses.binary_crossentropy(gold_start_label, start_scores,)
+        # end_loss = tf.keras.losses.binary_crossentropy(gold_end_label, end_scores)
+        # span_loss = tf.keras.losses.binary_crossentropy(span_mention, span_scores,)
+
+        start_loss = self.binary_crossentropy(gold_start_label, start_scores)
+        end_loss = self.binary_crossentropy(gold_end_label, end_scores)
+        span_loss = self.binary_crossentropy(span_mention, span_scores)
 
         start_loss = tf.reduce_mean(tf.multiply(start_loss, tf.cast(start_end_loss_mask, tf.float32))) 
         end_loss = tf.reduce_mean(tf.multiply(end_loss, tf.cast(start_end_loss_mask, tf.float32))) 
@@ -132,7 +136,7 @@ class MentionProposalModel(object):
 
         # start_end_loss = self.config["start_ratio"] * start_loss + self.config["end_ratio"] * end_loss 
         # total_loss = start_end_loss + self.config["mention_ratio"] * span_loss
-        start_end_loss = start_loss +  end_loss 
+        start_end_loss = start_loss + end_loss 
         total_loss = start_end_loss + span_loss
 
         # if self.config["mention_proposal_only_concate"]:
@@ -183,6 +187,14 @@ class MentionProposalModel(object):
             current_outputs = tf.nn.relu(tf.nn.xw_plus_b(current_inputs, hidden_weights, hidden_bias))
 
         return current_outputs
+
+
+    def binary_crossentropy(self, target, output):
+        epsilon = 1e-3
+        bce = target * tf.math.log(output + epsilon)
+        bce += (1 - target) * tf.math.log(1 - output + epsilon)
+        bce = -tf.reduce_mean(bce, axis=-1)
+        return bce
 
 
 
