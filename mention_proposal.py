@@ -85,9 +85,9 @@ class MentionProposalModel(object):
         span_mention_doc = tf.reshape(span_mention_doc, (self.config["max_training_sentences"]*self.config["max_segment_len"]*self.config["max_segment_len"], -1))
         # # (max_train_sent * max_segment_len * max_segment_len, embed * 2)
 
-        span_scores = self.ffnn(span_mention_doc, self.config["hidden_size"]*2, 1, self.dropout, scope_name="span_scores") # (max_train_sent, max_segment_len, 1)
-        start_scores = self.ffnn(mention_doc, self.config["hidden_size"], 1, self.dropout, scope_name="start_scores") # (max_train_sent, max_segment_len, 1) 
-        end_scores = self.ffnn(mention_doc, self.config["hidden_size"], 1, self.dropout, scope_name="end_scores") # (max_train_sent, max_segment_len, 1)
+        span_scores = self.ffnn(span_mention_doc, self.config["hidden_size"]*2, 1, self.dropout, scope_name="bert/span_scores") # (max_train_sent, max_segment_len, 1)
+        start_scores = self.ffnn(mention_doc, self.config["hidden_size"], 1, self.dropout, scope_name="bert/start_scores") # (max_train_sent, max_segment_len, 1) 
+        end_scores = self.ffnn(mention_doc, self.config["hidden_size"], 1, self.dropout, scope_name="bert/end_scores") # (max_train_sent, max_segment_len, 1)
 
         gold_start_label = tf.reshape(gold_starts, [-1, 1])  
         # gold_starts -> [1, 3, 5, 8, -1, -1, -1, -1]

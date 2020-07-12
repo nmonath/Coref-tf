@@ -6,6 +6,7 @@ this file contains training and testing the CorefQA model.
 """
 
 
+import math 
 import metrics
 import logging
 import tensorflow as tf
@@ -50,11 +51,9 @@ def model_fn_builder(config):
         """The `model_fn` for TPUEstimator."""
         config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_params=FLAGS.config_params, config_file=FLAGS.config_filename)
 
-        max_f1 = 0 
         input_ids = features["flattened_input_ids"]
         input_mask = features["flattened_input_mask"]
         text_len = features["text_len"]
-
         speaker_ids = features["speaker_ids"]
         genre = features["genre"] 
         gold_starts = features["span_starts"]
@@ -63,68 +62,36 @@ def model_fn_builder(config):
         sentence_map = features["sentence_map"] 
         span_mention = features["span_mention"]
         
-        
-        coref_evaluator = metrics.CorefEvaluator()
-
-
-        tf.logging.info("********* Features *********")
-        for name in sorted(features.keys()):
-            tf.logging.info("  name = %s, shape = %s" % (name, features[name].shape))
-
         is_training = (mode == tf.estimator.ModeKeys.TRAIN)
 
         model = util.get_model(config, model_sign="corefqa")
-        tvars = tf.trainable_variables()
-        # If you're using TF weights only, tf_checkpoint and init_checkpoint can be the same
-        # Get the assignment map from the tensorflow checkpoint.
-        # Depending on the extension, use TF/Pytorch to load weights.
-        assignment_map, initialized_variable_names = get_assignment_map_from_checkpoint(tvars, config['tf_checkpoint'])
-        init_from_checkpoint = tf.train.init_from_checkpoint # if config['init_checkpoint'].endswith('ckpt') # else load_from_pytorch_checkpoint
-          
+    
         if FLAGS.use_tpu:
             tf.logging.info("****************************** Training on TPU ******************************")
             def tpu_scaffold():
-                init_from_checkpoint(config['init_checkpoint'], assignment_map)
                 return tf.train.Scaffold()
-
             scaffold_fn = tpu_scaffold
         else:
-            init_from_checkpoint(config['init_checkpoint'], assignment_map)
             scaffold_fn = None 
-        
 
-        tf.logging.info("**** Trainable Variables ****")
-        for var in tvars:
-            init_string = ""
-            if var.name in initialized_variable_names:
-                init_string = ", *INIT_FROM_CKPT*"
-            tf.logging.info("  name = %s, shape = %s%s", var.name, var.shape, init_string)
-
-
-        total_loss, topk_span_starts, topk_span_ends, top_antecedent_scores = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
-                genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention)
 
         if mode == tf.estimator.ModeKeys.TRAIN:
             tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
+            tf.logging.info("********* Features *********")
+            for name in sorted(features.keys()):
+                tf.logging.info("  name = %s, shape = %s" % (name, features[name].shape))
 
-            if tf.train.get_global_step() // 1000 == 0:
-                tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
-                predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(topk_span_starts, topk_span_ends, top_antecedent_scores, cluster_ids)
-                coref_evaluator.update(predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold)
+            total_loss, topk_span_starts, topk_span_ends, top_antecedent_scores = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
+                genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention)
 
-                p, r, eval_f1 = coref_evaluator.get_prf()
-                if eval_f1 >= max_f1:
-                    max_f1 = eval_f1 
-                tf.logging.info("evaL_f1={}, max_f1={}".format(str(eval_f1), str(max_f1)))
-
-            if config["device"] == "tpu":
-                optimizer = tf.train.AdamOptimizer(learning_rate=config['bert_learning_rate'], beta1=0.9, beta2=0.999, epsilon=1e-08)
+            if config["tpu"]:
+                optimizer = tf.train.AdamOptimizer(learning_rate=config['learning_rate'], beta1=0.9, beta2=0.999, epsilon=1e-08)
                 optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer)
                 train_op = optimizer.minimize(total_loss, tf.train.get_global_step()) 
             else:
-                optimizer = RAdam(learning_rate=config['bert_learning_rate'], epsilon=1e-8, beta1=0.9, beta2=0.999)
+                optimizer = RAdam(learning_rate=config['learning_rate'], epsilon=1e-8, beta1=0.9, beta2=0.999)
                 train_op = optimizer.minimize(total_loss, tf.train.get_global_step())
-        
+
             training_logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=1)
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                     mode=tf.estimator.ModeKeys.TRAIN,
@@ -133,29 +100,61 @@ def model_fn_builder(config):
                     scaffold_fn=scaffold_fn, 
                     training_hooks=[training_logging_hook])
 
-        elif mode == tf.estimator.ModeKeys.PREDICT or mode == tf.estimator.ModeKeys.EVAL:
+        elif mode == tf.estimator.ModeKeys.EVAL: 
+            tf.logging.info("****************************** tf.estimator.ModeKeys.EVAL ******************************")
+
+            total_loss, topk_span_starts, topk_span_ends, top_antecedent_scores = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
+                genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention) 
+            
+
+            def metric_fn(start_scores, end_scores, span_scores, gold_span_label):
+                pass 
+
+            predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(topk_span_starts, topk_span_ends, top_antecedent_scores, cluster_ids)
+            # coref_evaluator.update(predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold)
+
+            # p, r, eval_f1 = coref_evaluator.get_prf()
+            # if eval_f1 >= max_f1:
+            #     max_f1 = eval_f1 
+            # tf.logging.info("evaL_f1={}, max_f1={}".format(str(eval_f1), str(max_f1)))
+
+            eval_metrics = (metric_fn, [start_scores, end_scores, span_scores, span_mention])
+            output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+                mode=tf.estimator.ModeKeys.EVAL,
+                loss=total_loss,
+                eval_metrics=eval_metrics,
+                scaffold_fn=scaffold_fn)            
+
+        elif mode == tf.estimator.ModeKeys.PREDICT:
+            tf.logging.info("****************************** tf.estimator.ModeKeys.PREDICT ******************************")
+            total_loss, topk_span_starts, topk_span_ends, top_antecedent_scores = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
+                genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention) 
 
             predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(topk_span_starts, topk_span_ends, top_antecedent_scores, cluster_ids)
             
-            predictions = {"predicted_clusters": predicted_clusters, 
-            "gold_clusters": gold_clusters, 
-            "mention_to_predicted": mention_to_predicted,
-            "mention_to_gold": mention_to_gold}   
-            output_spec = tf.contrib.tpu.TPUEstimatorSpec(mode=mode, predictions=predictions, scaffold_fn=scaffold_fn)
+            predictions = {
+                        "predicted_clusters": predicted_clusters, 
+                        "gold_clusters": gold_clusters, 
+                        "mention_to_predicted": mention_to_predicted,
+                        "mention_to_gold": mention_to_gold}   
+
+            output_spec = tf.contrib.tpu.TPUEstimatorSpec(mode=tf.estimator.ModeKeys.PREDICT, 
+                predictions=predictions, 
+                scaffold_fn=scaffold_fn)
         else:
-            raise ValueError
-        
+            raise ValueError("Please check the the mode ! ")
+
         return output_spec
 
     return model_fn
 
 
 def main(_):
-    config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_params=FLAGS.config_params, config_file=FLAGS.config_filename)
+    config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_params=FLAGS.config_params, config_file=FLAGS.config_filename, print_info=True)
 
     tf.logging.set_verbosity(tf.logging.INFO)
-
     num_train_steps = config["num_docs"] * config["num_epochs"]
+    keep_chceckpoint_max = max(math.ceil(num_train_steps / config["save_checkpoints_steps"]), FLAGS.keep_checkpoint_max)
 
     if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
         raise ValueError("At least one of `do_train`, `do_eval` or `do_predict' must be True.")
@@ -174,36 +173,46 @@ def main(_):
         cluster=tpu_cluster_resolver,
         master=FLAGS.master,
         model_dir=FLAGS.output_dir,
+        evaluation_master=FLAGS.master,
+        keep_checkpoint_max = keep_chceckpoint_max,
         save_checkpoints_steps=config["save_checkpoints_steps"],
-        keep_checkpoint_max = 10,
+        session_config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True),
         tpu_config=tf.contrib.tpu.TPUConfig(
             iterations_per_loop=FLAGS.iterations_per_loop,
             num_shards=FLAGS.num_tpu_cores,
             per_host_input_for_training=is_per_host))
 
+
     model_fn = model_fn_builder(config)
     estimator = tf.contrib.tpu.TPUEstimator(
         use_tpu=FLAGS.use_tpu,
+        eval_on_tpu=FLAGS.use_tpu,
+        warm_start_from=tf.estimator.WarmStartSettings(config["init_checkpoint"],
+            vars_to_warm_start="bert*"),
         model_fn=model_fn,
         config=run_config,
         train_batch_size=1,
+        eval_batch_size=1,
         predict_batch_size=1)
 
     seq_length = config["max_segment_len"] * config["max_training_sentences"]
 
     if FLAGS.do_train:
         estimator.train(input_fn=file_based_input_fn_builder(config["train_path"], seq_length, config, 
-            is_training=True, drop_remainder=True),
-            max_steps=num_train_steps)
+            is_training=True, drop_remainder=True), max_steps=num_train_steps)
+        if FLAGS.do_eval:
+            pass 
+            
 
-    if FLAGS.do_eval:
+    if FLAGS.do_predict:
         coref_evaluator = metrics.CorefEvaluator()
         all_results = []
-        for result in estimator.predict(file_based_input_fn_builder(config["eval_path"], seq_length, config,is_training=False, drop_remainder=False), yield_single_examples=True):
+        for result in estimator.predict(file_based_input_fn_builder(config["eval_path"], seq_length, config, 
+            is_training=False, drop_remainder=False), yield_single_examples=False):
             all_results.append(result)
             coref_evaluator.update(result["predicted_clusters"], result["gold_clusters"], result["mention_to_predicted"], result["mention_to_gold"])
         p, r, f = coref_evaluator.get_prf()
-        tf.logging.info("Average precision: {:.2f}, Average recall: {:.2f}, Average F1 {:.4f}".format(p, r, f))
+        tf.logging.info("Average precision: {:.4f}, Average recall: {:.4f}, Average F1 {:.4f}".format(p, r, f))
 
 
 if __name__ == '__main__':

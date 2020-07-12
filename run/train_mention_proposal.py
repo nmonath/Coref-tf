@@ -76,8 +76,8 @@ def model_fn_builder(config):
         else:
             scaffold_fn = None 
 
-        if is_training: 
-            tf.logging.info("****************************** TRAIN MODE ******************************")
+        if mode == tf.estimator.ModeKeys.TRAIN: 
+            tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
             tf.logging.info("********* Features *********")
             for name in sorted(features.keys()):
                 tf.logging.info("  name = %s, shape = %s" % (name, features[name].shape))
@@ -103,7 +103,7 @@ def model_fn_builder(config):
                     training_hooks=[train_logging_hook])
 
         elif mode == tf.estimator.ModeKeys.EVAL: 
-            tf.logging.info("****************************** EVAL MODE ******************************")
+            tf.logging.info("****************************** tf.estimator.ModeKeys.EVAL ******************************")
             total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(input_ids, input_mask, \
                 text_len, speaker_ids, genre, is_training, gold_starts,
                 gold_ends, cluster_ids, sentence_map, span_mention)
@@ -132,7 +132,7 @@ def model_fn_builder(config):
                 scaffold_fn=scaffold_fn)
 
         elif mode == tf.estimator.ModeKeys.PREDICT:
-            tf.logging.info("****************************** PREDICT MODE ******************************")
+            tf.logging.info("****************************** tf.estimator.ModeKeys.PREDICT ******************************")
             total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(input_ids, input_mask, \
                 text_len, speaker_ids, genre, is_training, gold_starts,
                 gold_ends, cluster_ids, sentence_map, span_mention)
@@ -146,13 +146,13 @@ def model_fn_builder(config):
                     "span_scores": span_scores, 
                     "span_gold": span_mention
             }
-
+            
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                 mode=tf.estimator.ModeKeys.PREDICT,
                 predictions=predictions,
                 scaffold_fn=scaffold_fn)
         else:
-            raise ValueError("Please check the the mode the current value ! ")
+            raise ValueError("Please check the the mode ! ")
         
         return output_spec
 
@@ -201,6 +201,7 @@ def main(_):
 
     tf.logging.set_verbosity(tf.logging.INFO)
     num_train_steps = config["num_docs"] * config["num_epochs"]
+    keep_chceckpoint_max = max(math.ceil(num_train_steps / config["save_checkpoints_steps"]), FLAGS.keep_checkpoint_max)
 
     if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
         raise ValueError("At least one of `do_train`, `do_eval` or `do_predict' must be True.")
@@ -212,8 +213,6 @@ def main(_):
             FLAGS.tpu_name, zone=FLAGS.tpu_zone, project=FLAGS.gcp_project)
         tf.config.experimental_connect_to_cluster(tpu_cluster_resolver)
         tf.tpu.experimental.initialize_tpu_system(tpu_cluster_resolver)
-
-    keep_chceckpoint_max = max(math.ceil(num_train_steps / config["save_checkpoints_steps"]), FLAGS.keep_checkpoint_max)
 
     is_per_host = tf.contrib.tpu.InputPipelineConfig.PER_HOST_V2
     run_config = tf.contrib.tpu.RunConfig(
@@ -245,8 +244,7 @@ def main(_):
 
     if FLAGS.do_train:
         estimator.train(input_fn=file_based_input_fn_builder(config["train_path"], seq_length, config, 
-            is_training=True, drop_remainder=True),
-            max_steps=num_train_steps)
+            is_training=True, drop_remainder=True), max_steps=num_train_steps)
         if FLAGS.do_eval:
             best_dev_f1, best_dev_prec, best_dev_rec, test_f1_when_dev_best = 0, 0, 0, 0
             best_ckpt_path = ""
