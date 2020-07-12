@@ -130,8 +130,10 @@ class MentionProposalModel(object):
         end_loss = tf.reduce_mean(tf.multiply(end_loss, tf.cast(start_end_loss_mask, tf.float32))) 
         span_loss = tf.reduce_mean(tf.multiply(span_loss, tf.cast(span_mention_loss_mask, tf.float32))) 
 
-        start_end_loss = self.config["start_ratio"] * start_loss + self.config["end_ratio"] * end_loss 
-        total_loss = start_end_loss + self.config["mention_ratio"] * span_loss
+        # start_end_loss = self.config["start_ratio"] * start_loss + self.config["end_ratio"] * end_loss 
+        # total_loss = start_end_loss + self.config["mention_ratio"] * span_loss
+        start_end_loss = start_loss +  end_loss 
+        total_loss = start_end_loss + span_loss
 
         # if self.config["mention_proposal_only_concate"]:
         #     loss = span_loss 
