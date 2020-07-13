@@ -15,6 +15,7 @@ if repo_path not in sys.path:
     sys.path.insert(0, repo_path)
 
 import metrics
+import numpy as np 
 import tensorflow as tf
 from bert import modeling
 from bert import tokenization
@@ -34,7 +35,6 @@ class CorefModel(object):
         self.dropout = None
         self.bert_config = modeling.BertConfig.from_json_file(config["bert_config_file"])
         self.tokenizer = tokenization.FullTokenizer(vocab_file=config['vocab_file'], do_lower_case=False)
-
         self.pad_idx = 0 
         self.mention_start_idx = 37
         self.mention_end_idx = 42
@@ -59,7 +59,6 @@ class CorefModel(object):
         gold_ends = tf.where(tf.cast(tf.math.greater_equal(gold_ends, tf.zeros_like(gold_ends)),tf.bool), x=gold_ends, y=tf.zeros_like(gold_ends) ) 
         cluster_ids = tf.where(tf.cast(tf.math.greater_equal(cluster_ids, tf.zeros_like(cluster_ids)),tf.bool), x=cluster_ids, y=tf.zeros_like(cluster_ids)) 
 
-
         input_ids = tf.reshape(input_ids, [-1, self.config["max_segment_len"]])
         input_mask  = tf.reshape(input_mask, [-1, self.config["max_segment_len"]])
         text_len = tf.reshape(text_len, [-1])
@@ -81,7 +80,7 @@ class CorefModel(object):
             input_ids = input_ids, 
             input_mask = flat_input_mask, 
             use_one_hot_embeddings=False, 
-            scope="mention_proposal") # original is bert 
+            scope="bert")  
         self.dropout = self.get_dropout(self.config["dropout_rate"], is_training)
 
         doc_seq_emb = model.get_sequence_output() # (max_sentence_len, max_seg_len)
@@ -820,7 +819,46 @@ class CorefModel(object):
             outputs = tf.reshape(outputs, [batch_size, seqlen, output_size])
         return outputs
 
-    def evaluate(self, top_span_starts, top_span_ends, predicted_antecedents, gold_clusters):
+    def evaluate(self, top_span_starts, top_span_ends, predicted_antecedents, 
+            gold_clusters, gold_starts, gold_ends):
+        """
+        Desc:
+            expected cluster ids is : [[[21, 25], [18, 18]], [[63, 65], [46, 48], [27, 29]], [[88, 88], [89, 89]]]
+        Args:
+            top_span_starts: 
+            top_span_ends:
+            predicted_antecedents: 
+        Returns:
+            predicted_clusters: 
+            gold_clusters:
+            mention_to_predicted:
+            mention_to_gold: 
+        """ 
+        # predicted_antecedents = np.argmax(predicted_antecedents, axis=-1)
+        top_span_starts, top_span_ends, predicted_antecedents = top_span_starts.tolist(), top_span_ends.tolist(), predicted_antecedents.tolist()
+        gold_clusters, gold_starts, gold_ends =  gold_clusters.tolist()[0], gold_starts.tolist()[0], gold_ends.tolist()[0]
+
+        def transform_gold_labels(gold_clusters, gold_starts, gold_ends):
+            gold_clusters_idx = [tmp for tmp in gold_clusters if tmp >= 0]
+            gold_starts = [tmp for tmp in gold_starts if tmp >= 0]
+            gold_ends = [tmp for tmp in gold_ends if tmp >= 0]
+
+            gold_clusters_dict = {}
+            gold_cluster_lst = []
+
+            for idx, (tmp_start, tmp_end) in enumerate(zip(gold_starts, gold_ends)):
+                tmp_cluster_idx = gold_clusters_idx[idx]
+                if tmp_cluster_idx not in gold_clusters_dict.keys():
+                    gold_cluster_lst.append(tmp_cluster_idx)
+                    gold_clusters_dict[tmp_cluster_idx] = [[tmp_start, tmp_end]]
+                else:
+                    gold_clusters_dict[tmp_cluster_idx].append([tmp_start, tmp_end])
+
+            gold_cluster = [gold_clusters_dict[tmp_idx] for tmp_idx in gold_cluster_lst]
+
+            return gold_cluster, gold_starts, gold_ends
+
+        gold_clusters, gold_starts, gold_ends = transform_gold_labels(gold_clusters, gold_starts, gold_ends)
 
         gold_clusters = [tuple(tuple(m) for m in gc) for gc in gold_clusters]
         mention_to_gold = {}
@@ -854,7 +892,7 @@ class CorefModel(object):
 
         predicted_clusters = [tuple(pc) for pc in predicted_clusters]
         mention_to_predicted = { m:predicted_clusters[i] for m,i in mention_to_predicted.items() }
-
+        # mention_to_predicted = None 
         return predicted_clusters, mention_to_predicted
 
 

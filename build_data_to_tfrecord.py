@@ -82,7 +82,10 @@ Args:
 def prepare_train_dataset(input_file, output_data_dir, output_filename, sliding_window_size, config, tokenizer=None,
     vocab_file=None, language="english", max_doc_length: int = None, is_training=True, demo=False, lowercase=False):
     if vocab_file is None:
-        vocab_file = os.path.join(REPO_PATH, "data_preprocess", "vocab.txt")
+        if not lowercase:
+            vocab_file = os.path.join(REPO_PATH, "data_utils", "uppercase_vocab.txt")
+        else:
+            vocab_file = os.path.join(REPO_PATH, "data_utils", "lowercase_vocab.txt")
 
     if tokenizer is None:
         tokenizer = FullTokenizer(vocab_file=vocab_file, do_lower_case=lowercase)
@@ -425,11 +428,11 @@ def construct_sliding_windows(sequence_length: int, sliding_window_size: int):
 if __name__ == "__main__":
     # ---------
     # python3 build_data_to_tfrecord.py 
-    demo = True 
-    lowercase = True # expermental dataset should be False 
+    demo = False
+    lowercase = False # expermental dataset should be False 
     config = util.initialize_from_env(use_tpu=False, config_file="experiments_tinybert.conf")
-    for sliding_window_size in [128]: #  128, 384,]:  # 512]:
-        for max_training_sentences in [2]:
+    for sliding_window_size in [256]: #  128, 384,]:  # 512]:
+        for max_training_sentences in [8]:
             config["max_segment_len"] = sliding_window_size
             config["max_training_sentences"] = max_training_sentences
             print("=*="*20)

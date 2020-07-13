@@ -1,12 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*- 
+
+
 """
 this file contains pre-training and testing the mention proposal model
 """
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 
 import os 
 import math 
@@ -16,26 +14,23 @@ import tensorflow as tf
 import util
 from radam import RAdam
 from input_builder import file_based_input_fn_builder
-# from bert.modeling import get_assignment_map_from_checkpoint
 
-
-format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
-logging.basicConfig(format=format)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 tf.app.flags.DEFINE_string('f', '', 'kernel')
 flags = tf.app.flags
 flags.DEFINE_string("output_dir", "data", "The output directory of the model training.")
+flags.DEFINE_string("eval_dir", "/home/lixiaoya/mention_proposal_output_dir", "The output directory of the saved mention proposal models.")
 flags.DEFINE_bool("do_train", True, "Whether to train a model.")
 flags.DEFINE_bool("do_eval", False, "Whether to test a model.")
 flags.DEFINE_bool("do_predict", False, "Whether to test a model.")
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
-flags.DEFINE_bool("concat_only", False, "Whether to use TPU or GPU/CPU.")
+flags.DEFINE_bool("concat_only", False, "Whether to use start/end embedding for calculating mention scores.")
 flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
 flags.DEFINE_integer("keep_checkpoint_max", 30, "How many checkpoint models keep at most.")
 flags.DEFINE_string("config_filename", "experiments.conf", "the input config file name.")
+flags.DEFINE_string("config_params", "train_spanbert_base", "specify the hyper-parameters in the config file.")
+flags.DEFINE_string("logfile_path", "/home/lixiaoya/spanbert_large_mention_proposal.log", "the path to the exported log file.")
 flags.DEFINE_string("tpu_name", None, "The Cloud TPU to use for training. This should be either the name "
                        "used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 url.")
 flags.DEFINE_string("tpu_zone", None, "[Optional] GCE zone where the Cloud TPU is located in. If not "
@@ -47,11 +42,18 @@ flags.DEFINE_integer("num_tpu_cores", 1, "Only used if `use_tpu` is True. Total 
 FLAGS = tf.flags.FLAGS
 
 
+format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+logging.basicConfig(format=format, filename=FLAGS.logfile_path, level=logging.INFO)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+
+
 def model_fn_builder(config):
 
     def model_fn(features, labels, mode, params):  # pylint: disable=unused-argument
         """The `model_fn` for TPUEstimator."""
-        config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_file=FLAGS.config_filename)
+        config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_params=FLAGS.config_params, config_file=FLAGS.config_filename)
 
         input_ids = features["flattened_input_ids"]
         input_mask = features["flattened_input_mask"]
@@ -75,8 +77,8 @@ def model_fn_builder(config):
         else:
             scaffold_fn = None 
 
-        if is_training: 
-            tf.logging.info("****************************** TRAIN MODE ******************************")
+        if mode == tf.estimator.ModeKeys.TRAIN: 
+            tf.logging.info("****************************** tf.estimator.ModeKeys.TRAIN ******************************")
             tf.logging.info("********* Features *********")
             for name in sorted(features.keys()):
                 tf.logging.info("  name = %s, shape = %s" % (name, features[name].shape))
@@ -86,23 +88,23 @@ def model_fn_builder(config):
                 gold_ends, cluster_ids, sentence_map, span_mention=span_mention)
 
             if config["tpu"]:
-                optimizer = tf.train.AdamOptimizer(learning_rate=config['bert_learning_rate'], beta1=0.9, beta2=0.999, epsilon=1e-08)
+                optimizer = tf.train.AdamOptimizer(learning_rate=config['learning_rate'], beta1=0.9, beta2=0.999, epsilon=1e-08)
                 optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer)
                 train_op = optimizer.minimize(total_loss, tf.train.get_global_step()) 
             else:
-                optimizer = RAdam(learning_rate=config['bert_learning_rate'], epsilon=1e-8, beta1=0.9, beta2=0.999)
+                optimizer = RAdam(learning_rate=config['learning_rate'], epsilon=1e-8, beta1=0.9, beta2=0.999)
                 train_op = optimizer.minimize(total_loss, tf.train.get_global_step())
         
-            # train_logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=1)
+            train_logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=1)
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                     mode=mode,
                     loss=total_loss,
                     train_op=train_op,
-                    scaffold_fn=scaffold_fn) 
-                    # training_hooks=[train_logging_hook])
+                    scaffold_fn=scaffold_fn,
+                    training_hooks=[train_logging_hook])
 
         elif mode == tf.estimator.ModeKeys.EVAL: 
-            tf.logging.info("****************************** EVAL MODE ******************************")
+            tf.logging.info("****************************** tf.estimator.ModeKeys.EVAL ******************************")
             total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(input_ids, input_mask, \
                 text_len, speaker_ids, genre, is_training, gold_starts,
                 gold_ends, cluster_ids, sentence_map, span_mention)
@@ -131,7 +133,7 @@ def model_fn_builder(config):
                 scaffold_fn=scaffold_fn)
 
         elif mode == tf.estimator.ModeKeys.PREDICT:
-            tf.logging.info("****************************** PREDICT MODE ******************************")
+            tf.logging.info("****************************** tf.estimator.ModeKeys.PREDICT ******************************")
             total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(input_ids, input_mask, \
                 text_len, speaker_ids, genre, is_training, gold_starts,
                 gold_ends, cluster_ids, sentence_map, span_mention)
@@ -145,13 +147,13 @@ def model_fn_builder(config):
                     "span_scores": span_scores, 
                     "span_gold": span_mention
             }
-
+            
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                 mode=tf.estimator.ModeKeys.PREDICT,
                 predictions=predictions,
                 scaffold_fn=scaffold_fn)
         else:
-            raise ValueError("Please check the the mode the current value ! ")
+            raise ValueError("Please check the the mode ! ")
         
         return output_spec
 
@@ -161,13 +163,13 @@ def model_fn_builder(config):
 def mention_proposal_prediction(config, current_doc_result, concat_only=True):
     """
     current_doc_result: 
-                    "total_loss": total_loss,
-                    "start_scores": start_scores,
-                    "start_gold": gold_starts,
-                    "end_gold": gold_ends,
-                    "end_scores": end_scores, 
-                    "span_scores": span_scores, 
-                    "span_gold": span_mention
+        "total_loss": total_loss,
+        "start_scores": start_scores,
+        "start_gold": gold_starts,
+        "end_gold": gold_ends,
+        "end_scores": end_scores, 
+        "span_scores": span_scores, 
+        "span_gold": span_mention
 
     """
 
@@ -196,10 +198,11 @@ def mention_proposal_prediction(config, current_doc_result, concat_only=True):
 
 
 def main(_):
-    config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_file=FLAGS.config_filename, print_info=True)
+    config = util.initialize_from_env(use_tpu=FLAGS.use_tpu, config_params=FLAGS.config_params, config_file=FLAGS.config_filename, print_info=True)
 
     tf.logging.set_verbosity(tf.logging.INFO)
     num_train_steps = config["num_docs"] * config["num_epochs"]
+    keep_chceckpoint_max = max(math.ceil(num_train_steps / config["save_checkpoints_steps"]), FLAGS.keep_checkpoint_max)
 
     if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
         raise ValueError("At least one of `do_train`, `do_eval` or `do_predict' must be True.")
@@ -211,8 +214,6 @@ def main(_):
             FLAGS.tpu_name, zone=FLAGS.tpu_zone, project=FLAGS.gcp_project)
         tf.config.experimental_connect_to_cluster(tpu_cluster_resolver)
         tf.tpu.experimental.initialize_tpu_system(tpu_cluster_resolver)
-
-    keep_chceckpoint_max = max(math.ceil(num_train_steps / config["save_checkpoints_steps"]), FLAGS.keep_checkpoint_max)
 
     is_per_host = tf.contrib.tpu.InputPipelineConfig.PER_HOST_V2
     run_config = tf.contrib.tpu.RunConfig(
@@ -242,34 +243,36 @@ def main(_):
 
     seq_length = config["max_segment_len"] * config["max_training_sentences"]
 
+
     if FLAGS.do_train:
         estimator.train(input_fn=file_based_input_fn_builder(config["train_path"], seq_length, config, 
-            is_training=True, drop_remainder=True),
-            max_steps=num_train_steps)
-        if FLAGS.do_eval:
-            best_dev_f1, best_dev_prec, best_dev_rec, test_f1_when_dev_best = 0, 0, 0, 0
-            best_ckpt_path = ""
-            checkpoints_iterator = [os.path.join(FLAGS.output_dir, "model.ckpt-{}".format(str(int(ckpt_idx)))) for ckpt_idx in range(0, num_train_steps, config["save_checkpoints_steps"])]
-            for checkpoint_path in checkpoints_iterator:
-                eval_dev_result = estimator.evaluate(input_fn=file_based_input_fn_builder(config["dev_path"], seq_length, config,is_training=False, drop_remainder=False),
-                    steps=698, checkpoint_path=checkpoint_path)
-                dev_f1 = 2*eval_dev_result["precision"] * eval_dev_result["recall"] / (eval_dev_result["precision"] + eval_dev_result["recall"]+1e-10)
-                tf.logging.info("***** Current ckpt path is ***** : {}".format(checkpoint_path))
-                tf.logging.info("***** EVAL ON DEV SET *****")
-                tf.logging.info("***** [DEV EVAL] ***** : precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(eval_dev_result["precision"], eval_dev_result["recall"], dev_f1))
-                if dev_f1 > best_dev_f1:
-                    best_dev_f1, best_dev_prec, best_dev_rec = dev_f1, eval_dev_result["precision"], eval_dev_result["recall"]
-                    best_ckpt_path = checkpoint_path
-                    eval_test_result = estimator.evaluate(input_fn=file_based_input_fn_builder(config["test_path"], seq_length, config,is_training=False, drop_remainder=False),steps=698, checkpoint_path=checkpoint_path)
-                    test_f1 = 2*eval_test_result["precision"] * eval_test_result["recall"] / (eval_test_result["precision"] + eval_test_result["recall"]+1e-10)
-                    test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best = test_f1, eval_test_result["precision"], eval_test_result["recall"]
-                    tf.logging.info("***** EVAL ON TEST SET *****")
-                    tf.logging.info("***** [TEST EVAL] ***** : precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(eval_test_result["precision"], eval_test_result["recall"], test_f1))
-            tf.logging.info("*"*20)
-            tf.logging.info("- @@@@@ the path to the BEST DEV result is : {}".format(best_ckpt_path))
-            tf.logging.info("- @@@@@ BEST DEV F1 : {:.4f}, Precision : {:.4f}, Recall : {:.4f},".format(best_dev_f1, best_dev_prec, best_dev_rec))
-            tf.logging.info("- @@@@@ TEST when DEV best F1 : {:.4f}, Precision : {:.4f}, Recall : {:.4f},".format(test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best))
-            tf.logging.info("- @@@@@ mention_proposal_only_concate {}".format(config["mention_proposal_only_concate"]))
+            is_training=True, drop_remainder=True), max_steps=num_train_steps)
+    
+
+    if FLAGS.do_eval:
+        best_dev_f1, best_dev_prec, best_dev_rec, test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best = 0, 0, 0, 0, 0, 0
+        best_ckpt_path = ""
+        checkpoints_iterator = [os.path.join(FLAGS.eval_dir, "model.ckpt-{}".format(str(int(ckpt_idx)))) for ckpt_idx in range(0, num_train_steps, config["save_checkpoints_steps"])]
+        for checkpoint_path in checkpoints_iterator[1:]:
+            eval_dev_result = estimator.evaluate(input_fn=file_based_input_fn_builder(config["dev_path"], seq_length, config,is_training=False, drop_remainder=False),
+                steps=698, checkpoint_path=checkpoint_path)
+            dev_f1 = 2*eval_dev_result["precision"] * eval_dev_result["recall"] / (eval_dev_result["precision"] + eval_dev_result["recall"]+1e-10)
+            tf.logging.info("***** Current ckpt path is ***** : {}".format(checkpoint_path))
+            tf.logging.info("***** EVAL ON DEV SET *****")
+            tf.logging.info("***** [DEV EVAL] ***** : precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(eval_dev_result["precision"], eval_dev_result["recall"], dev_f1))
+            if dev_f1 > best_dev_f1:
+                best_dev_f1, best_dev_prec, best_dev_rec = dev_f1, eval_dev_result["precision"], eval_dev_result["recall"]
+                best_ckpt_path = checkpoint_path
+                eval_test_result = estimator.evaluate(input_fn=file_based_input_fn_builder(config["test_path"], seq_length, config,is_training=False, drop_remainder=False),steps=698, checkpoint_path=checkpoint_path)
+                test_f1 = 2*eval_test_result["precision"] * eval_test_result["recall"] / (eval_test_result["precision"] + eval_test_result["recall"]+1e-10)
+                test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best = test_f1, eval_test_result["precision"], eval_test_result["recall"]
+                tf.logging.info("***** EVAL ON TEST SET *****")
+                tf.logging.info("***** [TEST EVAL] ***** : precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(eval_test_result["precision"], eval_test_result["recall"], test_f1))
+        tf.logging.info("*"*20)
+        tf.logging.info("- @@@@@ the path to the BEST DEV result is : {}".format(best_ckpt_path))
+        tf.logging.info("- @@@@@ BEST DEV F1 : {:.4f}, Precision : {:.4f}, Recall : {:.4f},".format(best_dev_f1, best_dev_prec, best_dev_rec))
+        tf.logging.info("- @@@@@ TEST when DEV best F1 : {:.4f}, Precision : {:.4f}, Recall : {:.4f},".format(test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best))
+        tf.logging.info("- @@@@@ mention_proposal_only_concate {}".format(config["mention_proposal_only_concate"]))
 
 
     if FLAGS.do_predict:
