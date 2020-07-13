@@ -12,7 +12,7 @@ config_filename=config/experiments_tinybert.conf
 rm -rf ${OUTPUT_DIR}
 mkdir -p ${OUTPUT_DIR}
 
-logfile_path=/home/lixiaoya/xiaoy_tf/test_log.log
+logfile_path=/home/lixiaoya/xiaoy_tf/logs/mention_proposal/test_log.log
 config_params=train_tinybert
 
 
