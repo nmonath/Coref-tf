@@ -5,9 +5,10 @@
 this file contains training and testing the CorefQA model. 
 """
 
-
+import os 
 import math 
 import metrics
+import tf_metrics
 import logging
 import tensorflow as tf
 import util
@@ -18,11 +19,13 @@ from input_builder import file_based_input_fn_builder
 tf.app.flags.DEFINE_string('f', '', 'kernel')
 flags = tf.app.flags
 flags.DEFINE_string("output_dir", "data", "The output directory of the model training.")
+flags.DEFINE_string("eval_dir", "/home/lixiaoya/corefqa_output_dir", "The output directory of the saved corefqa models.")
 flags.DEFINE_bool("do_train", True, "Whether to run training.")
+flags.DEFINE_bool("do_eval", False, "Whether to test a model.")
+flags.DEFINE_bool("do_predict", False, "Whether to test a model.")
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
 flags.DEFINE_integer("iterations_per_loop", 100, "How many steps to make in each estimator call.")
-flags.DEFINE_integer("slide_window_size", 156, "size of sliding window.")
-flags.DEFINE_integer("max_seq_length", 200, "Max sequence length for the input sequence.")
+flags.DEFINE_integer("keep_checkpoint_max", 30, "How many checkpoint models keep at most.")
 flags.DEFINE_string("config_filename", "experiments.conf", "the input config file name.")
 flags.DEFINE_string("config_params", "train_spanbert_large", "specify the hyper-parameters in the config file.")
 flags.DEFINE_string("logfile_path", "/home/lixiaoya/spanbert_large_mention_proposal.log", "the path to the exported log file.")
@@ -104,46 +107,42 @@ def model_fn_builder(config):
 
             total_loss, topk_span_starts, topk_span_ends, top_antecedent_scores = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
                 genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention) 
-            
-
-            def metric_fn(start_scores, end_scores, span_scores, gold_span_label):
-                pass 
 
             predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(topk_span_starts, topk_span_ends, top_antecedent_scores, cluster_ids)
-            # coref_evaluator.update(predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold)
-            # p, r, eval_f1 = coref_evaluator.get_prf()
-            # if eval_f1 >= max_f1:
-            #     max_f1 = eval_f1 
-            # tf.logging.info("evaL_f1={}, max_f1={}".format(str(eval_f1), str(max_f1)))
 
-            eval_metrics = (metric_fn, [start_scores, end_scores, span_scores, span_mention])
+            def metric_fn(predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold):
+                
+                return {
+                    "coref_eval" : tf_metrics.CoRefEVAL(gold_clusters, predicted_clusters, 
+                        mention_to_predicted, mention_to_gold)}
+
+            eval_metrics = (metric_fn, [predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold])
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                 mode=tf.estimator.ModeKeys.EVAL,
                 loss=total_loss,
                 eval_metrics=eval_metrics,
                 scaffold_fn=scaffold_fn)            
 
-        elif mode == tf.estimator.ModeKeys.PREDICT:
+        elif mode == tf.estimator.ModeKeys.PREDICT :
             tf.logging.info("****************************** tf.estimator.ModeKeys.PREDICT ******************************")
             total_loss, topk_span_starts, topk_span_ends, top_antecedent_scores = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
                 genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention) 
-
-            predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(topk_span_starts, topk_span_ends, top_antecedent_scores, cluster_ids)
             
             predictions = {
-                        "predicted_clusters": predicted_clusters, 
-                        "gold_clusters": gold_clusters, 
-                        "mention_to_predicted": mention_to_predicted,
-                        "mention_to_gold": mention_to_gold}   
+                        "total_loss": total_loss, 
+                        "topk_span_starts": topk_span_starts,
+                        "topk_span_ends": topk_span_ends, 
+                        "top_antecedent_scores": top_antecedent_scores,
+                        "cluster_ids" : cluster_ids, 
+                        "gold_starts": gold_starts, 
+                        "gold_ends": gold_ends}   
 
             output_spec = tf.contrib.tpu.TPUEstimatorSpec(mode=tf.estimator.ModeKeys.PREDICT, 
                 predictions=predictions, 
                 scaffold_fn=scaffold_fn)
         else:
             raise ValueError("Please check the the mode ! ")
-
         return output_spec
-
     return model_fn
 
 
@@ -152,6 +151,9 @@ def main(_):
 
     tf.logging.set_verbosity(tf.logging.INFO)
     num_train_steps = config["num_docs"] * config["num_epochs"]
+    num_train_steps = 100
+
+
     keep_chceckpoint_max = max(math.ceil(num_train_steps / config["save_checkpoints_steps"]), FLAGS.keep_checkpoint_max)
 
     if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
@@ -198,20 +200,57 @@ def main(_):
     if FLAGS.do_train:
         estimator.train(input_fn=file_based_input_fn_builder(config["train_path"], seq_length, config, 
             is_training=True, drop_remainder=True), max_steps=num_train_steps)
-        if FLAGS.do_eval:
-            pass 
 
+
+    if FLAGS.do_eval:
+        best_dev_f1, best_dev_prec, best_dev_rec, test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best = 0, 0, 0, 0, 0, 0
+        best_ckpt_path = ""
+        checkpoints_iterator = [os.path.join(FLAGS.eval_dir, "model.ckpt-{}".format(str(int(ckpt_idx)))) for ckpt_idx in range(0, num_train_steps, config["save_checkpoints_steps"])]
+        model = util.get_model(config, model_sign="corefqa")
+        for checkpoint_path in checkpoints_iterator[1:]:
+            dev_coref_evaluator = metrics.CorefEvaluator()
+            for result in estimator.predict(file_based_input_fn_builder(config["dev_path"], seq_length, config, 
+                is_training=False, drop_remainder=False), checkpoint_path=checkpoint_path, yield_single_examples=False):
+                predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(result["topk_span_starts"], result["topk_span_ends"], result["top_antecedent_scores"], result["cluster_ids"])
+                dev_coref_evaluator.update(predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold)            
+            dev_prec, dev_rec, dev_f1 = dev_coref_evaluator.get_prf()
+            tf.logging.info("***** Current ckpt path is ***** : {}".format(checkpoint_path))
+            tf.logging.info("***** EVAL ON DEV SET *****")
+            tf.logging.info("***** [DEV EVAL] ***** : precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(dev_prec, dev_rec, dev_f1))
+            if dev_f1 > best_dev_f1:
+                best_ckpt_path = checkpoint_path
+                best_dev_f1 = dev_f1
+                best_dev_prec = dev_prec
+                best_dev_rec = dev_rec 
+                test_coref_evaluator = metrics.CorefEvaluator()
+                for result in estimator.predict(file_based_input_fn_builder(config["test_path"], seq_length, config, 
+                    is_training=False, drop_remainder=False), checkpoint_path=checkpoint_path, yield_single_examples=False):
+                    predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(result["topk_span_starts"], result["topk_span_ends"], result["top_antecedent_scores"], result["cluster_ids"])
+                    test_coref_evaluator.update(predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold)
+
+                test_pre, test_rec, test_f1 = test_coref_evaluator.get_prf()
+                test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best = test_f1, test_pre, test_rec 
+                tf.logging.info("***** EVAL ON TEST SET *****")
+                tf.logging.info("***** [TEST EVAL] ***** : precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(test_pre, test_rec, test_f1))
+
+        tf.logging.info("*"*20)
+        tf.logging.info("- @@@@@ the path to the BEST DEV result is : {}".format(best_ckpt_path))
+        tf.logging.info("- @@@@@ BEST DEV F1 : {:.4f}, Precision : {:.4f}, Recall : {:.4f},".format(best_dev_f1, best_dev_prec, best_dev_rec))
+        tf.logging.info("- @@@@@ TEST when DEV best F1 : {:.4f}, Precision : {:.4f}, Recall : {:.4f},".format(test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best))
 
 
     if FLAGS.do_predict:
         coref_evaluator = metrics.CorefEvaluator()
-        all_results = []
+        model = util.get_model(config, model_sign="corefqa")
         for result in estimator.predict(file_based_input_fn_builder(config["eval_path"], seq_length, config, 
             is_training=False, drop_remainder=False), yield_single_examples=False):
-            all_results.append(result)
-            coref_evaluator.update(result["predicted_clusters"], result["gold_clusters"], result["mention_to_predicted"], result["mention_to_gold"])
+            
+            predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(result["topk_span_starts"], result["topk_span_ends"], result["top_antecedent_scores"], result["cluster_ids"])
+            coref_evaluator.update(predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold)
+        
         p, r, f = coref_evaluator.get_prf()
         tf.logging.info("Average precision: {:.4f}, Average recall: {:.4f}, Average F1 {:.4f}".format(p, r, f))
+
 
 
 if __name__ == '__main__':

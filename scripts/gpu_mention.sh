@@ -3,7 +3,6 @@
 
 
 
-# REPO_PATH=/home/lixiaoya/xiaoy_tf
 REPO_PATH=/home/lixiaoya/xiaoy_tf
 export PYTHONPATH=${REPO_PATH}
 

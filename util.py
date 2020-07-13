@@ -7,13 +7,12 @@ import collections
 import errno
 import os
 import shutil
-import sys
 
 import numpy as np
 import pyhocon
 import tensorflow as tf
-import corefqa
-import mention_proposal 
+from models import corefqa
+from models import mention_proposal 
 
 
 repo_path = "/".join(os.path.realpath(__file__).split("/")[:-1])

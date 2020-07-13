@@ -246,7 +246,7 @@ def main(_):
         estimator.train(input_fn=file_based_input_fn_builder(config["train_path"], seq_length, config, 
             is_training=True, drop_remainder=True), max_steps=num_train_steps)
         if FLAGS.do_eval:
-            best_dev_f1, best_dev_prec, best_dev_rec, test_f1_when_dev_best = 0, 0, 0, 0
+            best_dev_f1, best_dev_prec, best_dev_rec, test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best = 0, 0, 0, 0, 0, 0
             best_ckpt_path = ""
             checkpoints_iterator = [os.path.join(FLAGS.output_dir, "model.ckpt-{}".format(str(int(ckpt_idx)))) for ckpt_idx in range(0, num_train_steps, config["save_checkpoints_steps"])]
             for checkpoint_path in checkpoints_iterator[1:]:

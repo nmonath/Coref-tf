@@ -82,7 +82,10 @@ Args:
 def prepare_train_dataset(input_file, output_data_dir, output_filename, sliding_window_size, config, tokenizer=None,
     vocab_file=None, language="english", max_doc_length: int = None, is_training=True, demo=False, lowercase=False):
     if vocab_file is None:
-        vocab_file = os.path.join(REPO_PATH, "data_preprocess", "vocab.txt")
+        if not lowercase:
+            vocab_file = os.path.join(REPO_PATH, "data_utils", "uppercase_vocab.txt")
+        else:
+            vocab_file = os.path.join(REPO_PATH, "data_utils", "lowercase_vocab.txt")
 
     if tokenizer is None:
         tokenizer = FullTokenizer(vocab_file=vocab_file, do_lower_case=lowercase)
