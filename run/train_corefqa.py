@@ -7,13 +7,13 @@ this file contains training and testing the CorefQA model.
 
 import os 
 import math 
-import metrics
 import tf_metrics
 import logging
 import tensorflow as tf
-import util
-from radam import RAdam
-from input_builder import file_based_input_fn_builder
+from utils import util
+from utils import metrics
+from utils.radam import RAdam
+from data_utils.input_builder import file_based_input_fn_builder
 
 
 tf.app.flags.DEFINE_string('f', '', 'kernel')

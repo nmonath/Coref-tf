@@ -11,9 +11,9 @@ import math
 import logging
 import numpy as np 
 import tensorflow as tf
-import util
-from radam import RAdam
-from input_builder import file_based_input_fn_builder
+from utils import util
+from utils.radam import RAdam
+from data_utils.input_builder import file_based_input_fn_builder
 
 
 
