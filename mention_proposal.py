@@ -124,7 +124,8 @@ class MentionProposalModel(object):
         total_loss = start_end_loss + self.config["mention_ratio"] * span_loss
 
         if self.config["mention_proposal_only_concate"]:
-            return span_loss, start_scores, end_scores, tf.reshape(span_scores, [self.config["max_training_sentences"], self.config["max_segment_len"], self.config["max_segment_len"]])
+            loss = span_loss 
+            return loss, start_scores, end_scores, tf.reshape(span_scores, [self.config["max_training_sentences"], self.config["max_segment_len"], self.config["max_segment_len"]])
         else:
             return total_loss, start_scores, end_scores, tf.reshape(span_scores, [self.config["max_training_sentences"], self.config["max_segment_len"], self.config["max_segment_len"]])
 
@@ -163,25 +164,14 @@ class MentionProposalModel(object):
             hidden_weights = tf.get_variable("hidden_weights", [hidden_size, output_size],initializer=hidden_initializer)
             hidden_bias = tf.get_variable("hidden_bias", [output_size], initializer=tf.zeros_initializer())
             current_outputs = tf.nn.relu(tf.nn.xw_plus_b(current_inputs, hidden_weights, hidden_bias))
-        
-        if dropout is not None:
-            current_outputs = tf.nn.dropout(current_outputs, dropout)
 
         return current_outputs
 
 
     def binary_crossentropy(self, target, output, scope_name="loss"):
         epsilon = 1e-3
-        # with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE):
-        bce = target * tf.math.log(output + epsilon)
-        bce += (1 - target) * tf.math.log(1 - output + epsilon)
-        bce = -tf.reduce_mean(bce, axis=-1)
+        with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE):
+            bce = target * tf.math.log(output + epsilon)
+            bce += (1 - target) * tf.math.log(1 - output + epsilon)
+            bce = -tf.reduce_mean(bce, axis=-1)
         return bce
-
-
-
-
-
-
-
-
