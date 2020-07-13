@@ -20,6 +20,7 @@ from input_builder import file_based_input_fn_builder
 tf.app.flags.DEFINE_string('f', '', 'kernel')
 flags = tf.app.flags
 flags.DEFINE_string("output_dir", "data", "The output directory of the model training.")
+flags.DEFINE_string("eval_dir", "/home/lixiaoya/mention_proposal_output_dir", "The output directory of the saved mention proposal models.")
 flags.DEFINE_bool("do_train", True, "Whether to train a model.")
 flags.DEFINE_bool("do_eval", False, "Whether to test a model.")
 flags.DEFINE_bool("do_predict", False, "Whether to test a model.")
@@ -242,33 +243,36 @@ def main(_):
 
     seq_length = config["max_segment_len"] * config["max_training_sentences"]
 
+
     if FLAGS.do_train:
         estimator.train(input_fn=file_based_input_fn_builder(config["train_path"], seq_length, config, 
             is_training=True, drop_remainder=True), max_steps=num_train_steps)
-        if FLAGS.do_eval:
-            best_dev_f1, best_dev_prec, best_dev_rec, test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best = 0, 0, 0, 0, 0, 0
-            best_ckpt_path = ""
-            checkpoints_iterator = [os.path.join(FLAGS.output_dir, "model.ckpt-{}".format(str(int(ckpt_idx)))) for ckpt_idx in range(0, num_train_steps, config["save_checkpoints_steps"])]
-            for checkpoint_path in checkpoints_iterator[1:]:
-                eval_dev_result = estimator.evaluate(input_fn=file_based_input_fn_builder(config["dev_path"], seq_length, config,is_training=False, drop_remainder=False),
-                    steps=698, checkpoint_path=checkpoint_path)
-                dev_f1 = 2*eval_dev_result["precision"] * eval_dev_result["recall"] / (eval_dev_result["precision"] + eval_dev_result["recall"]+1e-10)
-                tf.logging.info("***** Current ckpt path is ***** : {}".format(checkpoint_path))
-                tf.logging.info("***** EVAL ON DEV SET *****")
-                tf.logging.info("***** [DEV EVAL] ***** : precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(eval_dev_result["precision"], eval_dev_result["recall"], dev_f1))
-                if dev_f1 > best_dev_f1:
-                    best_dev_f1, best_dev_prec, best_dev_rec = dev_f1, eval_dev_result["precision"], eval_dev_result["recall"]
-                    best_ckpt_path = checkpoint_path
-                    eval_test_result = estimator.evaluate(input_fn=file_based_input_fn_builder(config["test_path"], seq_length, config,is_training=False, drop_remainder=False),steps=698, checkpoint_path=checkpoint_path)
-                    test_f1 = 2*eval_test_result["precision"] * eval_test_result["recall"] / (eval_test_result["precision"] + eval_test_result["recall"]+1e-10)
-                    test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best = test_f1, eval_test_result["precision"], eval_test_result["recall"]
-                    tf.logging.info("***** EVAL ON TEST SET *****")
-                    tf.logging.info("***** [TEST EVAL] ***** : precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(eval_test_result["precision"], eval_test_result["recall"], test_f1))
-            tf.logging.info("*"*20)
-            tf.logging.info("- @@@@@ the path to the BEST DEV result is : {}".format(best_ckpt_path))
-            tf.logging.info("- @@@@@ BEST DEV F1 : {:.4f}, Precision : {:.4f}, Recall : {:.4f},".format(best_dev_f1, best_dev_prec, best_dev_rec))
-            tf.logging.info("- @@@@@ TEST when DEV best F1 : {:.4f}, Precision : {:.4f}, Recall : {:.4f},".format(test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best))
-            tf.logging.info("- @@@@@ mention_proposal_only_concate {}".format(config["mention_proposal_only_concate"]))
+    
+
+    if FLAGS.do_eval:
+        best_dev_f1, best_dev_prec, best_dev_rec, test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best = 0, 0, 0, 0, 0, 0
+        best_ckpt_path = ""
+        checkpoints_iterator = [os.path.join(FLAGS.eval_dir, "model.ckpt-{}".format(str(int(ckpt_idx)))) for ckpt_idx in range(0, num_train_steps, config["save_checkpoints_steps"])]
+        for checkpoint_path in checkpoints_iterator[1:]:
+            eval_dev_result = estimator.evaluate(input_fn=file_based_input_fn_builder(config["dev_path"], seq_length, config,is_training=False, drop_remainder=False),
+                steps=698, checkpoint_path=checkpoint_path)
+            dev_f1 = 2*eval_dev_result["precision"] * eval_dev_result["recall"] / (eval_dev_result["precision"] + eval_dev_result["recall"]+1e-10)
+            tf.logging.info("***** Current ckpt path is ***** : {}".format(checkpoint_path))
+            tf.logging.info("***** EVAL ON DEV SET *****")
+            tf.logging.info("***** [DEV EVAL] ***** : precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(eval_dev_result["precision"], eval_dev_result["recall"], dev_f1))
+            if dev_f1 > best_dev_f1:
+                best_dev_f1, best_dev_prec, best_dev_rec = dev_f1, eval_dev_result["precision"], eval_dev_result["recall"]
+                best_ckpt_path = checkpoint_path
+                eval_test_result = estimator.evaluate(input_fn=file_based_input_fn_builder(config["test_path"], seq_length, config,is_training=False, drop_remainder=False),steps=698, checkpoint_path=checkpoint_path)
+                test_f1 = 2*eval_test_result["precision"] * eval_test_result["recall"] / (eval_test_result["precision"] + eval_test_result["recall"]+1e-10)
+                test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best = test_f1, eval_test_result["precision"], eval_test_result["recall"]
+                tf.logging.info("***** EVAL ON TEST SET *****")
+                tf.logging.info("***** [TEST EVAL] ***** : precision: {:.4f}, recall: {:.4f}, f1: {:.4f}".format(eval_test_result["precision"], eval_test_result["recall"], test_f1))
+        tf.logging.info("*"*20)
+        tf.logging.info("- @@@@@ the path to the BEST DEV result is : {}".format(best_ckpt_path))
+        tf.logging.info("- @@@@@ BEST DEV F1 : {:.4f}, Precision : {:.4f}, Recall : {:.4f},".format(best_dev_f1, best_dev_prec, best_dev_rec))
+        tf.logging.info("- @@@@@ TEST when DEV best F1 : {:.4f}, Precision : {:.4f}, Recall : {:.4f},".format(test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best))
+        tf.logging.info("- @@@@@ mention_proposal_only_concate {}".format(config["mention_proposal_only_concate"]))
 
 
     if FLAGS.do_predict:

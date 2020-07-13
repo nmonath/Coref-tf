@@ -152,7 +152,6 @@ def main(_):
 
     tf.logging.set_verbosity(tf.logging.INFO)
     num_train_steps = config["num_docs"] * config["num_epochs"]
-    # num_train_steps = 20 
 
 
     keep_chceckpoint_max = max(math.ceil(num_train_steps / config["save_checkpoints_steps"]), FLAGS.keep_checkpoint_max)
@@ -197,6 +196,7 @@ def main(_):
         predict_batch_size=1)
 
     seq_length = config["max_segment_len"] * config["max_training_sentences"]
+
 
     if FLAGS.do_train:
         estimator.train(input_fn=file_based_input_fn_builder(config["train_path"], seq_length, config, 
