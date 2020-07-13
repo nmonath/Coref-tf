@@ -24,7 +24,7 @@ flags.DEFINE_bool("do_train", True, "Whether to train a model.")
 flags.DEFINE_bool("do_eval", False, "Whether to test a model.")
 flags.DEFINE_bool("do_predict", False, "Whether to test a model.")
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
-flags.DEFINE_bool("concat_only", False, "Whether to use TPU or GPU/CPU.")
+flags.DEFINE_bool("concat_only", False, "Whether to use start/end embedding for calculating mention scores.")
 flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
 flags.DEFINE_integer("keep_checkpoint_max", 30, "How many checkpoint models keep at most.")
 flags.DEFINE_string("config_filename", "experiments.conf", "the input config file name.")
@@ -162,13 +162,13 @@ def model_fn_builder(config):
 def mention_proposal_prediction(config, current_doc_result, concat_only=True):
     """
     current_doc_result: 
-                    "total_loss": total_loss,
-                    "start_scores": start_scores,
-                    "start_gold": gold_starts,
-                    "end_gold": gold_ends,
-                    "end_scores": end_scores, 
-                    "span_scores": span_scores, 
-                    "span_gold": span_mention
+        "total_loss": total_loss,
+        "start_scores": start_scores,
+        "start_gold": gold_starts,
+        "end_gold": gold_ends,
+        "end_scores": end_scores, 
+        "span_scores": span_scores, 
+        "span_gold": span_mention
 
     """
 
