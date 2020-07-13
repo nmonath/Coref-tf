@@ -12,12 +12,15 @@ if repo_path not in sys.path:
     sys.path.insert(0, repo_path)
 
 
+import numpy as np
 import tensorflow as tf
 
 import util
 import metrics 
 from bert import modeling
 from bert import tokenization
+np.random.seed(seed=2333)
+tf.set_random_seed(2333)
 
 
 
@@ -76,7 +79,7 @@ class MentionProposalModel(object):
         self.dropout = self.get_dropout(self.config["dropout_rate"], is_training)
         mention_doc = model.get_sequence_output()  # (max_train_sent, max_segment_len, hidden)
         mention_doc = self.flatten_emb_by_sentence(mention_doc, input_mask)  # (max_train_sent, max_segment_len, emb) -> (max_train_sent * max_segment_len, e) 取出有效token的emb
-        # num_words = util.shape(mention_doc, 0)  # max_train_sent * max_segment_len
+        num_words = util.shape(mention_doc, 0)  # max_train_sent * max_segment_len
 
         seg_mention_doc = tf.reshape(mention_doc, [self.config["max_training_sentences"], self.config["max_segment_len"], -1]) # (max_train_sent, max_segment_len, embed)
         start_seg_mention_doc = tf.stack([seg_mention_doc] * self.config["max_segment_len"], axis=1) # (max_train_sent, 1, max_segment_len, embed) -> (max_train_sent, max_segment_len, max_segment_len, embed)
@@ -94,17 +97,24 @@ class MentionProposalModel(object):
         start_value = tf.reshape(tf.ones_like(gold_starts), [-1])
         start_shape = tf.constant([self.config["max_training_sentences"] * self.config["max_segment_len"]])
         gold_start_label = tf.cast(tf.scatter_nd(gold_start_label, start_value, start_shape), tf.int32)
+        # gold_start_label = tf.boolean_mask(gold_start_label, tf.reshape(input_mask, [-1]))
 
         gold_end_label = tf.reshape(gold_ends, [-1, 1])
         end_value = tf.reshape(tf.ones_like(gold_ends), [-1])
         end_shape = tf.constant([self.config["max_training_sentences"] * self.config["max_segment_len"]])
         gold_end_label = tf.cast(tf.scatter_nd(gold_end_label, end_value, end_shape), tf.int32)
+        # gold_end_label = tf.boolean_mask(gold_end_label, tf.reshape(input_mask, [-1]))
         start_scores = tf.cast(tf.reshape(tf.sigmoid(start_scores), [-1]),tf.float32)
         end_scores = tf.cast(tf.reshape(tf.sigmoid(end_scores), [-1]),tf.float32)
         span_scores = tf.cast(tf.reshape(tf.sigmoid(span_scores), [-1]), tf.float32)
-        start_probs = tf.stack([(1 - start_scores), start_scores], axis=-1) 
-        end_probs = tf.stack([(1 - end_scores), end_scores], axis=-1) 
-        span_probs = tf.stack([(1 - span_scores), span_scores], axis=-1)
+        # span_mention = tf.cast(span_mention, tf.float32)
+        uniform_start_scores = start_scores 
+        uniform_end_scores = end_scores 
+        uniform_span_scores = tf.reshape(span_scores, [self.config["max_training_sentences"], self.config["max_segment_len"], self.config["max_segment_len"]])
+
+        start_scores = tf.stack([(1 - start_scores), start_scores], axis=-1) 
+        end_scores = tf.stack([(1 - end_scores), end_scores], axis=-1) 
+        span_scores = tf.stack([(1 - span_scores), span_scores], axis=-1)
 
         gold_start_label = tf.cast(tf.one_hot(tf.reshape(gold_start_label, [-1]), 2, axis=-1), tf.float32)
         gold_end_label = tf.cast(tf.one_hot(tf.reshape(gold_end_label, [-1]), 2, axis=-1), tf.float32)
@@ -112,22 +122,32 @@ class MentionProposalModel(object):
 
         start_end_loss_mask = tf.reshape(start_end_loss_mask, [-1])
         # true, pred 
-        start_loss = self.binary_crossentropy(gold_start_label, start_probs, scope_name="start_loss")
-        end_loss = self.binary_crossentropy(gold_end_label, end_probs, scope_name="end_loss")
-        span_loss = self.binary_crossentropy(span_mention, span_probs, scope_name="span_loss")
+        # start_loss = tf.keras.losses.binary_crossentropy(gold_start_label, start_scores,)
+        # end_loss = tf.keras.losses.binary_crossentropy(gold_end_label, end_scores)
+        # span_loss = tf.keras.losses.binary_crossentropy(span_mention, span_scores,)
+
+        start_loss = self.binary_crossentropy(gold_start_label, start_scores)
+        end_loss = self.binary_crossentropy(gold_end_label, end_scores)
+        span_loss = self.binary_crossentropy(span_mention, span_scores)
 
         start_loss = tf.reduce_mean(tf.multiply(start_loss, tf.cast(start_end_loss_mask, tf.float32))) 
         end_loss = tf.reduce_mean(tf.multiply(end_loss, tf.cast(start_end_loss_mask, tf.float32))) 
         span_loss = tf.reduce_mean(tf.multiply(span_loss, tf.cast(span_mention_loss_mask, tf.float32))) 
 
-        start_end_loss = self.config["start_ratio"] * start_loss + self.config["end_ratio"] * end_loss 
-        total_loss = start_end_loss + self.config["mention_ratio"] * span_loss
+        # start_end_loss = self.config["start_ratio"] * start_loss + self.config["end_ratio"] * end_loss 
+        # total_loss = start_end_loss + self.config["mention_ratio"] * span_loss
+        start_end_loss = start_loss + end_loss 
+        total_loss = start_end_loss + span_loss
 
-        if self.config["mention_proposal_only_concate"]:
-            loss = span_loss 
-            return loss, start_scores, end_scores, tf.reshape(span_scores, [self.config["max_training_sentences"], self.config["max_segment_len"], self.config["max_segment_len"]])
-        else:
-            return total_loss, start_scores, end_scores, tf.reshape(span_scores, [self.config["max_training_sentences"], self.config["max_segment_len"], self.config["max_segment_len"]])
+        # if self.config["mention_proposal_only_concate"]:
+        #     loss = span_loss 
+        #     return loss, uniform_start_scores, uniform_end_scores, uniform_span_scores
+
+        # if span_mention is None :
+        #     loss = self.config["start_ratio"] * start_loss +  self.config["end_ratio"] * end_loss
+        #     return loss, uniform_start_scores, uniform_end_scores
+        # else:
+        return total_loss, uniform_start_scores, uniform_end_scores, uniform_span_scores
 
 
     def flatten_emb_by_sentence(self, emb, text_len_mask):
@@ -142,6 +162,7 @@ class MentionProposalModel(object):
         else:
             raise ValueError("Unsupported rank: {}".format(emb_rank))
         return flattened_emb 
+        ##### return tf.boolean_mask(flattened_emb, tf.reshape(text_len_mask, [num_sentences * max_sentence_length]))
 
     def mention_proposal_loss(self, mention_span_score, gold_mention_span):
         """
@@ -168,10 +189,9 @@ class MentionProposalModel(object):
         return current_outputs
 
 
-    def binary_crossentropy(self, target, output, scope_name="loss"):
+    def binary_crossentropy(self, target, output):
         epsilon = 1e-3
-        with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE):
-            bce = target * tf.math.log(output + epsilon)
-            bce += (1 - target) * tf.math.log(1 - output + epsilon)
-            bce = -tf.reduce_mean(bce, axis=-1)
+        bce = target * tf.math.log(output + epsilon)
+        bce += (1 - target) * tf.math.log(1 - output + epsilon)
+        bce = -tf.reduce_mean(bce, axis=-1)
         return bce
