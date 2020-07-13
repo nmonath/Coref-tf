@@ -89,17 +89,23 @@ def model_fn_builder(config):
                 optimizer = tf.train.AdamOptimizer(learning_rate=config['learning_rate'], beta1=0.9, beta2=0.999, epsilon=1e-08)
                 optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer)
                 train_op = optimizer.minimize(total_loss, tf.train.get_global_step()) 
+                output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+                    mode=tf.estimator.ModeKeys.TRAIN,
+                    loss=total_loss,
+                    train_op=train_op,
+                    scaffold_fn=scaffold_fn)
             else:
                 optimizer = RAdam(learning_rate=config['learning_rate'], epsilon=1e-8, beta1=0.9, beta2=0.999)
                 train_op = optimizer.minimize(total_loss, tf.train.get_global_step())
 
-            training_logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=1)
-            output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+                training_logging_hook = tf.train.LoggingTensorHook({"loss": total_loss}, every_n_iter=1)
+                output_spec = tf.contrib.tpu.TPUEstimatorSpec(
                     mode=tf.estimator.ModeKeys.TRAIN,
                     loss=total_loss,
                     train_op=train_op,
                     scaffold_fn=scaffold_fn, 
                     training_hooks=[training_logging_hook])
+                
 
         elif mode == tf.estimator.ModeKeys.EVAL: 
             tf.logging.info("****************************** tf.estimator.ModeKeys.EVAL ******************************")

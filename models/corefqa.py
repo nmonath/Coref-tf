@@ -10,7 +10,6 @@ import random
 import threading
 
 repo_path = "/".join(os.path.realpath(__file__).split("/")[:-2])
-print(repo_path)
 if repo_path not in sys.path:
     sys.path.insert(0, repo_path)
 
