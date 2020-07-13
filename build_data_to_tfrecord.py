@@ -425,11 +425,11 @@ def construct_sliding_windows(sequence_length: int, sliding_window_size: int):
 if __name__ == "__main__":
     # ---------
     # python3 build_data_to_tfrecord.py 
-    demo = True 
-    lowercase = True # expermental dataset should be False 
+    demo = False
+    lowercase = False # expermental dataset should be False 
     config = util.initialize_from_env(use_tpu=False, config_file="experiments_tinybert.conf")
-    for sliding_window_size in [128]: #  128, 384,]:  # 512]:
-        for max_training_sentences in [2]:
+    for sliding_window_size in [256]: #  128, 384,]:  # 512]:
+        for max_training_sentences in [8]:
             config["max_segment_len"] = sliding_window_size
             config["max_training_sentences"] = max_training_sentences
             print("=*="*20)

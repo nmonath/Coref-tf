@@ -13,7 +13,6 @@ import tensorflow as tf
 import util
 from radam import RAdam
 from input_builder import file_based_input_fn_builder
-from bert.modeling import get_assignment_map_from_checkpoint
 
 
 tf.app.flags.DEFINE_string('f', '', 'kernel')
@@ -112,7 +111,6 @@ def model_fn_builder(config):
 
             predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(topk_span_starts, topk_span_ends, top_antecedent_scores, cluster_ids)
             # coref_evaluator.update(predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold)
-
             # p, r, eval_f1 = coref_evaluator.get_prf()
             # if eval_f1 >= max_f1:
             #     max_f1 = eval_f1 
@@ -202,7 +200,8 @@ def main(_):
             is_training=True, drop_remainder=True), max_steps=num_train_steps)
         if FLAGS.do_eval:
             pass 
-            
+
+
 
     if FLAGS.do_predict:
         coref_evaluator = metrics.CorefEvaluator()

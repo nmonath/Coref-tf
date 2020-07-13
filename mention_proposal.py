@@ -164,6 +164,9 @@ class MentionProposalModel(object):
             hidden_weights = tf.get_variable("hidden_weights", [hidden_size, output_size],initializer=hidden_initializer)
             hidden_bias = tf.get_variable("hidden_bias", [output_size], initializer=tf.zeros_initializer())
             current_outputs = tf.nn.relu(tf.nn.xw_plus_b(current_inputs, hidden_weights, hidden_bias))
+        
+        if dropout is not None:
+            current_outputs = tf.nn.dropout(current_outputs, dropout)
 
         return current_outputs
 

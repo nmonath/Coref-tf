@@ -249,7 +249,7 @@ def main(_):
             best_dev_f1, best_dev_prec, best_dev_rec, test_f1_when_dev_best = 0, 0, 0, 0
             best_ckpt_path = ""
             checkpoints_iterator = [os.path.join(FLAGS.output_dir, "model.ckpt-{}".format(str(int(ckpt_idx)))) for ckpt_idx in range(0, num_train_steps, config["save_checkpoints_steps"])]
-            for checkpoint_path in checkpoints_iterator:
+            for checkpoint_path in checkpoints_iterator[1:]:
                 eval_dev_result = estimator.evaluate(input_fn=file_based_input_fn_builder(config["dev_path"], seq_length, config,is_training=False, drop_remainder=False),
                     steps=698, checkpoint_path=checkpoint_path)
                 dev_f1 = 2*eval_dev_result["precision"] * eval_dev_result["recall"] / (eval_dev_result["precision"] + eval_dev_result["recall"]+1e-10)
