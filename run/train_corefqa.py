@@ -127,12 +127,13 @@ def model_fn_builder(config):
             tf.logging.info("****************************** tf.estimator.ModeKeys.PREDICT ******************************")
             total_loss, topk_span_starts, topk_span_ends, top_antecedent_scores = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
                 genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention) 
-            
+            top_antecedent = tf.math.argmax(top_antecedent_scores, axis=-1)
             predictions = {
                         "total_loss": total_loss, 
                         "topk_span_starts": topk_span_starts,
                         "topk_span_ends": topk_span_ends, 
                         "top_antecedent_scores": top_antecedent_scores,
+                        "top_antecedent": top_antecedent,
                         "cluster_ids" : cluster_ids, 
                         "gold_starts": gold_starts, 
                         "gold_ends": gold_ends}   
@@ -151,7 +152,7 @@ def main(_):
 
     tf.logging.set_verbosity(tf.logging.INFO)
     num_train_steps = config["num_docs"] * config["num_epochs"]
-    num_train_steps = 100
+    # num_train_steps = 20 
 
 
     keep_chceckpoint_max = max(math.ceil(num_train_steps / config["save_checkpoints_steps"]), FLAGS.keep_checkpoint_max)
@@ -205,13 +206,14 @@ def main(_):
     if FLAGS.do_eval:
         best_dev_f1, best_dev_prec, best_dev_rec, test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best = 0, 0, 0, 0, 0, 0
         best_ckpt_path = ""
-        checkpoints_iterator = [os.path.join(FLAGS.eval_dir, "model.ckpt-{}".format(str(int(ckpt_idx)))) for ckpt_idx in range(0, num_train_steps, config["save_checkpoints_steps"])]
+        checkpoints_iterator = [os.path.join(FLAGS.eval_dir, "model.ckpt-{}".format(str(int(ckpt_idx)))) for ckpt_idx in range(0, num_train_steps+1, config["save_checkpoints_steps"])]
         model = util.get_model(config, model_sign="corefqa")
         for checkpoint_path in checkpoints_iterator[1:]:
             dev_coref_evaluator = metrics.CorefEvaluator()
             for result in estimator.predict(file_based_input_fn_builder(config["dev_path"], seq_length, config, 
                 is_training=False, drop_remainder=False), checkpoint_path=checkpoint_path, yield_single_examples=False):
-                predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(result["topk_span_starts"], result["topk_span_ends"], result["top_antecedent_scores"], result["cluster_ids"])
+                predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(result["topk_span_starts"], result["topk_span_ends"], result["top_antecedent"],
+                    result["cluster_ids"], result["gold_starts"], result["gold_ends"])
                 dev_coref_evaluator.update(predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold)            
             dev_prec, dev_rec, dev_f1 = dev_coref_evaluator.get_prf()
             tf.logging.info("***** Current ckpt path is ***** : {}".format(checkpoint_path))
@@ -225,7 +227,8 @@ def main(_):
                 test_coref_evaluator = metrics.CorefEvaluator()
                 for result in estimator.predict(file_based_input_fn_builder(config["test_path"], seq_length, config, 
                     is_training=False, drop_remainder=False), checkpoint_path=checkpoint_path, yield_single_examples=False):
-                    predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(result["topk_span_starts"], result["topk_span_ends"], result["top_antecedent_scores"], result["cluster_ids"])
+                    predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(result["topk_span_starts"], result["topk_span_ends"], result["top_antecedent"], 
+                        result["cluster_ids"], result["gold_starts"], result["gold_ends"])
                     test_coref_evaluator.update(predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold)
 
                 test_pre, test_rec, test_f1 = test_coref_evaluator.get_prf()
@@ -245,7 +248,8 @@ def main(_):
         for result in estimator.predict(file_based_input_fn_builder(config["eval_path"], seq_length, config, 
             is_training=False, drop_remainder=False), yield_single_examples=False):
             
-            predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(result["topk_span_starts"], result["topk_span_ends"], result["top_antecedent_scores"], result["cluster_ids"])
+            predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(result["topk_span_starts"], result["topk_span_ends"], 
+                result["top_antecedent"], result["cluster_ids"], result["gold_starts"], result["gold_ends"])
             coref_evaluator.update(predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold)
         
         p, r, f = coref_evaluator.get_prf()
