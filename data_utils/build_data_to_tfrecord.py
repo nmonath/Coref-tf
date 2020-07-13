@@ -8,18 +8,24 @@
 
 
 import os
+import sys 
 import re
-import conll
-from typing import List, Tuple
-from collections import defaultdict
 import json  
-import util 
 import numpy as np 
 import tensorflow as tf
-from bert.tokenization import FullTokenizer
+from typing import List, Tuple
+from collections import defaultdict
 
 
 REPO_PATH = "/".join(os.path.realpath(__file__).split("/")[:-2])
+if REPO_PATH not in sys.path:
+    sys.path.insert(0, REPO_PATH)
+    
+
+from data_utils import conll
+from utils import util 
+from bert.tokenization import FullTokenizer
+
 
 SPEAKER_START = '[unused19]'
 SPEAKER_END = '[unused73]'

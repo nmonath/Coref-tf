@@ -8,10 +8,18 @@
 # transform pytorch .bin models to tensorflow ckpt 
 
 
-import os 
+import os
+import sys  
 import shutil 
-from bert import modeling 
 import tensorflow as tf  
+
+REPO_PATH = "/".join(os.path.realpath(__file__).split("/")[:-2])
+
+if REPO_PATH not in sys.path:
+    sys.path.insert(0, REPO_PATH)
+
+
+from bert import modeling 
 from operation_funcs.load_pytorch_to_tf import load_from_pytorch_checkpoint 
 
 

@@ -6,16 +6,15 @@
 import os
 import sys 
 
-repo_path = "/".join(os.path.realpath(__file__).split("/")[:-1])
+repo_path = "/".join(os.path.realpath(__file__).split("/")[:-2])
 print(repo_path)
 if repo_path not in sys.path:
     sys.path.insert(0, repo_path)
 
 
 import tensorflow as tf
-
-import util
-import metrics 
+from utils import metrics 
+from utils import util
 from bert import modeling
 from bert import tokenization
 

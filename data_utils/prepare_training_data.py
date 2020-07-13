@@ -2,14 +2,20 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
+import os 
 import re
 import sys
 import json
 import collections
 
-import util
-import conll
+
+REPO_PATH = "/".join(os.path.realpath(__file__).split("/")[:-2])
+if REPO_PATH not in sys.path:
+    sys.path.insert(0, REPO_PATH)
+
+
+from utils import util
+from data_utils import conll
 from bert import tokenization
 
 class DocumentState(object):

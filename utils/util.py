@@ -8,14 +8,13 @@ import errno
 import os
 import shutil
 
-import numpy as np
 import pyhocon
 import tensorflow as tf
 from models import corefqa
 from models import mention_proposal 
 
 
-repo_path = "/".join(os.path.realpath(__file__).split("/")[:-1])
+repo_path = "/".join(os.path.realpath(__file__).split("/")[:-2])
 
 
 def get_model(config, model_sign="corefqa"):
@@ -190,21 +189,6 @@ def linear(inputs, output_size):
     return current_outputs
 
 
-def cnn(inputs, filter_sizes, num_filters):
-    num_words = shape(inputs, 0)
-    num_chars = shape(inputs, 1)
-    input_size = shape(inputs, 2)
-    outputs = []
-    for i, filter_size in enumerate(filter_sizes):
-        with tf.variable_scope("conv_{}".format(i)):
-            w = tf.get_variable("w", [filter_size, input_size, num_filters])
-            b = tf.get_variable("b", [num_filters])
-        conv = tf.nn.conv1d(inputs, w, stride=1, padding="VALID")  # [num_words, num_chars - filter_size, num_filters]
-        h = tf.nn.relu(tf.nn.bias_add(conv, b))  # [num_words, num_chars - filter_size, num_filters]
-        pooled = tf.reduce_max(h, 1)  # [num_words, num_filters]
-        outputs.append(pooled)
-    return tf.concat(outputs, 1)  # [num_words, num_filters * len(filter_sizes)]
-
 
 def batch_gather(emb, indices):
     batch_size = shape(emb, 0)
@@ -243,110 +227,3 @@ class RetrievalEvaluator(object):
         precision = self.precision()
         f1 = maybe_divide(2 * recall * precision, precision + recall)
         return recall, precision, f1
-
-
-class EmbeddingDictionary(object):
-    def __init__(self, info, normalize=True, maybe_cache=None):
-        self._size = info["size"]
-        self._normalize = normalize
-        self._path = info["path"]
-        if maybe_cache is not None and maybe_cache._path == self._path:
-            assert self._size == maybe_cache._size
-            self._embeddings = maybe_cache._embeddings
-        else:
-            self._embeddings = self.load_embedding_dict(self._path)
-
-    @property
-    def size(self):
-        return self._size
-
-    def load_embedding_dict(self, path):
-        print("Loading word embeddings from {}...".format(path))
-        default_embedding = np.zeros(self.size)
-        embedding_dict = collections.defaultdict(lambda: default_embedding)
-        if len(path) > 0:
-            vocab_size = None
-            with open(path) as f:
-                for i, line in enumerate(f.readlines()):
-                    word_end = line.find(" ")
-                    word = line[:word_end]
-                    embedding = np.fromstring(line[word_end + 1:], np.float32, sep=" ")
-                    assert len(embedding) == self.size
-                    embedding_dict[word] = embedding
-            if vocab_size is not None:
-                assert vocab_size == len(embedding_dict)
-            print("Done loading word embeddings.")
-        return embedding_dict
-
-    def __getitem__(self, key):
-        embedding = self._embeddings[key]
-        if self._normalize:
-            embedding = self.normalize(embedding)
-        return embedding
-
-    def normalize(self, v):
-        norm = np.linalg.norm(v)
-        if norm > 0:
-            return v / norm
-        else:
-            return v
-
-
-class CustomLSTMCell(tf.contrib.rnn.RNNCell):
-    def __init__(self, num_units, batch_size, dropout):
-        self._num_units = num_units
-        self._dropout = dropout
-        self._dropout_mask = tf.nn.dropout(tf.ones([batch_size, self.output_size]), dropout)
-        self._initializer = self._block_orthonormal_initializer([self.output_size] * 3)
-        initial_cell_state = tf.get_variable("lstm_initial_cell_state", [1, self.output_size])
-        initial_hidden_state = tf.get_variable("lstm_initial_hidden_state", [1, self.output_size])
-        self._initial_state = tf.contrib.rnn.LSTMStateTuple(initial_cell_state, initial_hidden_state)
-
-    @property
-    def state_size(self):
-        return tf.contrib.rnn.LSTMStateTuple(self.output_size, self.output_size)
-
-    @property
-    def output_size(self):
-        return self._num_units
-
-    @property
-    def initial_state(self):
-        return self._initial_state
-
-    def __call__(self, inputs, state, scope=None):
-        """Long short-term memory cell (LSTM)."""
-        with tf.variable_scope(scope or type(self).__name__):  # "CustomLSTMCell"
-            c, h = state
-            h *= self._dropout_mask
-            concat = projection(tf.concat([inputs, h], 1), 3 * self.output_size, initializer=self._initializer)
-            i, j, o = tf.split(concat, num_or_size_splits=3, axis=1)
-            i = tf.sigmoid(i)
-            new_c = (1 - i) * c + i * tf.tanh(j)
-            new_h = tf.tanh(new_c) * tf.sigmoid(o)
-            new_state = tf.contrib.rnn.LSTMStateTuple(new_c, new_h)
-            return new_h, new_state
-
-    def _orthonormal_initializer(self, scale=1.0):
-        def _initializer(shape, dtype=tf.float32, partition_info=None):
-            M1 = np.random.randn(shape[0], shape[0]).astype(np.float32)
-            M2 = np.random.randn(shape[1], shape[1]).astype(np.float32)
-            Q1, R1 = np.linalg.qr(M1)
-            Q2, R2 = np.linalg.qr(M2)
-            Q1 = Q1 * np.sign(np.diag(R1))
-            Q2 = Q2 * np.sign(np.diag(R2))
-            n_min = min(shape[0], shape[1])
-            params = np.dot(Q1[:, :n_min], Q2[:n_min, :]) * scale
-            return params
-
-        return _initializer
-
-    def _block_orthonormal_initializer(self, output_sizes):
-        def _initializer(shape, dtype=np.float32, partition_info=None):
-            assert len(shape) == 2
-            assert sum(output_sizes) == shape[1]
-            initializer = self._orthonormal_initializer()
-            params = np.concatenate([initializer([shape[0], o], dtype, partition_info) for o in output_sizes], 1)
-            return params
-
-        return _initializer
