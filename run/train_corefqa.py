@@ -7,7 +7,6 @@ this file contains training and testing the CorefQA model.
 
 import os 
 import math 
-import tf_metrics
 import logging
 import tensorflow as tf
 from utils import util
@@ -104,25 +103,10 @@ def model_fn_builder(config):
 
         elif mode == tf.estimator.ModeKeys.EVAL: 
             tf.logging.info("****************************** tf.estimator.ModeKeys.EVAL ******************************")
-
-            total_loss, topk_span_starts, topk_span_ends, top_antecedent_scores = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
-                genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention) 
-
-            predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold = model.evaluate(topk_span_starts, topk_span_ends, top_antecedent_scores, cluster_ids)
-
-            def metric_fn(predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold):
-                
-                return {
-                    "coref_eval" : tf_metrics.CoRefEVAL(gold_clusters, predicted_clusters, 
-                        mention_to_predicted, mention_to_gold)}
-
-            eval_metrics = (metric_fn, [predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold])
-            output_spec = tf.contrib.tpu.TPUEstimatorSpec(
-                mode=tf.estimator.ModeKeys.EVAL,
-                loss=total_loss,
-                eval_metrics=eval_metrics,
-                scaffold_fn=scaffold_fn)            
-
+            tf.logging.info("@@@@@ MERELY support tf.estimator.ModeKeys.PREDICT ! @@@@@")
+            tf.logging.info("@@@@@ YOU can EVAL your checkpoints after the training process. @@@@@")  
+            tf.logging.info("****************************** tf.estimator.ModeKeys.EVAL ******************************")
+        
         elif mode == tf.estimator.ModeKeys.PREDICT :
             tf.logging.info("****************************** tf.estimator.ModeKeys.PREDICT ******************************")
             total_loss, topk_span_starts, topk_span_ends, top_antecedent_scores = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
