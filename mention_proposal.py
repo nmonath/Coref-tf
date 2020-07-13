@@ -172,10 +172,10 @@ class MentionProposalModel(object):
 
     def binary_crossentropy(self, target, output, scope_name="loss"):
         epsilon = 1e-3
-        with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE):
-            bce = target * tf.math.log(output + epsilon)
-            bce += (1 - target) * tf.math.log(1 - output + epsilon)
-            bce = -tf.reduce_mean(bce, axis=-1)
+        # with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE):
+        bce = target * tf.math.log(output + epsilon)
+        bce += (1 - target) * tf.math.log(1 - output + epsilon)
+        bce = -tf.reduce_mean(bce, axis=-1)
         return bce
 
 
