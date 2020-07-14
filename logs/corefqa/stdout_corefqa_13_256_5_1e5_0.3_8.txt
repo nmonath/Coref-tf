@@ -1,0 +1,1357 @@
+/home/xiaoyli1110/venv/lib/python3.5/site-packages/h5py/__init__.py:36: FutureWarning: Conversion of the second argument of issubdtype from `float` to `np.floating` is deprecated. In future, it will be treated as `np.float64 == np.dtype(float).type`.
+  from ._conv import register_converters as _register_converters
+/home/xiaoyli1110/xiaoya/Coref-tf
+W0713 13:32:30.637916 139854454523648 module_wrapper.py:139] From /home/xiaoyli1110/xiaoya/Coref-tf/run/train_corefqa.py:308: The name tf.app.run is deprecated. Please use tf.compat.v1.app.run instead.
+
+loading experiments_tpu.conf ... 
+W0713 13:32:30.752999 139854454523648 module_wrapper.py:139] From /home/xiaoyli1110/xiaoya/Coref-tf/utils/util.py:41: The name tf.logging.info is deprecated. Please use tf.compat.v1.logging.info instead.
+
+I0713 13:32:30.753216 139854454523648 util.py:41] %*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%
+I0713 13:32:30.753291 139854454523648 util.py:42] %*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%
+I0713 13:32:30.753346 139854454523648 util.py:43] %%%%%%%% Configs are showed as follows : %%%%%%%%
+I0713 13:32:30.753432 139854454523648 util.py:45] max_top_antecedents : 50
+I0713 13:32:30.753505 139854454523648 util.py:45] max_training_sentences : 5
+I0713 13:32:30.753576 139854454523648 util.py:45] top_span_ratio : 0.1
+I0713 13:32:30.753644 139854454523648 util.py:45] max_num_speakers : 20
+I0713 13:32:30.753710 139854454523648 util.py:45] max_segment_len : 128
+I0713 13:32:30.753773 139854454523648 util.py:45] max_cluster_num : 20
+I0713 13:32:30.753848 139854454523648 util.py:45] tpu : True
+I0713 13:32:30.753910 139854454523648 util.py:45] max_query_len : 150
+I0713 13:32:30.753972 139854454523648 util.py:45] max_context_len : 150
+I0713 13:32:30.754034 139854454523648 util.py:45] max_qa_len : 300
+I0713 13:32:30.754097 139854454523648 util.py:45] hidden_size : 1024
+I0713 13:32:30.754161 139854454523648 util.py:45] max_candidate_mentions : 20
+I0713 13:32:30.754229 139854454523648 util.py:45] learning_rate : 8e-06
+I0713 13:32:30.754301 139854454523648 util.py:45] num_docs : 5604
+I0713 13:32:30.754365 139854454523648 util.py:45] start_ratio : 0.8
+I0713 13:32:30.754428 139854454523648 util.py:45] end_ratio : 0.8
+I0713 13:32:30.754492 139854454523648 util.py:45] mention_ratio : 1.0
+I0713 13:32:30.754556 139854454523648 util.py:45] corefqa_loss_ratio : 0.9
+I0713 13:32:30.754620 139854454523648 util.py:45] score_ratio : 0.5
+I0713 13:32:30.754682 139854454523648 util.py:45] run : estimator
+I0713 13:32:30.754746 139854454523648 util.py:45] threshold : 0.5
+I0713 13:32:30.754814 139854454523648 util.py:45] dropout_rate : 0.3
+I0713 13:32:30.754945 139854454523648 util.py:45] ffnn_size : 1024
+I0713 13:32:30.755008 139854454523648 util.py:45] ffnn_depth : 1
+I0713 13:32:30.755071 139854454523648 util.py:45] num_epochs : 8
+I0713 13:32:30.755135 139854454523648 util.py:45] max_span_width : 30
+I0713 13:32:30.755199 139854454523648 util.py:45] use_segment_distance : True
+I0713 13:32:30.755261 139854454523648 util.py:45] model_heads : True
+I0713 13:32:30.755324 139854454523648 util.py:45] coref_depth : 2
+I0713 13:32:30.755383 139854454523648 util.py:45] corefqa_only_concate : False
+I0713 13:32:30.755445 139854454523648 util.py:45] train_path : gs://xiaoy-data/overlap_256_5/train.128.english.tfrecord
+I0713 13:32:30.755507 139854454523648 util.py:45] eval_path : test.english.jsonlines
+I0713 13:32:30.755571 139854454523648 util.py:45] conll_eval_path : gs://corefqa/spanbert_large_overlap_256_5_out
+put_2e-5/test.english.v4_gold_conll
+I0713 13:32:30.755634 139854454523648 util.py:45] single_example : False
+I0713 13:32:30.755702 139854454523648 util.py:45] genres : ['bc', 'bn', 'mz', 'nw', 'pt', 'tc', 'wb']
+I0713 13:32:30.755765 139854454523648 util.py:45] log_root : gs://corefqa/spanbert_large_overlap_256_5_output_2e-
+5
+I0713 13:32:30.755842 139854454523648 util.py:45] save_checkpoints_steps : 1000
+I0713 13:32:30.755906 139854454523648 util.py:45] dev_path : gs://xiaoy-data/overlap_256_5/dev.256.english.tfrecord
+I0713 13:32:30.755968 139854454523648 util.py:45] test_path : gs://xiaoy-data/overlap_256_5/test.256.english.tfrecord
+I0713 13:32:30.756030 139854454523648 util.py:45] bert_config_file : gs://xiaoy-data/spanbert_large_tf/bert_config.json
+I0713 13:32:30.756093 139854454523648 util.py:45] vocab_file : gs://xiaoy-data/spanbert_large_tf/vocab.txt
+I0713 13:32:30.756155 139854454523648 util.py:45] tf_checkpoint : gs://xiaoy-data/spanbert_large_tf/bert_model.ckpt
+I0713 13:32:30.756217 139854454523648 util.py:45] init_checkpoint : gs://xiaoy-data/spanbert_large_tf/bert_model.ckpt
+I0713 13:32:30.756279 139854454523648 util.py:45] eval_checkpoint : gs://corefqa/spanbert_large_overlap_256_5_out
+put_1e-5_0.3_8/model.ckpt-20
+I0713 13:32:30.756341 139854454523648 util.py:45] output_path : gs://corefqa/spanbert_large_overlap_256_5_output_
+1e-5_0.3_8
+I0713 13:32:30.756391 139854454523648 util.py:47] %*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%
+I0713 13:32:30.756449 139854454523648 util.py:48] %*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%%*%
+I0713 13:32:30.757233 139854454523648 util.py:53] max_top_antecedents = 50
+max_training_sentences = 5
+top_span_ratio = 0.4
+max_num_speakers = 20
+max_segment_len = 128
+max_cluster_num = 200
+tpu = true
+max_query_len = 150
+max_context_len = 150
+max_qa_len = 300
+hidden_size = 1024
+max_candidate_mentions = 10
+learning_rate = 8e-06
+num_docs = 5604
+start_ratio = 0.8
+end_ratio = 0.8
+mention_ratio = 1.0
+corefqa_loss_ratio = 0.9
+score_ratio = 0.5
+run = "estimator"
+threshold = 0.5
+dropout_rate = 0.3
+ffnn_size = 1024
+ffnn_depth = 1
+num_epochs = 8
+max_span_width = 30
+use_segment_distance = true
+model_heads = true
+coref_depth = 2
+corefqa_only_concate = false
+train_path = "gs://xiaoy-data/overlap_256_5/train.128.english.tfrecord"
+eval_path = "test.english.jsonlines"
+conll_eval_path = "gs://corefqa/spanbert_large_overlap_256_5_output_2e-5/test.english.v4_gold_conll"
+single_example = false
+genres = [
+  "bc"
+  "bn"
+  "mz"
+  "nw"
+  "pt"
+  "tc"
+  "wb"
+]
+log_root = "gs://corefqa/spanbert_large_overlap_256_5_output_2e-5"
+save_checkpoints_steps = 1000
+dev_path = "gs://xiaoy-data/overlap_256_5/dev.128.english.tfrecord"
+test_path = "gs://xiaoy-data/overlap_256_5/test.128.english.tfrecord"
+bert_config_file = "gs://xiaoy-data/spanbert_large_tf/bert_config.json"
+vocab_file = "gs://xiaoy-data/spanbert_large_tf/vocab.txt"
+tf_checkpoint = "gs://xiaoy-data/spanbert_large_tf/bert_model.ckpt"
+init_checkpoint = "gs://xiaoy-data/spanbert_large_tf/bert_model.ckpt"
+eval_checkpoint = "gs://corefqa/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt-20"
+output_path = "gs://corefqa/spanbert_large_overlap_256_5_output_1e-5_0.3_8"
+log_dir = "gs://corefqa/spanbert_large_overlap_256_5_output_2e-5/spanbert_large_128_5_8e_6_0.3_5"
+W0713 13:32:30.757411 139854454523648 module_wrapper.py:139] From /home/xiaoyli1110/xiaoya/Coref-tf/run/train_mention_prop
+osal.py:208: The name tf.logging.set_verbosity is deprecated. Please use tf.compat.v1.logging.set_verbosity instead.
+W0713 13:32:30.757521 139854454523648 module_wrapper.py:139] From /home/xiaoyli1110/xiaoya/Coref-tf/run/train_mention_prop
+osal.py:208: The name tf.logging.INFO is deprecated. Please use tf.compat.v1.logging.INFO instead.
+W0713 13:32:30.757703 139854454523648 module_wrapper.py:139] From /home/xiaoyli1110/xiaoya/Coref-tf/run/train_mention_prop
+osal.py:215: The name tf.gfile.MakeDirs is deprecated. Please use tf.io.gfile.makedirs instead.
+I0713 13:32:30.888280 139854454523648 transport.py:157] Attempting refresh to obtain initial access_token
+I0713 13:32:30.974558 139854454523648 tpu_strategy_util.py:70] Initializing the TPU system: tf-tpu-2
+I0713 13:32:31.009052 139854454523648 transport.py:157] Attempting refresh to obtain initial access_token
+I0713 13:32:42.362679 139854454523648 tpu_strategy_util.py:114] Finished initializing TPU system.
+W0713 13:32:42.363391 139854454523648 lazy_loader.py:50] 
+The TensorFlow contrib module will not be included in TensorFlow 2.0.
+For more information, please see:
+  * https://github.com/tensorflow/community/blob/master/rfcs/20180907-contrib-sunset.md
+  * https://github.com/tensorflow/addons
+  * https://github.com/tensorflow/io (for I/O related ops)
+If you depend on functionality not listed there, please file an issue.
+W0713 13:32:42.962088 139854454523648 module_wrapper.py:139] From /home/xiaoyli1110/xiaoya/Coref-tf/run/train_mention_prop
+osal.py:231: The name tf.ConfigProto is deprecated. Please use tf.compat.v1.ConfigProto instead.
+I0713 13:32:42.999141 139854454523648 transport.py:157] Attempting refresh to obtain initial access_token
+I0713 13:32:43.086595 139854454523648 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:32:43.150098 139854454523648 estimator.py:1994] Estimator's model_fn (<function model_fn_builder.<locals>.model_f
+n at 0x7f31cf099510>) includes params argument, but params are not passed to Estimator.
+I0713 13:32:43.151140 139854454523648 estimator.py:212] Using config: {'_num_worker_replicas': 1, '_evaluation_master': 'g
+rpc://10.229.240.242:8470', '_num_ps_replicas': 0, '_tpu_config': TPUConfig(iterations_per_loop=500, num_shards=1, num_cor
+es_per_replica=None, per_host_input_for_training=3, tpu_job_name=None, initial_infeed_sleep_secs=None, input_partition_dim
+s=None, eval_training_input_configuration=2, experimental_host_call_every_n_steps=1), '_save_checkpoints_steps': 1000, '_g
+lobal_id_in_cluster': 0, '_session_creation_timeout_secs': 7200, '_session_config': allow_soft_placement: true
+log_device_placement: true
+cluster_def {
+  job {
+    name: "worker"
+    tasks {
+      key: 0
+      value: "10.229.240.242:8470"
+    }
+  }
+}
+, '_keep_checkpoint_every_n_hours': 10000, '_service': None, '_task_type': 'worker', '_cluster_spec': <tensorflow.python.t
+raining.server_lib.ClusterSpec object at 0x7f31cf088d68>, '_experimental_max_worker_delay_secs': None, '_task_id': 0, '_ex
+perimental_distribute': None, '_save_summary_steps': 100, '_master': 'grpc://10.229.240.242:8470', '_train_distribute': No
+ne, '_device_fn': None, '_eval_distribute': None, '_log_step_count_steps': None, '_cluster': <tensorflow.python.distribute
+.cluster_resolver.tpu_cluster_resolver.TPUClusterResolver object at 0x7f31ec438f98>, '_tf_random_seed': None, '_is_chief':
+ True, '_model_dir': 'gs://corefqa/spanbert_large_overlap_256_5_output_1e-5_0.3_8', '_protocol': None, '_keep_che
+ckpoint_max': 45, '_save_checkpoints_secs': None}
+W0713 13:32:43.151452 139854454523648 tpu_context.py:824] Setting TPUConfig.num_shards==1 is an unsupported behavior. Plea
+se fix as soon as possible (leaving num_shards as None.)
+I0713 13:32:43.151556 139854454523648 tpu_context.py:220] _TPUContext: eval_on_tpu True
+W0713 13:32:43.152091 139854454523648 module_wrapper.py:139] From /home/xiaoyli1110/xiaoya/Coref-tf/data_utils/input_build
+er.py:17: The name tf.FixedLenFeature is deprecated. Please use tf.io.FixedLenFeature instead.
+W0713 13:32:43.235047 139854454523648 deprecation.py:506] From /home/xiaoyli1110/venv/lib/python3.5/site-packages/tensorfl
+ow_core/python/ops/resource_variable_ops.py:1630: calling BaseResourceVariable.__init__ (from tensorflow.python.ops.resour
+ce_variable_ops) with constraint is deprecated and will be removed in a future version.
+Instructions for updating:
+If using Keras pass *_constraint arguments to layers.
+W0713 13:32:43.235646 139854454523648 deprecation.py:323] From /home/xiaoyli1110/venv/lib/python3.5/site-packages/tensorfl
+ow_core/python/training/training_util.py:236: Variable.initialized_value (from tensorflow.python.ops.variables) is depreca
+ted and will be removed in a future version.
+Instructions for updating:
+Use Variable.read_value. Variables in 2.X are initialized automatically both in eager and graph (inside tf.defun) contexts
+.
+I0713 13:32:43.247232 139854454523648 estimator.py:1148] Calling model_fn.
+W0713 13:32:43.269675 139854454523648 deprecation.py:323] From /home/xiaoyli1110/xiaoya/Coref-tf/data_utils/input_builder.
+py:57: map_and_batch (from tensorflow.contrib.data.python.ops.batching) is deprecated and will be removed in a future vers
+ion.
+Instructions for updating:
+Use `tf.data.experimental.map_and_batch(...)`.
+W0713 13:32:43.269923 139854454523648 deprecation.py:323] From /home/xiaoyli1110/venv/lib/python3.5/site-packages/tensorfl
+ow_core/contrib/data/python/ops/batching.py:276: map_and_batch (from tensorflow.python.data.experimental.ops.batching) is 
+deprecated and will be removed in a future version.
+Instructions for updating:
+Use `tf.data.Dataset.map(map_func, num_parallel_calls)` followed by `tf.data.Dataset.batch(batch_size, drop_remainder)`. S
+tatic tf.data optimizations will take care of using the fused implementation.
+W0713 13:32:43.453959 139854454523648 deprecation.py:323] From /home/xiaoyli1110/xiaoya/Coref-tf/data_utils/input_builder.
+py:37: to_int32 (from tensorflow.python.ops.math_ops) is deprecated and will be removed in a future version.
+Instructions for updating:
+Use `tf.cast` instead.
+I0713 13:32:43.581569 139854454523648 tpu_estimator.py:1201] Found small feature: genre [1, 1]
+2020-07-13 13:32:43.589218: W tensorflow/stream_executor/platform/default/dso_loader.cc:55] Could not load dynamic library 'libcuda.so.1'; dlerror: libcuda.so.1: cannot open shared object file: No such file or directory
+2020-07-13 13:32:43.589295: E tensorflow/stream_executor/cuda/cuda_driver.cc:318] failed call to cuInit: UNKNOWN ERROR (303)
+2020-07-13 13:32:43.589333: I tensorflow/stream_executor/cuda/cuda_diagnostics.cc:156] kernel driver does not appear to be running on this host (tf-vm-1): /proc/driver/nvidia/version does not exist
+loading experiments_tpu.conf ... 
+W0713 13:32:43.717793 139854454523648 module_wrapper.py:139] From /home/xiaoyli1110/xiaoya/Coref-tf/bert/modeling.py:93: The name tf.gfile.GFile is deprecated. Please use tf.io.gfile.GFile instead.
+
+I0713 13:32:44.248502 139854454523648 train_corefqa.py:81] ****************************** tf.estimator.ModeKeys.TRAIN ******************************
+I0713 13:32:44.248737 139854454523648 train_corefqa.py:82] ********* Features *********
+I0713 13:32:44.248867 139854454523648 train_corefqa.py:84]   name = cluster_ids, shape = (1, 200)
+I0713 13:32:44.248942 139854454523648 train_corefqa.py:84]   name = flattened_input_ids, shape = (1, 640)
+I0713 13:32:44.249007 139854454523648 train_corefqa.py:84]   name = flattened_input_mask, shape = (1, 640)
+I0713 13:32:44.249068 139854454523648 train_corefqa.py:84]   name = genre, shape = (1, 1)
+I0713 13:32:44.249126 139854454523648 train_corefqa.py:84]   name = sentence_map, shape = (1, 640)
+I0713 13:32:44.249197 139854454523648 train_corefqa.py:84]   name = span_ends, shape = (1, 200)
+I0713 13:32:44.249253 139854454523648 train_corefqa.py:84]   name = span_mention, shape = (1, 81920)
+I0713 13:32:44.249310 139854454523648 train_corefqa.py:84]   name = span_starts, shape = (1, 200)
+I0713 13:32:44.249364 139854454523648 train_corefqa.py:84]   name = speaker_ids, shape = (1, 640)
+I0713 13:32:44.249425 139854454523648 train_corefqa.py:84]   name = subtoken_map, shape = (1, 640)
+I0713 13:32:44.249484 139854454523648 train_corefqa.py:84]   name = text_len, shape = (1, 5)
+W0713 13:32:44.255169 139854454523648 deprecation.py:323] From /home/xiaoyli1110/xiaoya/Coref-tf/models/corefqa.py:45: where (from tensorflow.python.ops.array_ops) is deprecated and will be removed in a future version.
+Instructions for updating:
+Use tf.where in 2.0, which has the same broadcast rule as np.where
+W0713 13:32:44.310123 139854454523648 deprecation.py:323] From /home/xiaoyli1110/xiaoya/Coref-tf/bert/modeling.py:159: to_float (from tensorflow.python.ops.math_ops) is deprecated and will be removed in a future version.
+Instructions for updating:
+Use `tf.cast` instead.
+W0713 13:32:44.316755 139854454523648 module_wrapper.py:139] From /home/xiaoyli1110/xiaoya/Coref-tf/bert/modeling.py:176: The name tf.variable_scope is deprecated. Please use tf.compat.v1.variable_scope instead.
+
+W0713 13:32:44.316993 139854454523648 module_wrapper.py:139] From /home/xiaoyli1110/xiaoya/Coref-tf/bert/modeling.py:176: The name tf.AUTO_REUSE is deprecated. Please use tf.compat.v1.AUTO_REUSE instead.
+
+W0713 13:32:44.318874 139854454523648 module_wrapper.py:139] From /home/xiaoyli1110/xiaoya/Coref-tf/bert/modeling.py:414: The name tf.get_variable is deprecated. Please use tf.compat.v1.get_variable instead.
+
+W0713 13:32:44.346873 139854454523648 module_wrapper.py:139] From /home/xiaoyli1110/xiaoya/Coref-tf/bert/modeling.py:495: The name tf.assert_less_equal is deprecated. Please use tf.compat.v1.assert_less_equal instead.
+W0713 13:32:44.393918 139854454523648 deprecation.py:506] From /home/xiaoyli1110/xiaoya/Coref-tf/bert/modeling.py:362: calling dropout (from tensorflow.python.ops.nn_ops) with keep_prob is deprecated and will be removed in a future version.
+Instructions for updating:
+Please use `rate` instead of `keep_prob`. Rate should be set to `rate = 1 - keep_prob`.
+W0713 13:32:44.413023 139854454523648 deprecation.py:323] From /home/xiaoyli1110/xiaoya/Coref-tf/bert/modeling.py:676: dense (from tensorflow.python.layers.core) is deprecated and will be removed in a future version.
+Instructions for updating:
+Use keras.layers.Dense instead.
+W0713 13:32:44.414172 139854454523648 deprecation.py:323] From /home/xiaoyli1110/venv/lib/python3.5/site-packages/tensorflow_core/python/layers/core.py:187: Layer.apply (from tensorflow.python.keras.engine.base_layer) is deprecated and will be removed in a future version.
+Instructions for updating:
+Please use `layer.__call__` method instead.
+W0713 13:32:44.578979 139854454523648 module_wrapper.py:139] From /home/xiaoyli1110/xiaoya/Coref-tf/bert/modeling.py:281: The name tf.erf is deprecated. Please use tf.math.erf instead.
+
+W0713 13:32:50.061144 139854454523648 module_wrapper.py:139] From /home/xiaoyli1110/xiaoya/Coref-tf/utils/util.py:161: The name tf.nn.xw_plus_b is deprecated. Please use tf.compat.v1.nn.xw_plus_b instead.
+
+W0713 13:32:50.195958 139854454523648 module_wrapper.py:139] From /home/xiaoyli1110/xiaoya/Coref-tf/run/train_corefqa.py:91: The name tf.train.AdamOptimizer is deprecated. Please use tf.compat.v1.train.AdamOptimizer instead.
+
+W0713 13:32:50.196410 139854454523648 module_wrapper.py:139] From /home/xiaoyli1110/xiaoya/Coref-tf/run/train_corefqa.py:93: The name tf.train.get_global_step is deprecated. Please use tf.compat.v1.train.get_global_step instead.
+
+/home/xiaoyli1110/venv/lib/python3.5/site-packages/tensorflow_core/python/framework/indexed_slices.py:424: UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory.
+  "Converting sparse IndexedSlices to a dense Tensor of unknown shape. "
+W0713 13:33:05.472824 139854454523648 module_wrapper.py:139] From /home/xiaoyli1110/xiaoya/Coref-tf/run/train_corefqa.py:75: The name tf.train.Scaffold is deprecated. Please use tf.compat.v1.train.Scaffold instead.
+
+I0713 13:33:05.481198 139854454523648 basic_session_run_hooks.py:541] Create CheckpointSaverHook.
+I0713 13:33:06.110851 139854454523648 estimator.py:1150] Done calling model_fn.
+I0713 13:33:06.111157 139854454523648 estimator.py:1369] Warm-starting with WarmStartSettings: WarmStartSettings(ckpt_to_initialize_from='gs://xiaoy-data/spanbert_large_tf/bert_model.ckpt', vars_to_warm_start='bert*', var_name_to_vocab_info={}, var_name_to_prev_var_name={})
+I0713 13:33:06.111244 139854454523648 warm_starting_util.py:462] Warm-starting from: gs://xiaoy-data/spanbert_large_tf/bert_model.ckpt
+I0713 13:33:06.111304 139854454523648 warm_starting_util.py:341] Warm-starting variables only in TRAINABLE_VARIABLES.
+I0713 13:33:08.352062 139854454523648 warm_starting_util.py:536] Warm-started 391 variables.
+I0713 13:33:12.331028 139854454523648 tpu_estimator.py:506] TPU job name worker
+I0713 13:33:15.510743 139854454523648 monitored_session.py:240] Graph was finalized.
+I0713 13:33:31.316836 139854454523648 session_manager.py:500] Running local_init_op.
+I0713 13:33:32.509091 139854454523648 session_manager.py:502] Done running local_init_op.
+I0713 13:33:48.608006 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 0 into gs://corefqa/
+spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+W0713 13:34:23.234485 139854454523648 deprecation.py:323] From /home/xiaoyli1110/venv/lib/python3.5/site-packages/tensorfl
+ow_estimator/python/estimator/tpu/tpu_estimator.py:751: Variable.load (from tensorflow.python.ops.variables) is deprecated
+ and will be removed in a future version.
+Instructions for updating:
+Prefer Variable.assign which has equivalent behavior in 2.X.
+I0713 13:34:25.801875 139854454523648 util.py:98] Initialized dataset iterators in 1 seconds
+I0713 13:34:25.802251 139854454523648 session_support.py:332] Installing graceful shutdown hook.
+2020-07-13 13:34:25.802616: W tensorflow/core/distributed_runtime/rpc/grpc_session.cc:370] GrpcSession::ListDevices will i
+nitialize the session with an empty graph and other defaults because the session has not yet been created.
+I0713 13:34:25.807083 139854454523648 session_support.py:82] Creating heartbeat manager for ['/job:worker/replica:0/task:0
+/device:CPU:0']
+I0713 13:34:25.808887 139854454523648 session_support.py:105] Configuring worker heartbeat: shutdown_mode: WAIT_FOR_COORDI
+NATOR
+I0713 13:34:25.812794 139854454523648 tpu_estimator.py:567] Init TPU system
+I0713 13:34:52.338479 139854454523648 tpu_estimator.py:576] Initialized TPU in 26 seconds
+I0713 13:34:52.339307 139851816490752 tpu_estimator.py:521] Starting infeed thread controller.
+I0713 13:34:52.339829 139851808098048 tpu_estimator.py:540] Starting outfeed thread controller.
+I0713 13:34:52.383938 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:34:52.446602 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:34:53.534161 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 13:34:53.534471 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 13:35:22.527892 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:35:22.605104 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:35:52.674291 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:35:52.731746 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:36:00.979873 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (0, 0)
+I0713 13:36:22.814310 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:36:22.879968 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:36:52.945634 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:36:53.012834 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:37:00.981852 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (0, 321)
+I0713 13:37:23.093818 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:37:23.157824 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:37:36.911492 139854454523648 basic_session_run_hooks.py:262] loss = 0.914953, step = 500
+I0713 13:37:36.914221 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+W0713 13:37:53.285455 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:38:00.988013 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (1, 84)
+I0713 13:38:23.365156 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:38:23.423832 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:38:53.491719 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:38:53.554668 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:39:01.172550 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (1, 406)
+I0713 13:39:20.555398 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 1000 into gs://mention_propos
+al/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 13:39:23.633361 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:39:23.695772 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:39:53.891773 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:39:54.250204 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:39:56.556600 139854454523648 basic_session_run_hooks.py:260] loss = 4.13676, step = 1000 (139.645 sec)
+I0713 13:39:56.558143 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.58051
+I0713 13:39:56.558711 139854454523648 tpu_estimator.py:2308] examples/sec: 3.58051
+I0713 13:39:56.559954 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 13:39:56.560112 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 13:40:01.227456 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (2, 19)
+I0713 13:40:24.342049 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:40:24.410346 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:40:54.484178 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:40:54.541163 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:41:01.227958 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (2, 340)
+I0713 13:41:24.618664 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:41:24.692560 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:41:32.992609 139854454523648 basic_session_run_hooks.py:260] loss = 3.8021805, step = 1500 (96.436 sec)
+I0713 13:41:32.994244 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.18478
+I0713 13:41:32.994397 139854454523648 tpu_estimator.py:2308] examples/sec: 5.18478
+I0713 13:41:32.995452 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 13:41:32.995604 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 13:41:54.760174 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:41:54.820938 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:42:01.371530 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (3, 146)
+I0713 13:42:24.898124 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:42:24.969967 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:42:55.038309 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:42:55.113412 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:43:01.384173 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (3, 467)
+I0713 13:43:09.434485 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 2000 into gs://mention_propos
+al/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 13:43:25.194705 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:43:25.257577 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:43:54.348531 139854454523648 basic_session_run_hooks.py:260] loss = 3.8021805, step = 2000 (141.356 sec)
+I0713 13:43:54.350124 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.53717
+I0713 13:43:54.350502 139854454523648 tpu_estimator.py:2308] examples/sec: 3.53717
+I0713 13:43:54.351921 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 13:43:54.352075 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 13:43:55.320463 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:43:55.381566 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:44:01.397973 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (4, 32)
+I0713 13:44:25.460387 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:44:25.543729 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:44:55.614067 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:44:55.673688 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:45:01.405372 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (4, 353)
+I0713 13:45:25.753507 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:45:25.809231 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:45:30.739089 139854454523648 basic_session_run_hooks.py:260] loss = 3.8021805, step = 2500 (96.391 sec)
+I0713 13:45:30.740578 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.18724
+I0713 13:45:30.740755 139854454523648 tpu_estimator.py:2308] examples/sec: 5.18724
+I0713 13:45:30.742157 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 13:45:30.742325 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 13:45:55.873428 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:45:55.936461 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:46:01.406262 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (5, 159)
+I0713 13:46:26.012216 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:46:26.069585 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:46:56.151710 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:46:56.215508 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:47:01.409749 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (5, 480)
+I0713 13:47:06.999798 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 3000 into gs://mention_propos
+al/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 13:47:26.296331 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:47:26.363498 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:47:56.417398 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:47:56.479604 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:47:59.686565 139854454523648 basic_session_run_hooks.py:260] loss = 2.8021805, step = 3000 (148.948 sec)
+I0713 13:47:59.688166 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.35689
+I0713 13:47:59.688552 139854454523648 tpu_estimator.py:2308] examples/sec: 3.35689
+I0713 13:47:59.690077 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 13:47:59.690247 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 13:48:01.559228 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (6, 4)
+I0713 13:48:26.569587 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:48:26.635426 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 13:48:56.703793 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:48:56.797632 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:49:01.573179 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (6, 325)
+I0713 13:49:26.876425 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:49:26.941304 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 13:49:36.156232 139854454523648 basic_session_run_hooks.py:260] loss = 1.914953, step = 3500 (96.470 sec)
+I0713 13:49:36.157803 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.18298
+I0713 13:49:36.157984 139854454523648 tpu_estimator.py:2308] examples/sec: 5.18298
+I0713 13:49:36.159358 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 13:49:36.159597 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 13:49:57.009993 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:49:57.082101 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:50:01.606477 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (7, 131)
+I0713 13:50:27.163457 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:50:27.228704 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 13:50:57.299359 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:50:57.355480 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 13:51:01.608958 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (7, 452)
+I0713 13:51:12.417972 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 4000 into gs://mention_propos
+al/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 13:51:27.436131 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:51:27.494319 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:51:57.563251 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:51:57.617823 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:52:03.707678 139854454523648 basic_session_run_hooks.py:260] loss = 2.8021805, step = 4000 (147.551 sec)
+I0713 13:52:03.709217 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.38865
+I0713 13:52:03.709369 139854454523648 tpu_estimator.py:2308] examples/sec: 3.38865
+I0713 13:52:03.710687 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 13:52:03.710864 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 13:52:04.843101 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (8, 0)
+I0713 13:52:27.696180 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:52:27.748457 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:52:57.805479 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:52:57.870563 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:53:05.018967 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (8, 322)
+I0713 13:53:27.946843 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:53:28.002532 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:53:40.159855 139854454523648 basic_session_run_hooks.py:260] loss = 1.933943, step = 4500 (96.452 sec)
+I0713 13:53:40.161598 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.18391
+I0713 13:53:40.161772 139854454523648 tpu_estimator.py:2308] examples/sec: 5.18391
+I0713 13:53:40.163172 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 13:53:40.163350 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 13:53:58.070490 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:53:58.124979 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:54:05.099331 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (9, 128)
+I0713 13:54:28.203105 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:54:28.253237 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:54:58.322755 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:54:58.384080 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:55:05.283603 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (9, 450)
+I0713 13:55:16.499735 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 5000 into gs://mention_propos
+al/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 13:55:28.489193 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:55:28.566504 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:55:58.635082 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:55:58.694674 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:56:02.537926 139854454523648 basic_session_run_hooks.py:260] loss = 1.8210597, step = 5000 (142.378 sec)
+I0713 13:56:02.539386 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.51178
+I0713 13:56:02.539618 139854454523648 tpu_estimator.py:2308] examples/sec: 3.51178
+I0713 13:56:02.541219 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 13:56:02.541427 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 13:56:05.341722 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (10, 9)
+I0713 13:56:28.771400 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:56:28.859793 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:56:58.933500 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:56:58.988886 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:57:05.522078 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (10, 331)
+I0713 13:57:29.068145 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:57:29.146551 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:57:38.975095 139854454523648 basic_session_run_hooks.py:260] loss = 1.6371925, step = 5500 (96.437 sec)
+I0713 13:57:38.976462 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.18473
+I0713 13:57:38.976629 139854454523648 tpu_estimator.py:2308] examples/sec: 5.18473
+I0713 13:57:38.977948 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 13:57:38.978101 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 13:57:59.213452 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:57:59.279012 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:58:05.556797 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (11, 137)
+I0713 13:58:29.354489 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:58:29.425042 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:58:59.471790 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:58:59.533910 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:59:05.561878 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (11, 458)
+I0713 13:59:15.277540 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 6000 into gs://mention_propos
+al/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 13:59:29.634768 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:59:29.703330 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 13:59:56.920559 139854454523648 basic_session_run_hooks.py:260] loss = 0.954529, step = 6000 (137.945 sec)
+I0713 13:59:56.922418 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.62461
+I0713 13:59:56.922590 139854454523648 tpu_estimator.py:2308] examples/sec: 3.62461
+I0713 13:59:56.924027 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 13:59:56.924191 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 13:59:59.774702 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 13:59:59.828592 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:00:05.591580 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (12, 40)
+I0713 14:00:29.909509 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:00:29.984618 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:01:00.050745 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:01:00.109287 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:01:05.610846 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (12, 361)
+I0713 14:01:30.186270 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:01:30.261606 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:01:33.434612 139854454523648 basic_session_run_hooks.py:260] loss = 0.9784322, step = 6500 (96.514 sec)
+I0713 14:01:33.436004 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.18061
+I0713 14:01:33.436150 139854454523648 tpu_estimator.py:2308] examples/sec: 5.18061
+I0713 14:01:33.437179 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:01:33.437327 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:02:00.331735 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:02:00.394437 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:02:05.652986 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (13, 167)
+I0713 14:02:30.474905 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:02:30.542978 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:03:00.605350 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:03:00.687661 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:03:05.670633 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (13, 488)
+I0713 14:03:09.673076 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 7000 into gs://mention_propos
+al/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 14:03:30.766051 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:03:30.828319 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:03:47.104225 139854454523648 basic_session_run_hooks.py:260] loss = 1.674028, step = 7000 (133.670 sec)
+I0713 14:03:47.105738 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.74056
+I0713 14:03:47.105901 139854454523648 tpu_estimator.py:2308] examples/sec: 3.74056
+I0713 14:03:47.107057 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:03:47.107224 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:04:00.894795 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:04:00.952142 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:04:05.837176 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (14, 94)
+I0713 14:04:31.032569 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:04:31.113898 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:05:01.182703 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:05:01.246334 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:05:06.015645 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (14, 416)
+I0713 14:05:23.607163 139854454523648 basic_session_run_hooks.py:260] loss = 1.8021805, step = 7500 (96.503 sec)
+I0713 14:05:23.608669 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.18119
+I0713 14:05:23.608877 139854454523648 tpu_estimator.py:2308] examples/sec: 5.18119
+I0713 14:05:23.610214 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:05:23.610362 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:05:31.331833 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:05:31.397906 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:06:01.461765 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:06:01.528874 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:06:06.097661 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (15, 222)
+I0713 14:06:31.597828 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:06:31.669283 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:06:59.879437 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 8000 into gs://mention_propos
+al/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 14:07:01.736804 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:07:01.798292 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:07:31.877335 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:07:31.942101 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:07:38.002358 139854454523648 basic_session_run_hooks.py:260] loss = 0.875783, step = 8000 (134.395 sec)
+I0713 14:07:38.004114 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.72036
+I0713 14:07:38.004297 139854454523648 tpu_estimator.py:2308] examples/sec: 3.72036
+I0713 14:07:38.005762 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:07:38.005920 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:07:39.102670 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (16, 0)
+I0713 14:08:02.009792 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:08:02.063658 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:08:32.156332 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:08:32.249342 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:08:32.156332 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:08:32.249342 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:08:39.104180 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (16, 321)
+I0713 14:09:02.319534 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:09:02.398364 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:09:14.499323 139854454523648 basic_session_run_hooks.py:260] loss = 0.6772614, step = 8500 (96.497 sec)
+I0713 14:09:14.501032 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.18151
+I0713 14:09:14.501206 139854454523648 tpu_estimator.py:2308] examples/sec: 5.18151
+I0713 14:09:14.502545 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:09:14.502720 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:09:32.475497 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:09:32.531325 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:09:39.234866 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (17, 127)
+I0713 14:10:02.595282 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:10:02.666515 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:10:32.749498 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:10:32.824878 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:10:39.247313 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (17, 448)
+I0713 14:10:50.838369 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 9000 into gs://mention_propos
+al/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 14:11:02.890172 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:11:02.949292 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:11:33.017884 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:11:33.970026 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:11:33.973562 139854454523648 basic_session_run_hooks.py:260] loss = 0.532390, step = 9000 (139.474 sec)
+I0713 14:11:33.975135 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.58489
+I0713 14:11:33.975285 139854454523648 tpu_estimator.py:2308] examples/sec: 3.58489
+I0713 14:11:33.976626 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:11:33.976828 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:11:39.267242 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (18, 22)
+I0713 14:12:04.040215 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:12:04.104542 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:12:34.201939 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:12:34.269795 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:12:34.201939 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:12:34.269795 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:12:39.271746 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (18, 343)
+I0713 14:13:04.338961 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:13:04.407777 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:13:10.504287 139854454523648 basic_session_run_hooks.py:260] loss = 0.660083, step = 9500 (96.531 sec)
+I0713 14:13:10.506062 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.17969
+I0713 14:13:10.506249 139854454523648 tpu_estimator.py:2308] examples/sec: 5.17969
+I0713 14:13:10.507637 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:13:10.507781 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:13:34.488842 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:13:34.547921 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:13:39.328676 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (19, 149)
+I0713 14:14:04.614643 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:14:04.688493 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:14:34.767928 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:14:34.837780 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:14:39.332851 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (19, 470)
+I0713 14:14:46.832059 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 10000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 14:15:04.904815 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:15:04.965192 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:15:25.879143 139854454523648 basic_session_run_hooks.py:260] loss = 0.893240, step = 10000 (135.375 sec)
+I0713 14:15:25.880845 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.69345
+I0713 14:15:25.881026 139854454523648 tpu_estimator.py:2308] examples/sec: 3.69345
+I0713 14:15:25.882482 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:15:25.882636 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:15:35.050430 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:15:35.120741 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:15:39.414438 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (20, 66)
+I0713 14:16:05.192965 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:16:05.251034 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:16:35.341800 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:16:35.396639 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:16:39.600657 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (20, 388)
+I0713 14:17:02.411944 139854454523648 basic_session_run_hooks.py:260] loss = 0.7934731, step = 10500 (96.533 sec)
+I0713 14:17:02.413312 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.1796
+I0713 14:17:02.413514 139854454523648 tpu_estimator.py:2308] examples/sec: 5.1796
+I0713 14:17:02.414525 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:17:02.414676 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:17:05.464844 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:17:05.555704 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:17:35.637132 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:17:35.734261 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:17:39.695430 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (21, 194)
+I0713 14:18:05.800064 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:18:05.870077 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:18:35.947593 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:18:36.018522 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:18:38.808295 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 11000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 14:19:06.084855 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:19:06.163093 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:19:17.865995 139854454523648 basic_session_run_hooks.py:260] loss = 0.6753738, step = 11000 (135.454 sec)
+I0713 14:19:17.867855 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.69128
+I0713 14:19:17.868032 139854454523648 tpu_estimator.py:2308] examples/sec: 3.69128
+I0713 14:19:17.869720 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:19:17.869874 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:19:19.103940 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (22, 0)
+I0713 14:19:36.239017 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:19:36.309584 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:20:06.378943 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:20:06.438300 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:20:19.108711 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (22, 321)
+I0713 14:20:36.512942 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:20:36.621001 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:20:54.421520 139854454523648 basic_session_run_hooks.py:260] loss = 0.914953, step = 11500 (96.556 sec)
+I0713 14:20:54.423593 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.17836
+I0713 14:20:54.423803 139854454523648 tpu_estimator.py:2308] examples/sec: 5.17836
+I0713 14:20:54.425501 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:20:54.425656 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:21:06.658300 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:21:06.715119 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:21:19.294065 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (23, 127)
+I0713 14:21:36.793691 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:21:36.855731 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:22:06.904266 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:22:06.954387 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:22:19.311339 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (23, 448)
+I0713 14:22:30.935384 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 12000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 14:22:37.040047 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:22:37.100377 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:23:03.046557 139854454523648 basic_session_run_hooks.py:260] loss = 0.8933210, step = 12000 (128.625 sec)
+I0713 14:23:03.048159 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.88728
+I0713 14:23:03.048338 139854454523648 tpu_estimator.py:2308] examples/sec: 3.88728
+I0713 14:23:03.049638 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:23:03.049827 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:23:07.167862 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:23:07.215094 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:23:19.322469 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (24, 81)
+I0713 14:23:37.304720 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:23:37.366998 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:24:07.435581 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:24:07.495851 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:24:19.347488 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (24, 402)
+I0713 14:24:37.570679 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:24:37.665091 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:24:39.598971 139854454523648 basic_session_run_hooks.py:260] loss = 0.8831764, step = 12500 (96.552 sec)
+I0713 14:24:39.600478 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.17854
+I0713 14:24:39.600638 139854454523648 tpu_estimator.py:2308] examples/sec: 5.17854
+I0713 14:24:39.602222 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:24:39.602371 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:25:07.730357 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:25:07.787948 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:25:19.478255 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (25, 208)
+I0713 14:25:37.867190 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:25:37.950542 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:26:08.012512 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:26:08.093133 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:26:15.903755 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 13000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 14:26:38.173665 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:26:38.245939 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:26:53.014197 139854454523648 basic_session_run_hooks.py:260] loss = 0.987631, step = 13000 (133.415 sec)
+I0713 14:26:53.015763 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.7477
+I0713 14:26:53.015916 139854454523648 tpu_estimator.py:2308] examples/sec: 3.7477
+I0713 14:26:53.017333 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:26:53.017611 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:26:54.225758 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (26, 0)
+I0713 14:27:08.318532 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:27:08.383111 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:27:38.466524 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:27:38.519868 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:27:54.233627 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (26, 321)
+I0713 14:28:08.589455 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:28:08.654047 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:28:29.629534 139854454523648 basic_session_run_hooks.py:260] loss = 0.7476624, step = 13500 (96.615 sec)
+I0713 14:28:29.631260 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.17515
+I0713 14:28:29.631444 139854454523648 tpu_estimator.py:2308] examples/sec: 5.17515
+I0713 14:28:29.633112 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:28:29.633295 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:28:38.730309 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:28:38.788500 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:28:54.407351 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (27, 127)
+I0713 14:29:08.857658 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:29:08.912423 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:29:38.993737 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:29:39.066647 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:29:54.427500 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (27, 448)
+I0713 14:30:06.036473 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 14000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 14:30:09.132932 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:30:09.196476 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:30:39.424088 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:30:39.608855 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:30:42.414681 139854454523648 basic_session_run_hooks.py:260] loss = 0.6273621, step = 14000 (132.785 sec)
+I0713 14:30:42.416021 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.76549
+I0713 14:30:42.416165 139854454523648 tpu_estimator.py:2308] examples/sec: 3.76549
+I0713 14:30:42.417392 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:30:42.417543 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:30:54.471828 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (28, 58)
+I0713 14:31:09.688899 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:31:09.751944 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:31:39.846798 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:31:39.914501 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:31:54.478518 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (28, 379)
+I0713 14:32:09.977983 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:32:10.039554 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:32:18.986149 139854454523648 basic_session_run_hooks.py:260] loss = 0.563664, step = 14500 (96.571 sec)
+I0713 14:32:18.987822 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.1775
+I0713 14:32:18.987994 139854454523648 tpu_estimator.py:2308] examples/sec: 5.1775
+I0713 14:32:18.989415 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:32:18.989603 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:32:40.116162 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:32:40.186554 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:32:54.660032 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (29, 185)
+I0713 14:33:10.251376 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:33:10.310646 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:33:40.389057 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:33:40.476012 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:33:55.417416 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 15000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 14:34:10.544114 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:34:10.606270 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:34:39.951328 139854454523648 basic_session_run_hooks.py:260] loss = 0.4217872, step = 15000 (140.965 sec)
+I0713 14:34:39.952753 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.54698
+I0713 14:34:39.952914 139854454523648 tpu_estimator.py:2308] examples/sec: 3.54698
+I0713 14:34:39.953921 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:34:39.954071 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:34:40.683786 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:34:40.745533 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:34:41.070978 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (30, 0)
+I0713 14:35:10.810930 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:35:10.873119 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:35:40.955011 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:35:41.023195 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:35:41.095405 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (30, 321)
+I0713 14:36:11.096832 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:36:11.159614 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:36:16.459443 139854454523648 basic_session_run_hooks.py:260] loss = 0.407890, step = 15500 (96.508 sec)
+I0713 14:36:16.461211 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.18089
+I0713 14:36:16.461389 139854454523648 tpu_estimator.py:2308] examples/sec: 5.18089
+I0713 14:36:16.462602 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:36:16.462753 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:36:41.243048 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+I0713 14:36:41.250202 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (31, 127)
+W0713 14:36:41.307515 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:37:11.371782 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:37:11.419038 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:37:41.277486 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (31, 448)
+I0713 14:37:41.506811 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:37:41.588177 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:37:52.829508 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 16000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 14:38:11.656487 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:38:11.713471 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:38:32.362549 139854454523648 basic_session_run_hooks.py:260] loss = 0.4839432, step = 16000 (135.903 sec)
+I0713 14:38:32.364136 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.6791
+I0713 14:38:32.364305 139854454523648 tpu_estimator.py:2308] examples/sec: 3.6791
+I0713 14:38:32.365650 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:38:32.365833 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:38:41.280675 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (32, 41)
+I0713 14:38:41.797271 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:38:41.875332 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:39:11.932676 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:39:12.067328 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:39:41.463076 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (32, 363)
+I0713 14:39:42.145474 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:39:42.212725 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:40:09.005722 139854454523648 basic_session_run_hooks.py:260] loss = 0.7443725, step = 16500 (96.643 sec)
+I0713 14:40:09.007253 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.17367
+I0713 14:40:09.007411 139854454523648 tpu_estimator.py:2308] examples/sec: 5.17367
+I0713 14:40:09.008575 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:40:09.008738 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:40:12.280986 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:40:12.356045 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:40:41.613353 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (33, 169)
+I0713 14:40:42.454238 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:40:42.521427 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:41:12.584643 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:41:12.643617 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:41:41.614438 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (33, 490)
+I0713 14:41:42.725520 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:41:42.783356 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:41:45.367150 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 17000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 14:42:12.854997 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:42:12.913447 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:42:24.297033 139854454523648 basic_session_run_hooks.py:260] loss = 0.7340725, step = 17000 (135.291 sec)
+I0713 14:42:24.298661 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.69573
+I0713 14:42:24.299031 139854454523648 tpu_estimator.py:2308] examples/sec: 3.69573
+I0713 14:42:24.300606 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:42:24.300782 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:42:41.789839 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (34, 87)
+I0713 14:42:42.992827 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:42:43.049344 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:43:13.117110 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:43:13.171251 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:43:41.797610 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (34, 408)
+I0713 14:43:43.248885 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:43:43.323585 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:44:00.892893 139854454523648 basic_session_run_hooks.py:260] loss = 0.3585462, step = 17500 (96.596 sec)
+I0713 14:44:00.894139 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.17623
+I0713 14:44:00.894309 139854454523648 tpu_estimator.py:2308] examples/sec: 5.17623
+I0713 14:44:00.895378 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:44:00.895544 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:44:13.395856 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:44:13.455429 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:44:41.919983 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (35, 214)
+I0713 14:44:43.530930 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:44:43.597383 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:45:13.668268 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:45:13.727620 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:45:37.150601 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 18000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 14:45:43.818796 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:45:43.888290 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:46:13.957850 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:46:14.028500 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:46:22.797191 139854454523648 basic_session_run_hooks.py:260] loss = 0.3919726, step = 18000 (141.904 sec)
+I0713 14:46:22.798951 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.52349
+I0713 14:46:22.799282 139854454523648 tpu_estimator.py:2308] examples/sec: 3.52349
+I0713 14:46:22.800940 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:46:22.801098 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:46:24.034492 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (36, 0)
+I0713 14:46:44.110465 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:46:44.172522 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:47:14.243617 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:47:14.301259 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:47:24.049923 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (36, 321)
+I0713 14:47:44.369645 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:47:44.434856 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:47:59.459559 139854454523648 basic_session_run_hooks.py:260] loss = 0.314353, step = 18500 (96.662 sec)
+I0713 14:47:59.461324 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.17264
+I0713 14:47:59.461493 139854454523648 tpu_estimator.py:2308] examples/sec: 5.17264
+I0713 14:47:59.462939 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:47:59.463105 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:48:14.503224 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:48:14.565073 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:48:24.210747 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (37, 127)
+I0713 14:48:44.652258 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:48:44.717939 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:49:14.785979 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:49:14.862954 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:49:24.394139 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (37, 449)
+I0713 14:49:35.779491 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 19000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 14:49:44.938544 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:49:45.015784 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:50:15.511827 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:50:15.563672 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:50:17.188807 139854454523648 basic_session_run_hooks.py:260] loss = 0.4220431, step = 19000 (137.729 sec)
+I0713 14:50:17.190414 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.63032
+I0713 14:50:17.190570 139854454523648 tpu_estimator.py:2308] examples/sec: 3.63032
+I0713 14:50:17.191576 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:50:17.191734 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:50:24.486931 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (38, 33)
+I0713 14:50:45.641444 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:50:45.705632 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:51:15.754508 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:51:15.810738 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:51:24.492841 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (38, 354)
+I0713 14:51:45.898993 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:51:45.963582 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:51:53.711077 139854454523648 basic_session_run_hooks.py:260] loss = 0.3421805, step = 19500 (96.522 sec)
+I0713 14:51:53.712359 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.18017
+I0713 14:51:53.712503 139854454523648 tpu_estimator.py:2308] examples/sec: 5.18017
+I0713 14:51:53.713728 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:51:53.713881 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:52:16.037315 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:52:16.103407 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:52:24.609813 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (39, 160)
+I0713 14:52:46.189245 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:52:46.255875 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:53:16.329869 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:53:16.387111 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:53:24.796116 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (39, 482)
+I0713 14:53:30.069961 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 20000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 14:53:46.471653 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:53:46.537785 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:54:07.355289 139854454523648 basic_session_run_hooks.py:260] loss = 0.310374, step = 20000 (133.644 sec)
+I0713 14:54:07.356645 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.74127
+I0713 14:54:07.356789 139854454523648 tpu_estimator.py:2308] examples/sec: 3.74127
+I0713 14:54:07.358444 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:54:07.358597 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:54:16.608207 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:54:16.663624 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:54:24.896141 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (40, 87)
+I0713 14:54:46.743869 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:54:46.805692 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:55:16.876821 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:55:16.922625 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:55:25.078240 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (40, 409)
+I0713 14:55:43.952059 139854454523648 basic_session_run_hooks.py:260] loss = 0.361362, step = 20500 (96.597 sec)
+I0713 14:55:43.953704 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.17614
+I0713 14:55:43.953960 139854454523648 tpu_estimator.py:2308] examples/sec: 5.17614
+I0713 14:55:43.955223 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:55:43.955378 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:55:47.004196 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:55:47.080176 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:56:17.151168 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:56:17.222880 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:56:25.092293 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (41, 215)
+I0713 14:56:47.301911 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:56:47.361314 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:57:17.430179 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:57:17.497546 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:57:20.171771 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 21000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 14:57:47.592802 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:57:47.653697 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:58:09.197211 139854454523648 basic_session_run_hooks.py:260] loss = 0.4021805, step = 21000 (145.245 sec)
+I0713 14:58:09.198698 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.44246
+I0713 14:58:09.199095 139854454523648 tpu_estimator.py:2308] examples/sec: 3.44246
+I0713 14:58:09.200560 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:58:09.200732 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:58:10.441740 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (42, 0)
+I0713 14:58:17.719914 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:58:17.772614 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:58:47.851326 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:58:47.969472 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:59:10.619127 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (42, 322)
+I0713 14:59:18.030541 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:59:18.103290 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 14:59:45.745346 139854454523648 basic_session_run_hooks.py:260] loss = 0.3352825, step = 21500 (96.548 sec)
+I0713 14:59:45.747063 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.17875
+I0713 14:59:45.747217 139854454523648 tpu_estimator.py:2308] examples/sec: 5.17875
+I0713 14:59:45.748490 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 14:59:45.748644 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 14:59:48.174474 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 14:59:48.240538 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:00:10.679116 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (43, 128)
+I0713 15:00:18.309100 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:00:18.371791 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:00:48.456014 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:00:48.521477 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:01:10.693689 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (43, 449)
+I0713 15:01:18.589426 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:01:18.673634 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:01:22.087548 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 22000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 15:01:48.755019 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:01:48.813534 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:01:59.949599 139854454523648 basic_session_run_hooks.py:260] loss = 0.4526745, step = 22000 (134.204 sec)
+I0713 15:01:59.951206 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.72567
+I0713 15:01:59.951353 139854454523648 tpu_estimator.py:2308] examples/sec: 3.72567
+I0713 15:01:59.952826 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 15:01:59.953030 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 15:02:10.853577 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (44, 52)
+I0713 15:02:18.878600 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:02:18.940984 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:02:49.019595 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:02:49.087440 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:03:10.865290 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (44, 373)
+I0713 15:03:19.159500 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:03:19.218468 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:03:36.548883 139854454523648 basic_session_run_hooks.py:260] loss = 0.4076361, step = 22500 (96.599 sec)
+I0713 15:03:36.550412 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.17603
+I0713 15:03:36.550568 139854454523648 tpu_estimator.py:2308] examples/sec: 5.17603
+I0713 15:03:36.551602 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 15:03:36.551757 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 15:03:49.303852 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:03:49.369307 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:04:11.017657 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (45, 179)
+I0713 15:04:19.438349 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:04:19.506003 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:04:49.588097 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:04:49.689973 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:05:12.912382 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 23000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 15:05:19.791966 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:05:19.852140 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:05:49.941302 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:05:50.001657 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:05:54.829421 139854454523648 basic_session_run_hooks.py:260] loss = 0.33676, step = 23000 (138.281 sec)
+I0713 15:05:54.831027 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.61584
+I0713 15:05:54.831192 139854454523648 tpu_estimator.py:2308] examples/sec: 3.61584
+I0713 15:05:54.832276 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 15:05:54.832475 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 15:05:56.108804 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (46, 0)
+I0713 15:06:20.073906 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:06:20.126021 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:06:50.209228 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:06:50.282453 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:06:56.122037 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (46, 321)
+I0713 15:07:20.352872 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:07:20.408209 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:07:31.490838 139854454523648 basic_session_run_hooks.py:260] loss = 0.342149, step = 23500 (96.661 sec)
+I0713 15:07:31.492058 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.17271
+I0713 15:07:31.492433 139854454523648 tpu_estimator.py:2308] examples/sec: 5.17271
+I0713 15:07:31.493842 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 15:07:31.494071 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 15:07:50.491204 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:07:50.558562 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:07:56.237962 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (47, 127)
+I0713 15:08:20.632485 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:08:20.690907 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:08:50.768929 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:08:50.824937 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:08:56.417772 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (47, 449)
+I0713 15:09:07.823154 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 24000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 15:09:20.865274 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:09:20.924410 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:09:48.669247 139854454523648 basic_session_run_hooks.py:260] loss = 0.282170, step = 24000 (137.178 sec)
+I0713 15:09:48.670941 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.64488
+I0713 15:09:48.671108 139854454523648 tpu_estimator.py:2308] examples/sec: 3.64488
+I0713 15:09:48.672326 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 15:09:48.672496 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 15:09:50.999569 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:09:51.084014 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:09:56.542014 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (48, 36)
+I0713 15:10:21.153637 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:10:21.206484 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:10:51.286671 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:10:51.365922 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:10:56.711169 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (48, 358)
+I0713 15:11:21.436799 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:11:21.498330 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:11:25.130035 139854454523648 basic_session_run_hooks.py:260] loss = 0.2621332, step = 24500 (96.461 sec)
+I0713 15:11:25.131241 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.18347
+I0713 15:11:25.131402 139854454523648 tpu_estimator.py:2308] examples/sec: 5.18347
+I0713 15:11:25.132575 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 15:11:25.132750 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 15:11:51.600751 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:11:51.684126 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:11:56.789469 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (49, 164)
+I0713 15:12:21.751724 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:12:21.810078 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:12:51.889278 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:12:51.957051 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:12:56.965374 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (49, 486)
+I0713 15:13:01.510231 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 25000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 15:13:22.028199 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:13:22.100104 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:13:39.022591 139854454523648 basic_session_run_hooks.py:260] loss = 0.2924712, step = 25000 (133.893 sec)
+I0713 15:13:39.024445 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.73432
+I0713 15:13:39.024625 139854454523648 tpu_estimator.py:2308] examples/sec: 3.73432
+I0713 15:13:39.025899 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 15:13:39.026111 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 15:13:52.185125 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:13:52.248931 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:13:57.028195 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (50, 90)
+I0713 15:14:22.316580 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:14:22.370000 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:14:52.427958 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:14:52.489967 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:14:57.033209 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (50, 411)
+cI0713 15:15:15.574172 139854454523648 basic_session_run_hooks.py:260] loss = 0.280374, step = 25500 (96.552 sec)
+I0713 15:15:15.575680 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.1786
+I0713 15:15:15.575830 139854454523648 tpu_estimator.py:2308] examples/sec: 5.1786
+I0713 15:15:15.576920 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 15:15:15.577079 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 15:15:22.559119 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:15:22.631700 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:15:52.707651 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:15:52.771980 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:15:57.147842 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (51, 217)
+I0713 15:16:22.832744 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:16:22.910044 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:16:51.940536 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 26000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 15:16:53.028274 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:16:53.099436 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:17:23.171144 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:17:23.251082 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:17:34.989485 139854454523648 basic_session_run_hooks.py:260] loss = 0.3739805, step = 26000 (139.415 sec)
+I0713 15:17:34.990995 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.58641
+I0713 15:17:34.991156 139854454523648 tpu_estimator.py:2308] examples/sec: 3.58641
+I0713 15:17:34.992249 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 15:17:34.992414 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 15:17:36.113789 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (52, 0)
+I0713 15:17:53.334647 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:17:53.407297 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:18:23.472717 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:18:23.532614 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:18:36.123831 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (52, 321)
+I0713 15:18:53.593863 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:18:53.664881 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:19:11.490054 139854454523648 basic_session_run_hooks.py:260] loss = 0.335374, step = 26500 (96.501 sec)
+I0713 15:19:11.491521 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.18132
+I0713 15:19:11.491691 139854454523648 tpu_estimator.py:2308] examples/sec: 5.18132
+I0713 15:19:11.492840 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 15:19:11.493010 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 15:19:23.732490 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:19:23.880830 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:19:36.225964 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (53, 127)
+I0713 15:19:53.955732 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:19:54.016318 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:20:24.081045 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:20:24.142644 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:20:36.243044 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (53, 448)
+I0713 15:20:47.795714 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 27000 into gs://mention_propo
+sal/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 15:20:54.223232 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:20:54.303096 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:21:24.268991 139854454523648 basic_session_run_hooks.py:260] loss = 0.213698, step = 27000 (132.779 sec)
+I0713 15:21:24.270597 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.76565
+I0713 15:21:24.270784 139854454523648 tpu_estimator.py:2308] examples/sec: 3.76565
+I0713 15:21:24.272109 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 15:21:24.272258 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 15:21:24.369152 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:21:24.431041 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:21:36.362910 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (54, 58)
+I0713 15:21:54.507354 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:21:54.582785 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and hea
+lth HEALTHY.
+I0713 15:22:24.648376 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:22:24.705498 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:22:36.386173 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (54, 379)
+I0713 15:22:54.782278 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:22:54.861729 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:23:00.964704 139854454523648 basic_session_run_hooks.py:260] loss = 0.218451, step = 27500 (96.696 sec)
+I0713 15:23:00.966275 139854454523648 tpu_estimator.py:2307] global_step/sec: 5.17086
+I0713 15:23:00.966445 139854454523648 tpu_estimator.py:2308] examples/sec: 5.17086
+I0713 15:23:00.967711 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 15:23:00.967868 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 15:23:24.929563 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:23:24.995247 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:23:36.508622 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (55, 185)
+I0713 15:23:55.072937 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:23:55.133415 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:24:25.190497 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:24:25.280807 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:24:37.205156 139854454523648 basic_session_run_hooks.py:606] Saving checkpoints for 28000 into gs://corefqa/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt.
+I0713 15:24:55.358116 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:24:55.433678 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:25:19.213040 139854454523648 basic_session_run_hooks.py:260] loss = 0.2071435, step = 28000 (138.248 sec)
+I0713 15:25:19.214575 139854454523648 tpu_estimator.py:2307] global_step/sec: 3.61668
+I0713 15:25:19.214933 139854454523648 tpu_estimator.py:2308] examples/sec: 3.61668
+I0713 15:25:19.215970 139854454523648 tpu_estimator.py:600] Enqueue next (500) batch(es) of data to infeed.
+I0713 15:25:19.216167 139854454523648 tpu_estimator.py:604] Dequeue next (500) batch(es) of data from outfeed.
+I0713 15:25:20.362050 139851808098048 tpu_estimator.py:279] Outfeed finished for iteration (56, 0)
+I0713 15:25:25.503739 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:25:25.568843 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+I0713 15:25:55.648705 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
+W0713 15:25:55.737106 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
+loading experiments_tpu.conf ... 
+I0713 16:31:46.821783 139854454523648 train_mention_proposal.py:112] ****************************** tf.estimator.ModeKeys.TRAIN ******************************
