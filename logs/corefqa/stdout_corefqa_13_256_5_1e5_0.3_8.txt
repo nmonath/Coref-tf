@@ -1245,7 +1245,7 @@ I0713 15:25:19.214575 139854454523648 tpu_estimator.py:2307] gs://corefqa/spanbe
 I0713 15:25:19.214575 139854454523648 tpu_estimator.py:2307] ***** EVAL ON DEV SET *****
 I0713 15:25:19.214575 139854454523648 tpu_estimator.py:2307] ***** [DEV EVAL] ***** : precision: 0.8398, recall: 0.8201, f1: 0.8369
 I0713 15:25:19.214575 139854454523648 tpu_estimator.py:2307] ***** EVAL ON TEST SET *****
-I0713 15:25:19.214575 139854454523648 tpu_estimator.py:2307] ***** [TEST EVAL] ***** : precision: 0.8305, recall: 0.8179, f1: 0.8281
+I0713 15:25:19.214575 139854454523648 tpu_estimator.py:2307] ***** [TEST EVAL] ***** : precision: 0.8305, recall: 0.8279, f1: 0.8292
 I0713 15:25:19.214575 139854454523648 tpu_estimator.py:2307] ***** Current ckpt path is *****
 I0713 15:25:19.214575 139854454523648 tpu_estimator.py:2307] gs://corefqa/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt-12500
 I0713 15:25:19.214575 139854454523648 tpu_estimator.py:2307] ***** EVAL ON DEV SET *****
@@ -1273,15 +1273,5 @@ I0713 15:40:19.214575 139854454523648 tpu_estimator.py:2307] ***** [DEV EVAL] **
 I0713 15:40:19.214575 139854454523648 tpu_estimator.py:2307] *************************
 I0713 15:40:19.214575 139854454523648 tpu_estimator.py:2307] - @@@@@ the path to the BEST DEV result is : gs://corefqa/spanbert_large_overlap_256_5_output_1e-5_0.3_8/model.ckpt-12000 
 I0713 15:40:19.214575 139854454523648 tpu_estimator.py:2307] - @@@@@ BEST DEV F1 : 0.8369, Precision : 0.8398, Recall : 0.8201,
-I0713 15:40:19.214575 139854454523648 tpu_estimator.py:2307] - @@@@@ TEST when DEV best F1 : 0.8281, Precision : 0.8305, Recall : 0.8179,
+I0713 15:40:19.214575 139854454523648 tpu_estimator.py:2307] - @@@@@ TEST when DEV best F1 : 0.8292, Precision : 0.8305, Recall : 0.8279,
 I0713 15:40:19.214575 139854454523648 tpu_estimator.py:2307] - @@@@@ mention_proposal_only_concate False
-
-
-
-
-
-
-
-
-
-
