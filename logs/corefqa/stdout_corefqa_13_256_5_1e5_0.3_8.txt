@@ -1354,4 +1354,4 @@ W0713 15:25:25.568843 139851799705344 preempted_hook.py:91] TPUPollingThread fou
 I0713 15:25:55.648705 139851799705344 transport.py:157] Attempting refresh to obtain initial access_token
 W0713 15:25:55.737106 139851799705344 preempted_hook.py:91] TPUPollingThread found TPU b'tf-tpu-2' in state READY, and health HEALTHY.
 loading experiments_tpu.conf ... 
-I0713 16:31:46.821783 139854454523648 train_mention_proposal.py:112] ****************************** tf.estimator.ModeKeys.TRAIN ******************************
+I0713 16:31:46.821783 139854454523648 train_corefqa.py:112] ****************************** tf.estimator.ModeKeys.TRAIN ******************************
