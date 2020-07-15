@@ -5,14 +5,16 @@
 
 REPO_PATH=/home/xiaoyli1110/xiaoya/Coref-tf
 export PYTHONPATH="$PYTHONPATH:/home/xiaoyli1110/xiaoya/Coref-tf"
-export TPU_NAME=tensorflow-tpu
+export TPU_NAME=tf-tpu-2
 GCP_PROJECT=xiaoyli-20-04-274510
 CONFIG_FILENAME=config/tpu_corefqa.conf 
 
 
-CONFIG_PARAMS=spanbert_large_256_5_2e-5_0.3_5
-OUTPUT_DIR=gs://corefqa/spanbert_large_256_5_2e-5_0.3_5_output
-LOGFILE_PATH=${REPO_PATH}/logs/${CONFIG_PARAMS}.log
+# model-scale_segment-len_learnrate_
+CONFIG_PARAMS=spanbert_large_256_8_2e5_0.3_5
+OUTPUT_DIR=gs://corefqa/spanbert_large_256_8_2e5_0.3_5_output
+# LOGFILE_PATH=${REPO_PATH}/logs/${CONFIG_PARAMS}.log
+LOGFILE_PATH=${OUTPUT_DIR}/${CONFIG_PARAMS}.log
 
 
 python3 ${REPO_PATH}/run/train_mention_proposal.py \
