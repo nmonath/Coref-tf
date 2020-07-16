@@ -12,6 +12,7 @@ import random
 import logging
 import numpy as np 
 import tensorflow as tf
+from config.config_utils import ModelConfig
 from func_builders.model_fn_builder import model_fn_builder 
 from func_builders.input_fn_builder import file_based_input_fn_builder
 from utils.metrics import mention_proposal_prediction
@@ -41,6 +42,9 @@ flags.DEFINE_integer("window_size", 384, "The number of sliding window size.")
 flags.DEFINE_integer("num_window", 5, "The number of windows for one document.")
 flags.DEFINE_integer("max_num_mention", 30, "The max number of mentions in one document.")
 flags.DEFINE_bool("mention_proposal_only_concate", False, "Whether only to use concating [start, end] embedding to get the span embedding.") 
+flags.DEFINE_float("loss_start_ratio", 0.9, "The ratio of start label in the total loss.")
+flags.DEFINE_float("loss_end_ratio", 0.9, "The ratio of end label in the total loss.")
+flags.DEFINE_float("loss_span_ratio", 0.9, "The ratio of span label in the total loss.")
 
 
 flags.DEFINE_string("train_file", "/home/lixiaoya/train.english.tfrecord", "TFRecord file for training. E.g., train.english.tfrecord")
@@ -104,7 +108,11 @@ def main(_):
             num_shards=FLAGS.num_tpu_cores,
             per_host_input_for_training=is_per_host))
 
-    model_fn = model_fn_builder(FLAGS, model_sign="mention_proposal")
+
+    model_config = ModelConfig(FLAGS, FLAGS.output_dir)
+    model_config.logging_configs()
+
+    model_fn = model_fn_builder(model_config, model_sign="mention_proposal")
     estimator = tf.contrib.tpu.TPUEstimator(
         use_tpu=FLAGS.use_tpu,
         eval_on_tpu=FLAGS.use_tpu,
@@ -118,16 +126,18 @@ def main(_):
 
 
     if FLAGS.do_train:
-        estimator.train(input_fn=file_based_input_fn_builder(FLAGS.train_file, FLAGS, 
-            is_training=True, drop_remainder=True), max_steps=num_train_steps)
-    
+        estimator.train(input_fn=file_based_input_fn_builder(FLAGS.train_file, num_window=FLAGS.num_window,
+            window_size=FLAGS.window_size, max_num_mention=FLAGS.max_num_mention, is_training=True, drop_remainder=True), 
+            max_steps=num_train_steps)
+
 
     if FLAGS.do_eval:
         best_dev_f1, best_dev_prec, best_dev_rec, test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best = 0, 0, 0, 0, 0, 0
         best_ckpt_path = ""
         checkpoints_iterator = [os.path.join(FLAGS.eval_dir, "model.ckpt-{}".format(str(int(ckpt_idx)))) for ckpt_idx in range(0, num_train_steps, FLAGS.save_checkpoints_steps)]
         for checkpoint_path in checkpoints_iterator[1:]:
-            eval_dev_result = estimator.evaluate(input_fn=file_based_input_fn_builder(FLAGS.dev_file, FLAGS, is_training=False, drop_remainder=False),
+            eval_dev_result = estimator.evaluate(input_fn=file_based_input_fn_builder(FLAGS.dev_file, num_window=FLAGS.num_window, 
+                window_size=FLAGS.window_size, max_num_mention=FLAGS.max_num_mention, is_training=False, drop_remainder=False),
                 steps=698, checkpoint_path=checkpoint_path)
             dev_f1 = 2*eval_dev_result["precision"] * eval_dev_result["recall"] / (eval_dev_result["precision"] + eval_dev_result["recall"]+1e-10)
             tf.logging.info("***** Current ckpt path is ***** : {}".format(checkpoint_path))
@@ -136,7 +146,9 @@ def main(_):
             if dev_f1 > best_dev_f1:
                 best_dev_f1, best_dev_prec, best_dev_rec = dev_f1, eval_dev_result["precision"], eval_dev_result["recall"]
                 best_ckpt_path = checkpoint_path
-                eval_test_result = estimator.evaluate(input_fn=file_based_input_fn_builder(FLAGS.test_file, FLAGS ,is_training=False, drop_remainder=False),steps=698, checkpoint_path=checkpoint_path)
+                eval_test_result = estimator.evaluate(input_fn=file_based_input_fn_builder(FLAGS.test_file, 
+                    num_window=FLAGS.num_window, window_size=FLAGS.window_size, max_num_mention=FLAGS.max_num_mention, 
+                    is_training=False, drop_remainder=False),steps=698, checkpoint_path=checkpoint_path)
                 test_f1 = 2*eval_test_result["precision"] * eval_test_result["recall"] / (eval_test_result["precision"] + eval_test_result["recall"]+1e-10)
                 test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best = test_f1, eval_test_result["precision"], eval_test_result["recall"]
                 tf.logging.info("***** EVAL ON TEST SET *****")
@@ -151,7 +163,8 @@ def main(_):
     if FLAGS.do_predict:
         tp, fp, fn = 0, 0, 0
         epsilon = 1e-10
-        for doc_output in estimator.predict(file_based_input_fn_builder(FLAGS.test_file, FLAGS,
+        for doc_output in estimator.predict(file_based_input_fn_builder(FLAGS.test_file,
+            num_window=FLAGS.num_window, window_size=FLAGS.window_size, max_num_mention=FLAGS.max_num_mention,
             is_training=False, drop_remainder=False), checkpoint_path=FLAGS.eval_checkpoint, yield_single_examples=False): 
             # iterate over each doc for evaluation
             pred_span_label, gold_span_label = mention_proposal_prediction(FLAGS, doc_output)
