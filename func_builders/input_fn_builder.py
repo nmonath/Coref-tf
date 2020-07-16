@@ -11,20 +11,18 @@
 import tensorflow as tf
 
 
-def file_based_input_fn_builder(input_file, config, is_training, drop_remainder, preprocess=True):
+def file_based_input_fn_builder(input_file, num_window=None, window_size=None, max_num_mention=None, is_training=False, drop_remainder=True):
     """Creates an `input_fn` closure to be passed to TPUEstimator."""
     name_to_features = {
-            'text_len': tf.FixedLenFeature([config.num_window], tf.int64),
-            'subtoken_map': tf.FixedLenFeature([config.num_window *  config.window_size], tf.int64),
-            'speaker_ids': tf.FixedLenFeature([config.num_window * config.window_size], tf.int64),
-            'flattened_input_ids': tf.FixedLenFeature([config.num_window * config.window_size], tf.int64),
-            'flattened_input_mask': tf.FixedLenFeature([config.num_window * config.window_size], tf.int64),
-            'genre': tf.FixedLenFeature([1], tf.int64),
-            'span_starts': tf.FixedLenFeature([config.max_num_mention], tf.int64),
-            'span_ends': tf.FixedLenFeature([config.max_num_mention], tf.int64), 
-            'cluster_ids': tf.FixedLenFeature([config.max_num_mention], tf.int64),
-            'sentence_map': tf.FixedLenFeature([config.num_window * config.window_size], tf.int64)}
-            # 'span_mention': tf.FixedLenFeature([config.num_window * config.window_size* config.window_size], tf.int64)}
+            'text_len': tf.FixedLenFeature([num_window], tf.int64),
+            'subtoken_map': tf.FixedLenFeature([num_window *  window_size], tf.int64),
+            'speaker_ids': tf.FixedLenFeature([num_window * window_size], tf.int64),
+            'flattened_input_ids': tf.FixedLenFeature([num_window * window_size], tf.int64),
+            'flattened_input_mask': tf.FixedLenFeature([num_window * window_size], tf.int64),
+            'span_starts': tf.FixedLenFeature([max_num_mention], tf.int64),
+            'span_ends': tf.FixedLenFeature([max_num_mention], tf.int64), 
+            'cluster_ids': tf.FixedLenFeature([max_num_mention], tf.int64),
+            'sentence_map': tf.FixedLenFeature([num_window * window_size], tf.int64)}
 
     def _decode_record(record, name_to_features):
         """Decodes a record to a TensorFlow example."""

@@ -22,7 +22,6 @@ def model_fn_builder(config, model_sign="mention_proposal"):
         input_mask = features["flattened_input_mask"]
         text_len = features["text_len"]
         speaker_ids = features["speaker_ids"]
-        genre = features["genre"] 
         gold_starts = features["span_starts"]
         gold_ends = features["span_ends"]
         cluster_ids = features["cluster_ids"]
@@ -45,8 +44,8 @@ def model_fn_builder(config, model_sign="mention_proposal"):
             for name in sorted(features.keys()):
                 tf.logging.info("  name = %s, shape = %s" % (name, features[name].shape))
 
-            total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(input_ids, input_mask, \
-                text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map)
+            instance = (input_ids, input_mask, sentence_map, text_len, speaker_ids, gold_starts, gold_ends, cluster_ids)
+            total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(instance, is_training)
 
             if config.use_tpu:
                 optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-08)
@@ -71,8 +70,9 @@ def model_fn_builder(config, model_sign="mention_proposal"):
 
         elif mode == tf.estimator.ModeKeys.EVAL: 
             tf.logging.info("****************************** tf.estimator.ModeKeys.EVAL ******************************")
-            total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(input_ids, input_mask, \
-                text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map)
+            
+            instance = (input_ids, input_mask, sentence_map, text_len, speaker_ids, gold_starts, gold_ends, cluster_ids)
+            total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(instance, is_training)
 
             def metric_fn(start_scores, end_scores, span_scores, gold_span_label):
                 if config.mention_proposal_only_concate:
@@ -99,8 +99,10 @@ def model_fn_builder(config, model_sign="mention_proposal"):
 
         elif mode == tf.estimator.ModeKeys.PREDICT:
             tf.logging.info("****************************** tf.estimator.ModeKeys.PREDICT ******************************")
-            total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(input_ids, input_mask, \
-                text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map)
+            
+            instance = (input_ids, input_mask, sentence_map, text_len, speaker_ids, gold_starts, gold_ends, cluster_ids)
+            total_loss, start_scores, end_scores, span_scores = model.get_mention_proposal_and_loss(instance, is_training)
+            
             predictions = {
                     "total_loss": total_loss,
                     "start_scores": start_scores,
@@ -117,6 +119,13 @@ def model_fn_builder(config, model_sign="mention_proposal"):
             raise ValueError("Please check the the mode ! ")
         
         return output_spec
+
+
+    def corefqa_model_fn(features, labels, mode, params):
+
+        output_spec = None 
+        return output_spec 
+
 
     if model_sign == "mention_proposal":
         return mention_proposal_model_fn

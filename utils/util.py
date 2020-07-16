@@ -91,18 +91,7 @@ def load_char_dict(char_vocab_path):
 
 def maybe_divide(x, y):
     return 0 if y == 0 else x / float(y)
-    
 
-def highway(inputs, num_layers, dropout):
-    for i in range(num_layers):
-        with tf.variable_scope("highway_{}".format(i)):
-            j, f = tf.split(projection(inputs, 2 * shape(inputs, -1)), 2, -1)
-            f = tf.sigmoid(f)
-            j = tf.nn.relu(j)
-            if dropout is not None:
-                j = tf.nn.dropout(j, dropout)
-            inputs = f * j + (1 - f) * inputs
-    return inputs
 
 
 def shape(x, dim):
