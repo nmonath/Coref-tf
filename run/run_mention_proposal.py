@@ -42,6 +42,7 @@ flags.DEFINE_integer("window_size", 384, "The number of sliding window size.")
 flags.DEFINE_integer("num_window", 5, "The number of windows for one document.")
 flags.DEFINE_integer("max_num_mention", 30, "The max number of mentions in one document.")
 flags.DEFINE_bool("mention_proposal_only_concate", False, "Whether only to use concating [start, end] embedding to get the span embedding.") 
+flags.DEFINE_bool("start_end_share", False, "Whether only to use [start, end] embedding to calculate the start/end scores.") 
 flags.DEFINE_float("loss_start_ratio", 0.9, "The ratio of start label in the total loss.")
 flags.DEFINE_float("loss_end_ratio", 0.9, "The ratio of end label in the total loss.")
 flags.DEFINE_float("loss_span_ratio", 0.9, "The ratio of span label in the total loss.")
@@ -81,6 +82,7 @@ def main(_):
 
     tf.logging.set_verbosity(tf.logging.INFO)
     num_train_steps = FLAGS.num_docs * FLAGS.num_epochs
+    num_train_steps = 100 
     keep_chceckpoint_max = max(math.ceil(num_train_steps / FLAGS.save_checkpoints_steps), FLAGS.keep_checkpoint_max)
 
     if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
