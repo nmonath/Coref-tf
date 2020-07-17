@@ -131,9 +131,6 @@ def write_instance_to_example_file(writer, instance, doc_key, config):
 
     max_sequence_len = int(config["max_training_sentences"])
     max_seg_len = int(config["max_segment_len"])
-    before_pad_start = gold_starts 
-    before_pad_end = gold_ends 
-    before_text_len = text_len 
 
     sentence_map = clip_or_pad(sentence_map, max_sequence_len*max_seg_len, pad_idx=-1)
     text_len = clip_or_pad(text_len, max_sequence_len, pad_idx=-1)
@@ -148,7 +145,7 @@ def write_instance_to_example_file(writer, instance, doc_key, config):
     gold_ends = clip_or_pad(gold_ends, config["max_cluster_num"], pad_idx=-1)
     cluster_ids = clip_or_pad(cluster_ids, config["max_cluster_num"], pad_idx=-1)
 
-    span_mention  = pad_span_mention(before_text_len, config, before_pad_start, before_pad_end)
+    ###### span_mention  = pad_span_mention(before_text_len, config, before_pad_start, before_pad_end)   
 
     features = {
         'sentence_map': create_int_feature(sentence_map), 
@@ -161,7 +158,7 @@ def write_instance_to_example_file(writer, instance, doc_key, config):
         'span_starts': create_int_feature(gold_starts), 
         'span_ends': create_int_feature(gold_ends), 
         'cluster_ids': create_int_feature(cluster_ids),
-        'span_mention': create_int_feature(span_mention) 
+        ###### 'span_mention': create_int_feature(span_mention) 
     }
     tf_example = tf.train.Example(features=tf.train.Features(feature=features))
     writer.write(tf_example.SerializeToString())
@@ -345,7 +342,6 @@ def tokenize_document(config, doc_info, tokenizer, max_doc_length):
     #     print(len(sub_tokens))
     #     MAX_LENGTH = len(sub_tokens)
         # print(MAX_LENGTH)
-    # todo(yuxian): need pad speakers?
     subtoken_maps[doc_info['doc_key']] = subtoken_map
     genre = genres.get(doc_info['doc_key'][:2], 0)
     speakers = {subtoken_map.index(word_index): tokenizer.tokenize(speaker)
@@ -369,6 +365,7 @@ def convert_to_sliding_window(tokenized_document: dict, sliding_window_size: int
     sliding_windows = construct_sliding_windows(len(expanded_tokens), sliding_window_size - 2)
     token_windows = []  # expanded tokens to sliding window
     mask_windows = []  # expanded masks to sliding window
+    text_len = []
 
     for window_start, window_end, window_mask in sliding_windows:
         original_tokens = expanded_tokens[window_start: window_end]
@@ -377,14 +374,15 @@ def convert_to_sliding_window(tokenized_document: dict, sliding_window_size: int
         one_window_token = ['[CLS]'] + original_tokens + ['[SEP]'] + ['[PAD]'] * (
                 sliding_window_size - 2 - len(original_tokens))
         one_window_mask = [-3] + window_masks + [-3] + [-4] * (sliding_window_size - 2 - len(original_tokens))
+        token_calculate = [tmp for tmp in one_window_mask if tmp >= 0]
+        text_len.append(len(token_calculate))
         assert len(one_window_token) == sliding_window_size
         assert len(one_window_mask) == sliding_window_size
         token_windows.append(one_window_token)
         mask_windows.append(one_window_mask)
     assert len(tokenized_document['sentence_map']) == sum([i >= 0 for j in mask_windows for i in j])
 
-    text_len = np.array([len(s) for s in token_windows])
-
+    text_len = np.array(text_len)
     return token_windows, mask_windows, text_len
 
 
@@ -434,11 +432,12 @@ def construct_sliding_windows(sequence_length: int, sliding_window_size: int):
 if __name__ == "__main__":
     # ---------
     # python3 build_data_to_tfrecord.py 
-    demo = False
-    lowercase = False # expermental dataset should be False 
-    config = util.initialize_from_env(use_tpu=False, config_file="experiments_tinybert.conf")
-    for sliding_window_size in [256]: #  128, 384,]:  # 512]:
-        for max_training_sentences in [8]:
+    demo = True
+    lowercase = True # expermental dataset should be False 
+    config = util.initialize_from_env(use_tpu=False, config_params="train_tinybert", config_file="config/gpu_corefqa.conf", print_info=True)
+
+    for sliding_window_size in [64]: #  128, 384,]:  # 512]:
+        for max_training_sentences in [3]:
             config["max_segment_len"] = sliding_window_size
             config["max_training_sentences"] = max_training_sentences
             print("=*="*20)
@@ -450,21 +449,25 @@ if __name__ == "__main__":
                 print(data_sign)
                 print("%*%"*20)
                 language = "english"
-                vocab_file = "/xiaoya/pretrain_ckpt/spanbert_base_cased/vocab.txt"
+                if not lowercase:
+                    vocab_file = "/xiaoya/pretrain_ckpt/spanbert_base_cased/vocab.txt"
+                else:
+                    vocab_file = "/xiaoya/pretrain_ckpt/uncased_L-2_H-128_A-2/vocab.txt"
                 input_data_dir = "/xiaoya/data" 
                 input_filename = "{}.english.v4_gold_conll".format(data_sign)
                 input_file_path = os.path.join(input_data_dir, input_filename)
                 
                 if lowercase:
                     if demo:
-                        output_data_dir = "/xiaoya/corefqa_data/lowercase_demo_overlap_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
+                        # output_data_dir = "/xiaoya/corefqa_data/finaltest_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
+                        output_data_dir = "/xiaoya/corefqa_data/lowercase_demo_final_overlap_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
                     else:
-                        output_data_dir = "/xiaoya/corefqa_data/lowercase_overlap_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
+                        output_data_dir = "/xiaoya/corefqa_data/lowercase_final_overlap_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
                 else:
                     if demo:
-                        output_data_dir = "/xiaoya/corefqa_data/demo_overlap_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
+                        output_data_dir = "/xiaoya/corefqa_data/demo_final_overlap_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
                     else:
-                        output_data_dir = "/xiaoya/corefqa_data/overlap_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
+                        output_data_dir = "/xiaoya/corefqa_data/final_overlap_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
 
                 print("current max training sentence is : {}".format(str(config["max_training_sentences"])))
                 os.makedirs(output_data_dir, exist_ok=True)

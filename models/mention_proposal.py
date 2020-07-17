@@ -3,188 +3,263 @@
 
 
 
+# author: xiaoy li 
+# description:
+# the mention proposal model for pre-training the Span-BERT model. 
+
+
 import os
 import sys 
 
 repo_path = "/".join(os.path.realpath(__file__).split("/")[:-2])
-print(repo_path)
 if repo_path not in sys.path:
     sys.path.insert(0, repo_path)
 
-
 import tensorflow as tf
-from utils import metrics 
-from utils import util
 from bert import modeling
-from bert import tokenization
 
 
 
 class MentionProposalModel(object):
     def __init__(self, config):
-        self.config = config
-        self.max_segment_len = config['max_segment_len']
-        self.max_span_width = config["max_span_width"]
-        self.genres = {g: i for i, g in enumerate(config["genres"])}
-        self.subtoken_maps = {}
-        self.gold = {}
-        self.eval_data = None  # Load eval data lazily.
-        self.dropout = None
-        self.bert_config = modeling.BertConfig.from_json_file(config["bert_config_file"])
-        self.bert_config.hidden_dropout_prob = self.config["dropout_rate"]
-        self.tokenizer = tokenization.FullTokenizer(vocab_file=config['vocab_file'], do_lower_case=False)
-        
-        self.coref_evaluator = metrics.CorefEvaluator()
+        self.config = config 
+        self.bert_config = modeling.BertConfig.from_json_file(config.bert_config_file)
+        self.bert_config.hidden_dropout_prob = config.dropout_rate
 
-    def get_dropout(self, dropout_rate, is_training):  # is_training为True时keep=1-drop, 为False时keep=1
-        return 1 - (tf.to_float(is_training) * dropout_rate)
-
-    def get_mention_proposal_and_loss(self, input_ids, input_mask, text_len, speaker_ids, genre, is_training,
-        gold_starts, gold_ends, cluster_ids, sentence_map, span_mention=None):
-        """get mention proposals"""
-
-        start_end_loss_mask = tf.cast(tf.where(tf.cast(tf.math.greater_equal(input_ids, tf.zeros_like(input_ids)),tf.bool), x=tf.ones_like(input_ids), y=tf.zeros_like(input_ids)), tf.float32) 
-        input_ids = tf.where(tf.cast(tf.math.greater_equal(input_ids, tf.zeros_like(input_ids)),tf.bool), x=input_ids, y=tf.zeros_like(input_ids)) 
-        input_mask = tf.where(tf.cast(tf.math.greater_equal(input_mask, tf.zeros_like(input_mask)), tf.bool), x=input_mask, y=tf.zeros_like(input_mask)) 
-        text_len = tf.where(tf.cast(tf.math.greater_equal(text_len, tf.zeros_like(text_len)), tf.bool), x= text_len, y=tf.zeros_like(text_len)) 
-        speaker_ids = tf.where(tf.cast(tf.math.greater_equal(speaker_ids, tf.zeros_like(speaker_ids)),tf.bool), x=speaker_ids, y=tf.zeros_like(speaker_ids)) 
-        gold_starts = tf.where(tf.cast(tf.math.greater_equal(gold_starts, tf.zeros_like(gold_starts)),tf.bool), x=gold_starts, y=tf.zeros_like(gold_starts)) 
-        gold_ends = tf.where(tf.cast(tf.math.greater_equal(gold_ends, tf.zeros_like(gold_ends)),tf.bool), x=gold_ends, y=tf.zeros_like(gold_ends) ) 
-        cluster_ids = tf.where(tf.cast(tf.math.greater_equal(cluster_ids, tf.zeros_like(cluster_ids)),tf.bool), x=cluster_ids, y=tf.zeros_like(cluster_ids)) 
-        sentence_map = tf.where(tf.cast(tf.math.greater_equal(sentence_map, tf.zeros_like(sentence_map)),tf.bool), x=sentence_map, y=tf.zeros_like(sentence_map)) 
-        span_mention = tf.where(tf.cast(tf.math.greater_equal(span_mention, tf.zeros_like(span_mention)),tf.bool), x=span_mention, y=tf.zeros_like(span_mention)) 
-        span_mention_loss_mask = tf.cast(tf.where(tf.cast(tf.math.greater_equal(span_mention, tf.zeros_like(span_mention)),tf.bool), x=tf.ones_like(span_mention), y=tf.zeros_like(span_mention)) , tf.float32)
-        # span
-
-        # gold_starts -> [1, 3, 5, 8, -1, -1, -1, -1] -> [1, 3, 5, 8, 0, 0, 0, 0]
-
-        input_ids = tf.reshape(input_ids, [-1, self.config["max_segment_len"]])    # (max_train_sent, max_segment_len) 
-        input_mask  = tf.reshape(input_mask, [-1, self.config["max_segment_len"]])   # (max_train_sent, max_segment_len)
-        text_len = tf.reshape(text_len, [-1])  # (max_train_sent)
-        speaker_ids = tf.reshape(speaker_ids, [-1, self.config["max_segment_len"]])  # (max_train_sent, max_segment_len) 
-        sentence_map = tf.reshape(sentence_map, [-1])   # (max_train_sent * max_segment_len) 
-        cluster_ids = tf.reshape(cluster_ids, [-1])     # (max_train_sent * max_segment_len) 
-        gold_starts = tf.reshape(gold_starts, [-1])     # (max_train_sent * max_segment_len) 
-        gold_ends = tf.reshape(gold_ends, [-1])         # (max_train_sent * max_segment_len) 
-        span_mention = tf.reshape(span_mention, [self.config["max_training_sentences"], self.config["max_segment_len"] * self.config["max_segment_len"]])
-        # span_mention : (max_train_sent, max_segment_len, max_segment_len)
-
-        model = modeling.BertModel(config=self.bert_config, is_training=is_training, input_ids=input_ids,
-            input_mask=input_mask, use_one_hot_embeddings=False, scope='bert')
-
-        self.dropout = self.get_dropout(self.config["dropout_rate"], is_training)
-        mention_doc = model.get_sequence_output()  # (max_train_sent, max_segment_len, hidden)
-        mention_doc = self.flatten_emb_by_sentence(mention_doc, input_mask)  # (max_train_sent, max_segment_len, emb) -> (max_train_sent * max_segment_len, e) 取出有效token的emb
-        num_words = util.shape(mention_doc, 0)  # max_train_sent * max_segment_len
-
-        seg_mention_doc = tf.reshape(mention_doc, [self.config["max_training_sentences"], self.config["max_segment_len"], -1]) # (max_train_sent, max_segment_len, embed)
-        start_seg_mention_doc = tf.stack([seg_mention_doc] * self.config["max_segment_len"], axis=1) # (max_train_sent, 1, max_segment_len, embed) -> (max_train_sent, max_segment_len, max_segment_len, embed)
-        end_seg_mention_doc = tf.stack([seg_mention_doc, ] * self.config["max_segment_len"], axis=2) # (max_train_sent, max_segment_len, 1, embed) -> (max_train_sent, max_segment_len, max_segment_len, embed)
-        span_mention_doc = tf.concat([start_seg_mention_doc, end_seg_mention_doc], axis=-1) # (max_train_sent, max_segment_len, max_segment_len, embed * 2)
-        span_mention_doc = tf.reshape(span_mention_doc, (self.config["max_training_sentences"]*self.config["max_segment_len"]*self.config["max_segment_len"], -1))
-        # # (max_train_sent * max_segment_len * max_segment_len, embed * 2)
-
-        span_scores = self.ffnn(span_mention_doc, self.config["hidden_size"]*2, 1, self.dropout, scope_name="span_scores") # (max_train_sent, max_segment_len, 1)
-        start_scores = self.ffnn(mention_doc, self.config["hidden_size"], 1, self.dropout, scope_name="start_scores") # (max_train_sent, max_segment_len, 1) 
-        end_scores = self.ffnn(mention_doc, self.config["hidden_size"], 1, self.dropout, scope_name="end_scores") # (max_train_sent, max_segment_len, 1)
-
-        gold_start_label = tf.reshape(gold_starts, [-1, 1])  
-        # gold_starts -> [1, 3, 5, 8, -1, -1, -1, -1]
-        start_value = tf.reshape(tf.ones_like(gold_starts), [-1])
-        start_shape = tf.constant([self.config["max_training_sentences"] * self.config["max_segment_len"]])
-        gold_start_label = tf.cast(tf.scatter_nd(gold_start_label, start_value, start_shape), tf.int32)
-        # gold_start_label = tf.boolean_mask(gold_start_label, tf.reshape(input_mask, [-1]))
-
-        gold_end_label = tf.reshape(gold_ends, [-1, 1])
-        end_value = tf.reshape(tf.ones_like(gold_ends), [-1])
-        end_shape = tf.constant([self.config["max_training_sentences"] * self.config["max_segment_len"]])
-        gold_end_label = tf.cast(tf.scatter_nd(gold_end_label, end_value, end_shape), tf.int32)
-        # gold_end_label = tf.boolean_mask(gold_end_label, tf.reshape(input_mask, [-1]))
-        start_scores = tf.cast(tf.reshape(tf.sigmoid(start_scores), [-1]),tf.float32)
-        end_scores = tf.cast(tf.reshape(tf.sigmoid(end_scores), [-1]),tf.float32)
-        span_scores = tf.cast(tf.reshape(tf.sigmoid(span_scores), [-1]), tf.float32)
-        # span_mention = tf.cast(span_mention, tf.float32)
-        start_probs = tf.stack([(1 - start_scores), start_scores], axis=-1) 
-        end_probs = tf.stack([(1 - end_scores), end_scores], axis=-1) 
-        span_probs = tf.stack([(1 - span_scores), span_scores], axis=-1)
-
-        gold_start_label = tf.cast(tf.one_hot(tf.reshape(gold_start_label, [-1]), 2, axis=-1), tf.float32)
-        gold_end_label = tf.cast(tf.one_hot(tf.reshape(gold_end_label, [-1]), 2, axis=-1), tf.float32)
-        span_mention = tf.cast(tf.one_hot(tf.reshape(span_mention, [-1]), 2, axis=-1),tf.float32)
-
-        start_end_loss_mask = tf.reshape(start_end_loss_mask, [-1])
-        # true, pred 
-        # start_loss = tf.keras.losses.binary_crossentropy(gold_start_label, start_scores,)
-        # end_loss = tf.keras.losses.binary_crossentropy(gold_end_label, end_scores)
-        # span_loss = tf.keras.losses.binary_crossentropy(span_mention, span_scores,)
-
-        start_loss = self.binary_crossentropy(gold_start_label, start_probs, scope_name="start_loss")
-        end_loss = self.binary_crossentropy(gold_end_label, end_probs, scope_name="end_loss")
-        span_loss = self.binary_crossentropy(span_mention, span_probs, scope_name="span_loss")
-
-        start_loss = tf.reduce_mean(tf.multiply(start_loss, tf.cast(start_end_loss_mask, tf.float32))) 
-        end_loss = tf.reduce_mean(tf.multiply(end_loss, tf.cast(start_end_loss_mask, tf.float32))) 
-        span_loss = tf.reduce_mean(tf.multiply(span_loss, tf.cast(span_mention_loss_mask, tf.float32))) 
-
-        start_end_loss = self.config["start_ratio"] * start_loss + self.config["end_ratio"] * end_loss 
-        total_loss = start_end_loss + self.config["mention_ratio"] * span_loss
-        # start_end_loss = start_loss + end_loss 
-        # total_loss = start_end_loss + span_loss
-
-        # if self.config["mention_proposal_only_concate"]:
-        #     loss = span_loss 
-        #     return loss, uniform_start_scores, uniform_end_scores, uniform_span_scores
-
-        # if span_mention is None :
-        #     loss = self.config["start_ratio"] * start_loss +  self.config["end_ratio"] * end_loss
-        #     return loss, uniform_start_scores, uniform_end_scores
-        # else:
-        return total_loss, start_scores, end_scores, tf.reshape(span_scores, [self.config["max_training_sentences"], self.config["max_segment_len"], self.config["max_segment_len"]])
-
-
-    def flatten_emb_by_sentence(self, emb, text_len_mask):
-        num_sentences = tf.shape(emb)[0]
-        max_sentence_length = tf.shape(emb)[1]
-
-        emb_rank = len(emb.get_shape())
-        if emb_rank == 2:
-            flattened_emb = tf.reshape(emb, [num_sentences * max_sentence_length])
-        elif emb_rank == 3:
-            flattened_emb = tf.reshape(emb, [num_sentences * max_sentence_length, util.shape(emb, 2)])
-        else:
-            raise ValueError("Unsupported rank: {}".format(emb_rank))
-        return flattened_emb 
-        ##### return tf.boolean_mask(flattened_emb, tf.reshape(text_len_mask, [num_sentences * max_sentence_length]))
-
-    def mention_proposal_loss(self, mention_span_score, gold_mention_span):
+    def get_mention_proposal_and_loss(self, instance, is_training, use_tpu=False):
         """
         Desc:
-            caluate mention score
+            forward function for training mention proposal module. 
+        Args:
+            instance: a tuple of train/dev/test data instance. 
+                e.g., (flat_input_ids, flat_doc_overlap_input_mask, flat_sentence_map, text_len, speaker_ids, gold_starts, gold_ends, cluster_ids)
+            is_training: True/False is in the training process. 
         """
-        mention_span_score = tf.reshape(mention_span_score, [-1])
-        gold_mention_span = tf.reshape(gold_mention_span, [-1])
-        return tf.nn.sigmoid_cross_entropy_with_logits(labels=gold_mention_span, logits=mention_span_score) 
+        self.use_tpu = use_tpu 
+        self.dropout = self.get_dropout(self.config.dropout_rate, is_training)
+
+        flat_input_ids, flat_doc_overlap_input_mask, flat_sentence_map, text_len, speaker_ids, gold_starts, gold_ends, cluster_ids = instance
+        # flat_input_ids: (num_window, window_size)
+        # flat_doc_overlap_input_mask: (num_window, window_size)
+        # flat_sentence_map: (num_window, window_size)
+        # text_len: dynamic length and is padded to fix length
+        # gold_start: (max_num_mention), mention start index in the original (NON-OVERLAP) document. Pad with -1 to the fix length max_num_mention.
+        # gold_end: (max_num_mention), mention end index in the original (NON-OVERLAP) document. Pad with -1 to the fix length max_num_mention.
+        # cluster_ids/speaker_ids is not used in the mention proposal model.
+
+        flat_input_ids = tf.math.maximum(flat_input_ids, tf.zeros_like(flat_input_ids, tf.int32)) # (num_window * window_size)
+        
+        flat_doc_overlap_input_mask = tf.where(tf.math.greater_equal(flat_doc_overlap_input_mask, 0), 
+            x=tf.ones_like(flat_doc_overlap_input_mask, tf.int32), y=tf.zeros_like(flat_doc_overlap_input_mask, tf.int32)) # (num_window * window_size)
+        # flat_doc_overlap_input_mask = tf.math.maximum(flat_doc_overlap_input_mask, tf.zeros_like(flat_doc_overlap_input_mask, tf.int32))
+        flat_sentence_map = tf.math.maximum(flat_sentence_map, tf.zeros_like(flat_sentence_map, tf.int32)) # (num_window * window_size)
+        
+        gold_start_end_mask = tf.cast(tf.math.greater_equal(gold_starts, tf.zeros_like(gold_starts, tf.int32)), tf.bool) # (max_num_mention)
+        gold_start_index_labels = self.boolean_mask_1d(gold_starts, gold_start_end_mask, scope="gold_starts", use_tpu=self.use_tpu) # (num_of_mention)
+        gold_end_index_labels = self.boolean_mask_1d(gold_ends, gold_start_end_mask, scope="gold_ends", use_tpu=self.use_tpu) # (num_of_mention)
+
+        text_len = tf.math.maximum(text_len, tf.zeros_like(text_len, tf.int32)) # (num_of_non_empty_window)
+        num_subtoken_in_doc = tf.math.reduce_sum(text_len) # the value should be num_subtoken_in_doc 
+
+        input_ids = tf.reshape(flat_input_ids, [-1, self.config.window_size]) # (num_window, window_size)
+        input_mask = tf.ones_like(input_ids, tf.int32) # (num_window, window_size)
+
+        model = modeling.BertModel(config=self.bert_config, is_training=is_training, 
+            input_ids=input_ids, input_mask=input_mask, 
+            use_one_hot_embeddings=False, scope='bert')
+
+        doc_overlap_window_embs = model.get_sequence_output() # (num_window, window_size, hidden_size)
+        doc_overlap_input_mask = tf.reshape(flat_doc_overlap_input_mask, [self.config.num_window, self.config.window_size]) # (num_window, window_size)
+
+        doc_flat_embs = self.transform_overlap_windows_to_original_doc(doc_overlap_window_embs, doc_overlap_input_mask) 
+        doc_flat_embs = tf.reshape(doc_flat_embs, [-1, self.config.hidden_size]) # (num_subtoken_in_doc, hidden_size)
+
+        expand_start_embs = tf.tile(tf.expand_dims(doc_flat_embs, 1), [1, num_subtoken_in_doc, 1]) # (num_subtoken_in_doc, num_subtoken_in_doc, hidden_size)
+        expand_end_embs = tf.tile(tf.expand_dims(doc_flat_embs, 0), [num_subtoken_in_doc, 1, 1]) # (num_subtoken_in_doc, num_subtoken_in_doc, hidden_size)
+        expand_mention_span_embs = tf.concat([expand_start_embs, expand_end_embs], axis=-1) # (num_subtoken_in_doc, num_subtoken_in_doc, 2*hidden_size)
+        expand_mention_span_embs = tf.reshape(expand_mention_span_embs, [-1, self.config.hidden_size*2])
+        span_sequence_logits = self.ffnn(expand_mention_span_embs, self.config.hidden_size*2, 1, dropout=self.dropout, name_scope="mention_span") # (num_subtoken_in_doc * num_subtoken_in_doc)
+
+        if self.config.start_end_share:
+            start_end_sequence_logits = self.ffnn(doc_flat_embs, self.config.hidden_size, 2, dropout=self.dropout, name_scope="mention_start_end") # (num_subtoken_in_doc, 2)
+            start_sequence_logits, end_sequence_logits = tf.split(start_end_sequence_logits, axis=1)
+            # start_sequence_logits -> (num_subtoken_in_doc, 1)
+            # end_sequence_logits -> (num_subtoken_in_doc, 1)
+        else:
+            start_sequence_logits = self.ffnn(doc_flat_embs, self.config.hidden_size, 1, dropout=self.dropout, name_scope="mention_start") # (num_subtoken_in_doc)
+            end_sequence_logits = self.ffnn(doc_flat_embs, self.config.hidden_size, 1, dropout=self.dropout, name_scope="mention_end") # (num_subtoken_in_doc)
+
+        gold_start_sequence_labels = self.scatter_gold_index_to_label_sequence(gold_start_index_labels, num_subtoken_in_doc) # (num_subtoken_in_doc)
+        gold_end_sequence_labels = self.scatter_gold_index_to_label_sequence(gold_end_index_labels, num_subtoken_in_doc) # (num_subtoken_in_doc)
+
+        start_loss, start_sequence_probabilities = self.compute_score_and_loss(start_sequence_logits, gold_start_sequence_labels)
+        end_loss, end_sequence_probabilities = self.compute_score_and_loss(end_sequence_logits, gold_end_sequence_labels)
+        # *_loss -> a scalar 
+        # *_sequence_scores -> (num_subtoken_in_doc)
+
+        gold_span_sequence_labels = self.scatter_span_sequence_labels(gold_start_index_labels, gold_end_index_labels, num_subtoken_in_doc) # (num_subtoken_in_doc * num_subtoken_in_doc)
+        span_loss, span_sequence_probabilities = self.compute_score_and_loss(span_sequence_logits, gold_span_sequence_labels)
+        # span_loss -> a scalar 
+        # span_sequence_probabilities -> (num_subtoken_in_doc * num_subtoken_in_doc)
+
+        if self.config.mention_proposal_only_concate:
+            return span_loss, span_sequence_probabilities
+        else:
+            total_loss = self.config.loss_start_ratio * start_loss + self.config.loss_end_ratio * end_loss + self.config.loss_span_ratio * span_loss 
+            return total_loss, start_sequence_probabilities, end_sequence_probabilities, span_sequence_probabilities
 
 
-    def ffnn(self, inputs, hidden_size, output_size, dropout, scope_name="variable",
-        output_weights_initializer=tf.truncated_normal_initializer(stddev=0.02),
+    def scatter_gold_index_to_label_sequence(self, gold_index_labels, expect_length_of_labels):
+        """
+        Desc:
+            transform the mention start/end position index tf.int32 Tensor to a tf.int32 Tensor with 1/0 labels for the input subtoken sequences.
+            1 denotes this subtoken is the start/end for a mention. 
+        Args:
+            gold_index_labels: a tf.int32 Tensor with mention start/end position index in the original document. 
+            expect_length_of_labels: the number of subtokens in the original document. 
+        """
+        gold_labels_pos = tf.reshape(gold_index_labels, [-1, 1]) # (num_of_mention, 1)
+        gold_value = tf.reshape(tf.ones_like(gold_index_labels), [-1]) # (num_of_mention)
+        label_shape = tf.Variable(expect_length_of_labels) 
+        label_shape = tf.reshape(label_shape, [1]) # [1]
+        gold_label_sequence = tf.cast(tf.scatter_nd(gold_labels_pos, gold_value, label_shape), tf.int32) # (num_subtoken_in_doc)
+        return gold_label_sequence 
+
+
+    def scatter_span_sequence_labels(self, gold_start_index_labels, gold_end_index_labels, expect_length_of_labels):
+        """
+        Desc:
+            transform the mention (start, end) position pairs to a span matrix gold_span_sequence_labels. 
+                matrix[i][j]: whether the subtokens between the position $i$ to $j$ can be a mention.  
+                if matrix[i][j] == 0: from $i$ to $j$ is not a mention. 
+                if matrix[i][j] == 1: from $i$ to $j$ is a mention.
+        Args:
+            gold_start_index_labels: a tf.int32 Tensor with mention start position index in the original document. 
+            gold_end_index_labels: a tf.int32 Tensor with mention end position index in the original document. 
+            expect_length_of_labels: a scalar, should be the same with num_subtoken_in_doc
+        """ 
+        gold_span_index_labels = tf.stack([gold_start_index_labels, gold_end_index_labels], axis=1) # (num_of_mention, 2)
+        gold_span_value = tf.reshape(tf.ones_like(gold_start_index_labels, tf.int32), [-1]) # (num_of_mention)
+        gold_span_label_shape = tf.Variable([expect_length_of_labels, expect_length_of_labels]) 
+        gold_span_label_shape = tf.reshape(gold_span_label_shape, [-1])
+
+        gold_span_sequence_labels = tf.cast(tf.scatter_nd(gold_span_index_labels, gold_span_value, gold_span_label_shape), tf.int32) # (num_subtoken_in_doc, num_subtoken_in_doc)
+        return gold_span_sequence_labels
+
+
+    def compute_score_and_loss(self, pred_sequence_logits, gold_sequence_labels, loss_mask=None):
+        """
+        Desc:
+            compute the unifrom start/end loss and probabilities. 
+        Args:
+            pred_sequence_logits: (input_shape, 1) 
+            gold_sequence_labels: (input_shape, 1)
+            loss_mask: [optional] if is not None, it should be (input_shape). should be tf.int32 0/1 tensor. 
+            FOR start/end score and loss, input_shape should be num_subtoken_in_doc.
+            FOR span score and loss, input_shape should be num_subtoken_in_doc * num_subtoken_in_doc. 
+        """
+        pred_sequence_probabilities = tf.cast(tf.reshape(tf.sigmoid(pred_sequence_logits), [-1]),tf.float32) # (input_shape)
+        expand_pred_sequence_scores = tf.stack([(1 - pred_sequence_logits), pred_sequence_probabilities], axis=-1) # (input_shape, 2)
+        expand_gold_sequence_labels = tf.cast(tf.one_hot(tf.reshape(gold_sequence_labels, [-1]), 2, axis=-1), tf.float32) # (input_shape, 2)
+
+        loss = tf.keras.losses.binary_crossentropy(expand_gold_sequence_labels, expand_pred_sequence_scores)
+        # loss -> shape is (input_shape)
+
+        if loss_mask is not None:
+            loss = tf.multiply(loss, tf.cast(loss_mask, tf.float32))
+
+        total_loss = tf.reduce_mean(loss)
+        # total_loss -> a scalar 
+
+        return total_loss, pred_sequence_probabilities
+
+
+    def transform_overlap_windows_to_original_doc(self, doc_overlap_window_embs, doc_overlap_input_mask):
+        """
+        Desc:
+            hidden_size should be equal to embeddding_size. 
+        Args:
+            doc_overlap_window_embs: (num_window, window_size, hidden_size). 
+                the output of (num_window, window_size) input_ids forward into BERT model. 
+            doc_overlap_input_mask: (num_window, window_size). A tf.int32 Tensor contains 0/1. 
+                0 represents token in this position should be neglected. 1 represents token in this position should be reserved. 
+        """
+        ones_input_mask = tf.ones_like(doc_overlap_input_mask, tf.int32) # (num_window, window_size)
+        cumsum_input_mask = tf.math.cumsum(ones_input_mask, axis=1) # (num_window, window_size)
+        offset_input_mask = tf.tile(tf.expand_dims(tf.range(self.config.num_window) * self.config.window_size, 1), [1, self.config.window_size]) # (num_window, window_size)
+        offset_cumsum_input_mask = offset_input_mask + cumsum_input_mask # (num_window, window_size)
+        global_input_mask = tf.math.multiply(ones_input_mask, offset_cumsum_input_mask) # (num_window, window_size)
+        global_input_mask = tf.reshape(global_input_mask, [-1]) # (num_window * window_size)
+        global_input_mask_index = self.boolean_mask_1d(global_input_mask, tf.math.greater(global_input_mask, tf.zeros_like(global_input_mask, tf.int32))) # (num_subtoken_in_doc)
+
+        doc_overlap_window_embs = tf.reshape(doc_overlap_window_embs, [-1, self.config.hidden_size]) # (num_window * window_size, hidden_size)
+        original_doc_embs = tf.gather(doc_overlap_window_embs, global_input_mask_index) # (num_subtoken_in_doc, hidden_size)
+
+        return original_doc_embs 
+
+
+    def ffnn(self, inputs, hidden_size, output_size, dropout=None, name_scope="fully-conntected-neural-network",
         hidden_initializer=tf.truncated_normal_initializer(stddev=0.02)):
-
-        if len(inputs.get_shape()) > 3:
-            raise ValueError("FFNN with rank {} not supported".format(len(inputs.get_shape())))
-        current_inputs = inputs
-        with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE):
-            hidden_weights = tf.get_variable("hidden_weights", [hidden_size, output_size],initializer=hidden_initializer)
+        """
+        Desc:
+            fully-connected neural network. 
+            transform non-linearly the [input] tensor with [hidden_size] to a fix [output_size] size.  
+        Args:
+            hidden_size: should be the size of last dimension of [inputs]. 
+        """
+        with tf.variable_scope(name_scope, reuse=tf.AUTO_REUSE):
+            hidden_weights = tf.get_variable("hidden_weights", [hidden_size, output_size],
+                initializer=hidden_initializer)
             hidden_bias = tf.get_variable("hidden_bias", [output_size], initializer=tf.zeros_initializer())
-            current_outputs = tf.nn.relu(tf.nn.xw_plus_b(current_inputs, hidden_weights, hidden_bias))
+            outputs = tf.nn.relu(tf.nn.xw_plus_b(inputs, hidden_weights, hidden_bias))
 
-        return current_outputs
+            if dropout is not None:
+                outputs = tf.nn.dropout(outputs, dropout)
+
+        return outputs 
 
 
-    def binary_crossentropy(self, target, output, scope_name="loss"):
-        epsilon = 1e-3
-        with tf.variable_scope(scope_name, reuse=tf.AUTO_REUSE):
-            bce = target * tf.math.log(output + epsilon)
-            bce += (1 - target) * tf.math.log(1 - output + epsilon)
-            bce = -tf.reduce_mean(bce, axis=-1)
-        return bce
+    def get_dropout(self, dropout_rate, is_training):
+        return 1 - (tf.to_float(is_training) * dropout_rate)
+
+
+    def get_shape(self, x, dim):
+        """
+        Desc:
+            return the size of input x in DIM. 
+        """ 
+        return x.get_shape()[dim].value or tf.shape(x)[dim]
+
+
+    def boolean_mask_1d(self, itemtensor, boolmask_indicator, scope="boolean_mask1d", use_tpu=False):
+        """
+        Desc:
+            the same functionality of tf.boolean_mask. 
+            The tf.boolean_mask operation is not available on the cloud TPU. 
+        Args:
+            itemtensor : a Tensor contains [tf.int32, tf.float32] numbers. Should be 1-Rank.
+            boolmask_indicator : a tf.bool Tensor. Should be 1-Rank. 
+            scope : name scope for the operation. 
+            use_tpu : if False, return tf.boolean_mask.  
+        """
+        with tf.name_scope(scope):
+            if not use_tpu:
+                return tf.boolean_mask(itemtensor, boolmask_indicator)
+
+            boolmask_sum = tf.reduce_sum(tf.cast(boolmask_indicator, tf.int32))
+            selected_positions = tf.cast(boolmask_indicator, dtype=tf.float32)
+            indexed_positions = tf.cast(tf.multiply(tf.cumsum(selected_positions), selected_positions),dtype=tf.int32)
+            one_hot_selector = tf.one_hot(indexed_positions - 1, boolmask_sum, dtype=tf.float32)
+            sampled_indices = tf.cast(tf.tensordot(tf.cast(tf.range(tf.shape(boolmask_indicator)[0]), dtype=tf.float32),
+                one_hot_selector,axes=[0, 0]),dtype=tf.int32)
+            sampled_indices = tf.reshape(sampled_indices, [-1])
+            mask_itemtensor = tf.gather(itemtensor, sampled_indices)
+
+            return mask_itemtensor
+
+
+
+
+
+
+
