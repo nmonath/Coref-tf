@@ -1,18 +1,28 @@
-"""调用官方评测脚本，将预测结果写入文件，评测并返回评测结果"""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+#!/usr/bin/env python3 
+# -*- coding: utf-8 -*- 
 
+
+
+# author: xiaoy li 
+# description:
+# use the offical conll-2012 evaluation scripts to evaluate the trained model and save the evaluation results into files. 
+
+
+import os 
+import re
 import collections
 import operator
-import re
 import subprocess
 import tempfile
 
+
+
+REPO_PATH = "/".join(os.path.realpath(__file__).split("/")[:-2])
 BEGIN_DOCUMENT_REGEX = re.compile(r"#begin document \((.*)\); part (\d+)")
 COREF_RESULTS_REGEX = re.compile(
     r".*Coreference: Recall: \([0-9.]+ / [0-9.]+\) ([0-9.]+)%\tPrecision: \([0-9.]+ / [0-9.]+\) ([0-9.]+)%\tF1: ([0-9.]+)%.*",
     re.DOTALL)
+
 
 
 def get_doc_key(doc_id, part):
@@ -76,7 +86,7 @@ def output_conll(input_file, output_file, predictions, subtoken_map):
 
 
 def official_conll_eval(gold_path, predicted_path, metric, official_stdout=False):
-    cmd = ["perl", "conll-2012/scorer/v8.01/scorer.pl", metric, gold_path, predicted_path, "none"]
+    cmd = ["perl", os.path.join(REPO_PATH, "conll-2012/scorer/v8.01/scorer.pl"), metric, gold_path, predicted_path, "none"]
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     stdout, stderr = process.communicate()
     process.wait()

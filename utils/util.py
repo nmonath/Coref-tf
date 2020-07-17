@@ -8,7 +8,6 @@ import collections
 import errno
 import os
 import shutil
-
 import pyhocon
 import tensorflow as tf
 from models import corefqa

@@ -12,7 +12,7 @@ import random
 import logging
 import numpy as np 
 import tensorflow as tf
-from config.config_utils import ModelConfig
+from data_utils.config_utils import ModelConfig
 from func_builders.model_fn_builder import model_fn_builder 
 from func_builders.input_fn_builder import file_based_input_fn_builder
 from utils.metrics import mention_proposal_prediction
