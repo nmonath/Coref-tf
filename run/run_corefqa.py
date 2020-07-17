@@ -8,6 +8,8 @@ this file contains training and testing the CorefQA model.
 import os 
 import math 
 import logging
+import random 
+import numpy as np 
 import tensorflow as tf
 from utils import util
 from utils import metrics
@@ -17,25 +19,53 @@ from data_utils.input_builder import file_based_input_fn_builder
 
 tf.app.flags.DEFINE_string('f', '', 'kernel')
 flags = tf.app.flags
+
 flags.DEFINE_string("output_dir", "data", "The output directory of the model training.")
-flags.DEFINE_string("eval_dir", "/home/lixiaoya/corefqa_output_dir", "The output directory of the saved corefqa models.")
-flags.DEFINE_bool("do_train", True, "Whether to run training.")
-flags.DEFINE_bool("do_eval", False, "Whether to test a model.")
-flags.DEFINE_bool("do_predict", False, "Whether to test a model.")
-flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
-flags.DEFINE_integer("iterations_per_loop", 100, "How many steps to make in each estimator call.")
-flags.DEFINE_integer("keep_checkpoint_max", 30, "How many checkpoint models keep at most.")
-flags.DEFINE_string("config_filename", "experiments.conf", "the input config file name.")
-flags.DEFINE_string("config_params", "train_spanbert_large", "specify the hyper-parameters in the config file.")
+flags.DEFINE_string("bert_config_file", "/home/uncased_L-2_H-128_A-2/config.json", "The config json file corresponding to the pre-trained BERT model.")
+flags.DEFINE_string("init_checkpoint", "/home/uncased_L-2_H-128_A-2/bert_model.ckpt", "Initial checkpoint (usually from a pre-trained BERT model).")
+flags.DEFINE_string("vocab_file", "/home/uncased_L-2_H-128_A-2/vocab.txt", "The vocabulary file that the BERT model was trained on.")
 flags.DEFINE_string("logfile_path", "/home/lixiaoya/spanbert_large_mention_proposal.log", "the path to the exported log file.")
-flags.DEFINE_string("tpu_name", None, "The Cloud TPU to use for training. This should be either the name "
-                       "used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 url.")
-flags.DEFINE_string("tpu_zone", None, "[Optional] GCE zone where the Cloud TPU is located in. If not "
-                       "specified, we will attempt to automatically detect the GCE project from metadata.")
-flags.DEFINE_string("gcp_project", None, "[Optional] Project name for the Cloud TPU-enabled project. If not "
-                       "specified, we will attempt to automatically detect the GCE project from metadata.")
+flags.DEFINE_integer("num_epochs", 20, "Total number of training epochs to perform.")
+flags.DEFINE_integer("keep_checkpoint_max", 30, "How many checkpoint models keep at most.")
+flags.DEFINE_integer("save_checkpoints_steps", 500, "Save checkpoint every X updates steps.")
+
+
+flags.DEFINE_string("train_file", "/home/lixiaoya/train.english.tfrecord", "TFRecord file for training. E.g., train.english.tfrecord")
+flags.DEFINE_string("dev_file", "/home/lixiaoya/dev.english.tfrecord", "TFRecord file for validating. E.g., dev.english.tfrecord")
+flags.DEFINE_string("test_file", "/home/lixiaoya/test.english.tfrecord", "TFRecord file for testing. E.g., test.english.tfrecord")
+
+
+flags.DEFINE_bool("do_train", True, "Whether to train a model.")
+flags.DEFINE_bool("do_eval", False, "Whether to test a model.")
+flags.DEFINE_bool("do_predict", False, "Whether to test a trained model.")
+flags.DEFINE_string("eval_checkpoint", "/home/lixiaoya/mention_proposal_output_dir/bert_model.ckpt", "[Optional] The saved checkpoint for evaluation (usually after the training process).")
+flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
+
+
+flags.DEFINE_float("learning_rate", 3e-5, "The initial learning rate for Adam.")
+flags.DEFINE_float("dropout_rate", 0.3, "Dropout rate for the training process.")
+flags.DEFINE_float("mention_threshold", 0.5, "The threshold for determining whether the span is a mention.")
+flags.DEFINE_integer("hidden_size", 128, "The size of hidden layers for the pre-trained model.")
+flags.DEFINE_integer("num_docs", 5604, "[Optional] The number of documents in the training files. Only need to change when conduct experiments on the small test sets.")
+flags.DEFINE_integer("window_size", 384, "The number of sliding window size.")
+flags.DEFINE_integer("num_window", 5, "The number of windows for one document.")
+flags.DEFINE_integer("max_num_mention", 30, "The max number of mentions in one document.")
+flags.DEFINE_bool("mention_proposal_only_concate", False, "Whether only to use concating [start, end] embedding to get the span embedding.") 
+flags.DEFINE_bool("start_end_share", False, "Whether only to use [start, end] embedding to calculate the start/end scores.") 
+flags.DEFINE_float("loss_start_ratio", 0.9, "The ratio of start label in the total loss.")
+flags.DEFINE_float("loss_end_ratio", 0.9, "The ratio of end label in the total loss.")
+flags.DEFINE_float("loss_span_ratio", 0.9, "The ratio of span label in the total loss.")
+
+
+flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
+flags.DEFINE_string("tpu_name", None, "The Cloud TPU to use for training. This should be either the name used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 url.")
+flags.DEFINE_string("tpu_zone", None, "[Optional] GCE zone where the Cloud TPU is located in. If not specified, we will attempt to automatically detect the GCE project from metadata.")
+flags.DEFINE_string("gcp_project", None, "[Optional] Project name for the Cloud TPU-enabled project. If not specified, we will attempt to automatically detect the GCE project from metadata.")
 flags.DEFINE_string("master", None, "[Optional] TensorFlow master URL.")
-flags.DEFINE_integer("num_tpu_cores", 1, "Only used if `use_tpu` is True. Total number of TPU cores to use.")
+flags.DEFINE_integer("num_tpu_cores", 1, "[Optional] Only used if `use_tpu` is True. Total number of TPU cores to use.")
+flags.DEFINE_integer("seed", 2333, "[Optional] Random seed for initialization.")
+
+
 FLAGS = tf.flags.FLAGS
 
 
@@ -61,7 +91,6 @@ def model_fn_builder(config):
         gold_ends = features["span_ends"]
         cluster_ids = features["cluster_ids"]
         sentence_map = features["sentence_map"] 
-        # span_mention = features["span_mention"]
         
         is_training = (mode == tf.estimator.ModeKeys.TRAIN)
 
@@ -248,6 +277,11 @@ def main(_):
 
 
 if __name__ == '__main__':
+    # set the random seed. 
+    random.seed(FLAGS.seed)
+    np.random.seed(FLAGS.seed)
+    tf.set_random_seed(FLAGS.seed)
+    # start train/evaluate the model.
     tf.app.run()
 
 

@@ -31,6 +31,18 @@ flags.DEFINE_integer("keep_checkpoint_max", 30, "How many checkpoint models keep
 flags.DEFINE_integer("save_checkpoints_steps", 500, "Save checkpoint every X updates steps.")
 
 
+flags.DEFINE_string("train_file", "/home/lixiaoya/train.english.tfrecord", "TFRecord file for training. E.g., train.english.tfrecord")
+flags.DEFINE_string("dev_file", "/home/lixiaoya/dev.english.tfrecord", "TFRecord file for validating. E.g., dev.english.tfrecord")
+flags.DEFINE_string("test_file", "/home/lixiaoya/test.english.tfrecord", "TFRecord file for testing. E.g., test.english.tfrecord")
+
+
+flags.DEFINE_bool("do_train", True, "Whether to train a model.")
+flags.DEFINE_bool("do_eval", False, "Whether to test a model.")
+flags.DEFINE_bool("do_predict", False, "Whether to test a trained model.")
+flags.DEFINE_string("eval_checkpoint", "/home/lixiaoya/mention_proposal_output_dir/bert_model.ckpt", "[Optional] The saved checkpoint for evaluation (usually after the training process).")
+flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
+
+
 flags.DEFINE_float("learning_rate", 3e-5, "The initial learning rate for Adam.")
 flags.DEFINE_float("dropout_rate", 0.3, "Dropout rate for the training process.")
 flags.DEFINE_float("mention_threshold", 0.5, "The threshold for determining whether the span is a mention.")
@@ -44,18 +56,6 @@ flags.DEFINE_bool("start_end_share", False, "Whether only to use [start, end] em
 flags.DEFINE_float("loss_start_ratio", 0.9, "The ratio of start label in the total loss.")
 flags.DEFINE_float("loss_end_ratio", 0.9, "The ratio of end label in the total loss.")
 flags.DEFINE_float("loss_span_ratio", 0.9, "The ratio of span label in the total loss.")
-
-
-flags.DEFINE_string("train_file", "/home/lixiaoya/train.english.tfrecord", "TFRecord file for training. E.g., train.english.tfrecord")
-flags.DEFINE_string("dev_file", "/home/lixiaoya/dev.english.tfrecord", "TFRecord file for validating. E.g., dev.english.tfrecord")
-flags.DEFINE_string("test_file", "/home/lixiaoya/test.english.tfrecord", "TFRecord file for testing. E.g., test.english.tfrecord")
-
-
-flags.DEFINE_bool("do_train", True, "Whether to train a model.")
-flags.DEFINE_bool("do_eval", False, "Whether to test a model.")
-flags.DEFINE_bool("do_predict", False, "Whether to test a trained model.")
-flags.DEFINE_string("eval_checkpoint", "/home/lixiaoya/mention_proposal_output_dir/bert_model.ckpt", "[Optional] The saved checkpoint for evaluation (usually after the training process).")
-flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
 
 
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")

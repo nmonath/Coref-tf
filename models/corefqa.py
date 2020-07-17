@@ -2,19 +2,13 @@
 # -*- coding: utf-8 -*- 
 
 
-import json
-import math
 import os
 import sys 
-import random
-import threading
 
 repo_path = "/".join(os.path.realpath(__file__).split("/")[:-2])
 if repo_path not in sys.path:
     sys.path.insert(0, repo_path)
 
-
-import numpy as np 
 import tensorflow as tf
 from bert import modeling
 from utils import metrics
@@ -23,7 +17,7 @@ from bert import tokenization
 # TODO (xiaoya): mention linking from the previous mentions 
 
 
-class CorefModel(object):
+class CorefQAModel(object):
     def __init__(self, config):
         self.config = config
         self.max_segment_len = config['max_segment_len']

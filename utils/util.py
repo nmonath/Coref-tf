@@ -19,7 +19,7 @@ repo_path = "/".join(os.path.realpath(__file__).split("/")[:-2])
 
 def get_model(config, model_sign="corefqa"): 
     if model_sign == "corefqa":
-        return corefqa.CorefModel(config)
+        return corefqa.CorefQAModel(config)
     else:
         return mention_proposal.MentionProposalModel(config)
 
