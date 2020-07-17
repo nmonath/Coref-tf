@@ -22,8 +22,6 @@ tf.app.flags.DEFINE_string('f', '', 'kernel')
 flags = tf.app.flags
 
 flags.DEFINE_string("output_dir", "data", "The output directory of the model training.")
-flags.DEFINE_string("config_filename", "experiments.conf", "the input config file name.")
-flags.DEFINE_string("config_params", "train_spanbert_base", "specify the hyper-parameters in the config file.")
 flags.DEFINE_string("bert_config_file", "/home/uncased_L-2_H-128_A-2/config.json", "The config json file corresponding to the pre-trained BERT model.")
 flags.DEFINE_string("init_checkpoint", "/home/uncased_L-2_H-128_A-2/bert_model.ckpt", "Initial checkpoint (usually from a pre-trained BERT model).")
 flags.DEFINE_string("vocab_file", "/home/uncased_L-2_H-128_A-2/vocab.txt", "The vocabulary file that the BERT model was trained on.")

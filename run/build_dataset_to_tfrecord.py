@@ -6,6 +6,7 @@
 # author: xiaoy li
 # description:
 # generate tfrecord for train/dev/test set for the model. 
+# TODO (xiaoya): need to add help description for args 
 
 
 
@@ -13,9 +14,9 @@ import os
 import sys 
 import re
 import json  
+import argparse 
 import numpy as np 
 import tensorflow as tf
-from typing import List, Tuple
 from collections import defaultdict
 
 REPO_PATH = "/".join(os.path.realpath(__file__).split("/")[:-2])
@@ -23,7 +24,6 @@ if REPO_PATH not in sys.path:
     sys.path.insert(0, REPO_PATH)
 
 from data_utils import conll
-from utils import util 
 from bert.tokenization import FullTokenizer
 
 SPEAKER_START = '[unused19]'
@@ -82,8 +82,12 @@ Args:
         3. ['everyone']
 """
 
-def prepare_train_dataset(input_file, output_data_dir, output_filename, sliding_window_size, config, tokenizer=None,
-    vocab_file=None, language="english", max_doc_length: int = None, is_training=True, demo=False, lowercase=False):
+
+
+def prepare_train_dataset(input_file, output_data_dir, output_filename, window_size, num_window, 
+    tokenizer=None, vocab_file=None, language="english", max_doc_length=None, genres=None, 
+    max_num_mention=10, max_num_cluster=30, demo=False, lowercase=False):
+
     if vocab_file is None:
         if not lowercase:
             vocab_file = os.path.join(REPO_PATH, "data_utils", "uppercase_vocab.txt")
@@ -98,16 +102,16 @@ def prepare_train_dataset(input_file, output_data_dir, output_filename, sliding_
     documents = read_conll_file(input_file)
     for doc_idx, document in enumerate(documents):
         doc_info = parse_document(document, language)
-        tokenized_document = tokenize_document(config, doc_info, tokenizer, max_doc_length=max_doc_length)
+        tokenized_document = tokenize_document(genres, doc_info, tokenizer, max_doc_length=max_doc_length)
         doc_key = tokenized_document['doc_key']
-        token_windows, mask_windows, text_len = convert_to_sliding_window(tokenized_document, sliding_window_size)
+        token_windows, mask_windows, text_len = convert_to_sliding_window(tokenized_document, window_size)
         input_id_windows = [tokenizer.convert_tokens_to_ids(tokens) for tokens in token_windows]
         span_start, span_end, mention_span, cluster_ids = flatten_clusters(tokenized_document['clusters'])
 
         tmp_speaker_ids = tokenized_document["speakers"] 
-        tmp_speaker_ids = [[0]*130]*config["max_training_sentences"]
-        instance = (input_id_windows, mask_windows, text_len, tmp_speaker_ids, tokenized_document["genre"], is_training, span_start, span_end, cluster_ids, tokenized_document['sentence_map'])   
-        write_instance_to_example_file(writer, instance, doc_key, config)
+        tmp_speaker_ids = [[0]*130]* num_window
+        instance = (input_id_windows, mask_windows, text_len, tmp_speaker_ids, tokenized_document["genre"], span_start, span_end, cluster_ids, tokenized_document['sentence_map'])   
+        write_instance_to_example_file(writer, instance, doc_key, window_size=window_size, num_window=num_window, max_num_mention=max_num_mention, max_num_cluster=max_num_cluster)
         doc_map[doc_idx] = doc_key
         if demo and doc_idx > 3:
             break 
@@ -116,29 +120,30 @@ def prepare_train_dataset(input_file, output_data_dir, output_filename, sliding_
 
 
 
-def write_instance_to_example_file(writer, instance, doc_key, config):
-    input_ids, input_mask, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map = instance 
+def write_instance_to_example_file(writer, instance, doc_key, window_size=64, num_window=5, max_num_mention=20,
+    max_cluster_num=30, pad_idx=-1):
+    input_ids, input_mask, text_len, speaker_ids, genre, gold_starts, gold_ends, cluster_ids, sentence_map = instance 
     input_id_windows = input_ids 
     mask_windows = input_mask 
     flattened_input_ids = [i for j in input_id_windows for i in j]
     flattened_input_mask = [i for j in mask_windows for i in j]
     cluster_ids = [int(tmp) for tmp in cluster_ids]
 
-    max_sequence_len = int(config["max_training_sentences"])
-    max_seg_len = int(config["max_segment_len"])
+    max_sequence_len = int(num_window)
+    max_seg_len = int(window_size)
 
-    sentence_map = clip_or_pad(sentence_map, max_sequence_len*max_seg_len, pad_idx=-1)
-    text_len = clip_or_pad(text_len, max_sequence_len, pad_idx=-1)
-    tmp_subtoken_maps = clip_or_pad(subtoken_maps[doc_key], max_sequence_len*max_seg_len, pad_idx=-1)
+    sentence_map = clip_or_pad(sentence_map, max_sequence_len*max_seg_len, pad_idx=pad_idx)
+    text_len = clip_or_pad(text_len, max_sequence_len, pad_idx=pad_idx)
+    tmp_subtoken_maps = clip_or_pad(subtoken_maps[doc_key], max_sequence_len*max_seg_len, pad_idx=pad_idx)
 
-    tmp_speaker_ids = clip_or_pad(speaker_ids[0], max_sequence_len*max_seg_len, pad_idx=-1)
+    tmp_speaker_ids = clip_or_pad(speaker_ids[0], max_sequence_len*max_seg_len, pad_idx=pad_idx)
 
-    flattened_input_ids = clip_or_pad(flattened_input_ids, max_sequence_len*max_seg_len, pad_idx=-1)
-    flattened_input_mask = clip_or_pad(flattened_input_mask, max_sequence_len*max_seg_len, pad_idx=-1)
+    flattened_input_ids = clip_or_pad(flattened_input_ids, max_sequence_len*max_seg_len, pad_idx=pad_idx)
+    flattened_input_mask = clip_or_pad(flattened_input_mask, max_sequence_len*max_seg_len, pad_idx=pad_idx)
     # genre = clip_or_pad(genre, )
-    gold_starts = clip_or_pad(gold_starts, config["max_cluster_num"], pad_idx=-1)
-    gold_ends = clip_or_pad(gold_ends, config["max_cluster_num"], pad_idx=-1)
-    cluster_ids = clip_or_pad(cluster_ids, config["max_cluster_num"], pad_idx=-1)
+    gold_starts = clip_or_pad(gold_starts, max_num_mention, pad_idx=pad_idx)
+    gold_ends = clip_or_pad(gold_ends, max_num_mention, pad_idx=pad_idx)
+    cluster_ids = clip_or_pad(cluster_ids, max_cluster_num, pad_idx=pad_idx)
 
     features = {
         'sentence_map': create_int_feature(sentence_map), 
@@ -155,32 +160,10 @@ def write_instance_to_example_file(writer, instance, doc_key, config):
     tf_example = tf.train.Example(features=tf.train.Features(feature=features))
     writer.write(tf_example.SerializeToString())
 
+
 def create_int_feature(values):
     feature = tf.train.Feature(int64_list=tf.train.Int64List(value=list(values)))
     return feature
-
-
-def pad_span_mention(text_len_lst, config, before_pad_start, before_pad_end):
-    span_mention = np.zeros((config["max_training_sentences"], config["max_segment_len"], config["max_segment_len"]), dtype=int)
-
-    for idx, (tmp_s, tmp_e) in enumerate(zip(before_pad_start, before_pad_end)):
-        start_seg = int(tmp_s // config["max_segment_len"])
-        end_seg = int(tmp_s // config["max_segment_len"])
-        if start_seg != end_seg:
-            continue 
-        try:
-            sent_idx = int(tmp_s // config["max_segment_len"]) + 1 if tmp_s % config["max_segment_len"] != 0 else int(tmp_s // config["max_segment_len"])
-            start_offset = tmp_s % config["max_segment_len"] 
-            end_offset = tmp_e % config["max_segment_len"]
-            span_mention[sent_idx, start_offset, end_offset] = 1 
-        except:
-            continue 
-
-    flatten_span_mention = np.reshape(span_mention, (1, -1))
-    flatten_span_mention = flatten_span_mention.tolist()
-    flatten_span_mention = [j for j in flatten_span_mention]
-
-    return flatten_span_mention[0]
 
 
 def clip_or_pad(var, max_var_len, pad_idx=-1):
@@ -193,13 +176,8 @@ def clip_or_pad(var, max_var_len, pad_idx=-1):
         return var 
 
 
-def flatten_clusters(clusters: List[List[Tuple[int, int]]]) -> Tuple[
-    List[int], List[int], List[Tuple[int, int]], List[int]]:
-    """
-    flattern cluster information
-    :param clusters:
-    :return:
-    """
+def flatten_clusters(clusters):
+
     span_starts = []
     span_ends = []
     cluster_ids = []
@@ -228,7 +206,7 @@ def read_conll_file(conll_file_path):
     return documents
 
 
-def parse_document(document: Tuple[str, List], language: str) -> dict:
+def parse_document(document, language):
     """
     get basic information from one document annotation.
     :param document:
@@ -270,7 +248,7 @@ def normalize_word(word, language):
         return word
 
 
-def coreference_annotations_to_clusters(annotations: List[str]) -> List[List[Tuple]]:
+def coreference_annotations_to_clusters(annotations):
     """
     convert coreference information to clusters
     :param annotations:
@@ -302,7 +280,7 @@ def checkout_clusters(doc_info):
     print(clusters)
 
 
-def tokenize_document(config, doc_info, tokenizer, max_doc_length):
+def tokenize_document(genres, doc_info, tokenizer, max_doc_length):
     """
     tokenize into sub tokens
     :param doc_info:
@@ -310,7 +288,7 @@ def tokenize_document(config, doc_info, tokenizer, max_doc_length):
     max_doc_length: pad to max_doc_length
     :return:
     """
-    genres = {g: i for i, g in enumerate(config["genres"])}
+    genres = {g: i for i, g in enumerate(genres)}
     sub_tokens: List[str] = []  # all sub tokens of a document
     sentence_map: List[int] = []  # collected tokenized tokens -> sentence id
     subtoken_map: List[int] = []  # collected tokenized tokens -> original token id
@@ -341,7 +319,7 @@ def tokenize_document(config, doc_info, tokenizer, max_doc_length):
     return tokenized_document
 
 
-def convert_to_sliding_window(tokenized_document: dict, sliding_window_size: int):
+def convert_to_sliding_window(tokenized_document, sliding_window_size):
     """
     construct sliding windows, allocate tokens and masks into each window
     :param tokenized_document:
@@ -373,7 +351,7 @@ def convert_to_sliding_window(tokenized_document: dict, sliding_window_size: int
     return token_windows, mask_windows, text_len
 
 
-def expand_with_speakers(tokenized_document: dict) -> Tuple[List[str], List[int]]:
+def expand_with_speakers(tokenized_document):
     """
     add speaker name information
     :param tokenized_document: tokenized document information
@@ -391,7 +369,7 @@ def expand_with_speakers(tokenized_document: dict) -> Tuple[List[str], List[int]
     return expanded_tokens, expanded_masks
 
 
-def construct_sliding_windows(sequence_length: int, sliding_window_size: int):
+def construct_sliding_windows(sequence_length, sliding_window_size):
     """
     construct sliding windows for BERT processing
     :param sequence_length: e.g. 9
@@ -416,55 +394,68 @@ def construct_sliding_windows(sequence_length: int, sliding_window_size: int):
 
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--source_files_dir", default="/home/lixiaoya/data", type=str, required=True)
+    parser.add_argument("--target_output_dir", default="/home/lixiaoya/tfrecord_data", type=str, required=True)
+    parser.add_argument("--num_window", default=5, type=int, required=True)
+    parser.add_argument("--window_size", default=64, type=int, required=True)
+    parser.add_argument("--max_num_mention", default=30, type=int)
+    parser.add_argument("--max_num_cluster", default=20, type=int)
+    parser.add_argument("--vocab_file", default="/home/lixiaoya/spanbert_large_cased/vocab.txt", type=str)
+    parser.add_argument("--language", default="english", type=str)
+    parser.add_argument("--max_doc_length", default=600, type=int)
+    parser.add_argument("--lowercase", help="DO or NOT lowercase the datasets.", action="store_true")
+    parser.add_argument("--demo", help="Wether to generate a small dataset for testing the code.", action="store_true")
+    parser.add_argument('--genres', action='store', dest='alist', type=str, nargs='*', default=["bc","bn","mz","nw","pt","tc","wb"])
+    parser.add_argument("--seed", default=2333, type=int)
+
+    args = parser.parse_args()
+
+    os.makedirs(args.target_output_dir, exist_ok=True)
+    np.random.seed(args.seed)
+    tf.set_random_seed(args.seed)
+
+    return args
+
+
+def main():
+    args_config = parse_args()
+
+    for data_sign in ["train", "dev", "test"]:
+        source_data_file = os.path.join(args_config.source_files_dir, "{}.{}.v4_gold_conll".format(data_sign, args_config.language))
+        output_filename = "{}.overlap.corefqa".format(data_sign)
+        
+        if args_config.demo:
+            if args_config.lowercase:
+                output_filename="demo.lowercase.{}.overlap.corefqa".format(data_sign)
+            else:
+                output_filename="demo.{}.overlap.corefqa".format(data_sign)
+
+        prepare_train_dataset(source_data_file, args_config.target_output_dir, output_filename, args_config.window_size, 
+            args_config.num_window, vocab_file=args_config.vocab_file, language=args_config.language, 
+            max_doc_length=args_config.max_doc_length, genres=args_config.genres, max_num_mention=args_config.max_num_mention,
+            max_num_cluster=args_config.max_num_cluster, demo=args_config.demo, lowercase=args_config.lowercase)
+
+
+
+
 if __name__ == "__main__":
-    # ---------
-    # python3 build_dataset_to_tfrecord.py 
-    demo = True
-    lowercase = True # expermental dataset should be False 
-    config = util.initialize_from_env(use_tpu=False, config_params="train_tinybert", config_file="config/gpu_corefqa.conf", print_info=True)
+    main()
 
-    for sliding_window_size in [64]: #  128, 384,]:  # 512]:
-        for max_training_sentences in [3]:
-            config["max_segment_len"] = sliding_window_size
-            config["max_training_sentences"] = max_training_sentences
-            print("=*="*20)
-            print("current sliding window size is : {}".format(str(config["max_segment_len"])))
-            print("current number of max training sentences is : {}".format(str(config["max_training_sentences"])))
-            print("=*="*20)
-            for data_sign in ["train", "dev", "test"]:
-                print("%*%"*20)
-                print(data_sign)
-                print("%*%"*20)
-                language = "english"
-                if not lowercase:
-                    vocab_file = "/xiaoya/pretrain_ckpt/spanbert_base_cased/vocab.txt"
-                else:
-                    vocab_file = "/xiaoya/pretrain_ckpt/uncased_L-2_H-128_A-2/vocab.txt"
-                input_data_dir = "/xiaoya/data" 
-                input_filename = "{}.english.v4_gold_conll".format(data_sign)
-                input_file_path = os.path.join(input_data_dir, input_filename)
-                
-                if lowercase:
-                    if demo:
-                        # output_data_dir = "/xiaoya/corefqa_data/finaltest_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
-                        output_data_dir = "/xiaoya/corefqa_data/lowercase_demo_final_overlap_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
-                    else:
-                        output_data_dir = "/xiaoya/corefqa_data/lowercase_final_overlap_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
-                else:
-                    if demo:
-                        output_data_dir = "/xiaoya/corefqa_data/demo_final_overlap_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
-                    else:
-                        output_data_dir = "/xiaoya/corefqa_data/final_overlap_{}_{}".format(str(config["max_segment_len"]), str(config["max_training_sentences"]))
-
-                print("current max training sentence is : {}".format(str(config["max_training_sentences"])))
-                os.makedirs(output_data_dir, exist_ok=True)
-                output_filename = "{}.{}".format(data_sign, str(sliding_window_size))
-                print("$^$"*30)
-                print(output_data_dir, output_filename)
-                print("$^$"*30)
-                # prepare_training_data(input_data_dir, output_data_dir, input_filename, output_filename, language, config, vocab_file, sliding_window_size)
-                prepare_train_dataset(input_file_path, output_data_dir, output_filename, 
-                    sliding_window_size, config, vocab_file=vocab_file, demo=demo, lowercase=lowercase)
+    # for generate tfrecord datasets 
+    # 
+    # python3 build_dataset_to_tfrecord.py \
+    # --source_files_dir /xiaoya/data \
+    # --target_output_dir /xiaoya/corefqa_data/overlap_64_2 \
+    # --num_window 2 \
+    # --window_size 64 \
+    # --max_num_mention 50 \
+    # --max_num_cluster 30 \
+    # --vocab_file /xiaoya/pretrain_ckpt/cased_L-12_H-768_A-12/vocab.txt \
+    # --language english \
+    # --max_doc_length 600 \
+    # 
 
 
 
