@@ -29,7 +29,9 @@ class MentionProposalModel(object):
         flat_input_ids, flat_doc_overlap_input_mask, flat_sentence_map, text_len, speaker_ids, gold_starts, gold_ends, cluster_ids = instance
 
         flat_input_ids = tf.math.maximum(flat_input_ids, tf.zeros_like(flat_input_ids, tf.int32))
-        flat_doc_overlap_input_mask = tf.math.maximum(flat_doc_overlap_input_mask, tf.zeros_like(flat_doc_overlap_input_mask, tf.int32))
+        
+        flat_doc_overlap_input_mask = tf.where(tf.math.greater_equal(flat_doc_overlap_input_mask, 0), x=tf.constant(1), y=tf.constant(0))
+        # flat_doc_overlap_input_mask = tf.math.maximum(flat_doc_overlap_input_mask, tf.zeros_like(flat_doc_overlap_input_mask, tf.int32))
         flat_sentence_map = tf.math.maximum(flat_sentence_map, tf.zeros_like(flat_sentence_map, tf.int32))
         
         gold_start_end_mask = tf.cast(tf.math.greater_equal(gold_starts, tf.zeros_like(gold_starts, tf.int32)), tf.bool)
@@ -113,7 +115,16 @@ class MentionProposalModel(object):
 
 
     def transform_overlap_windows_to_original_doc(self, doc_overlap_window_embs, doc_overlap_input_mask):
-        pass 
+        ones_input_mask = tf.ones_like(doc_overlap_input_mask, tf.int32)
+        cumsum_input_mask = tf.math.cumsum(ones_input_mask, axis=1)
+        offset_input_mask = tf.tile(tf.expand_dims(tf.range(self.config.num_window) * self.config.window_size, 1), [1, self.config.window_size])
+        offset_cumsum_input_mask = offset_input_mask + cumsum_input_mask
+        global_input_mask = tf.math.multiply(ones_input_mask, offset_cumsum_input_mask)
+        global_input_mask_index = self.boolean_mask_1d(global_input_mask, tf.math.greater(global_input_mask, tf.zeros_like(global_input_mask, tf.int32)))
+
+        doc_overlap_window_embs = tf.reshape(doc_overlap_window_embs, [-1, self.config.hidden_size])
+        original_doc_embs = tf.gather(doc_overlap_window_embs, global_input_mask_index)
+        return original_doc_embs 
 
 
     def ffnn(self, inputs, hidden_size, output_size, dropout=None, name_scope="fully-conntected-neural-network",

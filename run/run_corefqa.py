@@ -61,7 +61,7 @@ def model_fn_builder(config):
         gold_ends = features["span_ends"]
         cluster_ids = features["cluster_ids"]
         sentence_map = features["sentence_map"] 
-        span_mention = features["span_mention"]
+        # span_mention = features["span_mention"]
         
         is_training = (mode == tf.estimator.ModeKeys.TRAIN)
 
@@ -83,7 +83,7 @@ def model_fn_builder(config):
                 tf.logging.info("  name = %s, shape = %s" % (name, features[name].shape))
 
             total_loss, topk_span_starts, topk_span_ends, top_antecedent_scores = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
-                genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention)
+                genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map) # , span_mention)
 
             if config["tpu"]:
                 optimizer = tf.train.AdamOptimizer(learning_rate=config['learning_rate'], beta1=0.9, beta2=0.999, epsilon=1e-08)
@@ -105,7 +105,7 @@ def model_fn_builder(config):
                     train_op=train_op,
                     scaffold_fn=scaffold_fn, 
                     training_hooks=[training_logging_hook])
-                
+
 
         elif mode == tf.estimator.ModeKeys.EVAL: 
             tf.logging.info("****************************** tf.estimator.ModeKeys.EVAL ******************************")
@@ -116,7 +116,7 @@ def model_fn_builder(config):
         elif mode == tf.estimator.ModeKeys.PREDICT :
             tf.logging.info("****************************** tf.estimator.ModeKeys.PREDICT ******************************")
             total_loss, topk_span_starts, topk_span_ends, top_antecedent_scores = model.get_predictions_and_loss(input_ids, input_mask, text_len, speaker_ids, 
-                genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map, span_mention) 
+                genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map)  #, span_mention) 
             top_antecedent = tf.math.argmax(top_antecedent_scores, axis=-1)
             predictions = {
                         "total_loss": total_loss, 
