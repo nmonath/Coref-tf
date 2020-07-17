@@ -47,7 +47,6 @@ def copy_checkpoint(source, target):
 
 
 def main(bert_config_path, bert_ckpt_path, pytorch_init_checkpoint, output_tf_dir):
-    # saver = tf.train.Saver()
 
     with tf.Session() as session:
         model, bert_config = load_models(bert_config_path)
@@ -104,6 +103,10 @@ if __name__ == "__main__":
     args_config = parse_args()
 
     main(args_config.spanbert_config_path, args_config.bert_tf_ckpt_path, args_config.spanbert_pytorch_bin_path, args_config.output_spanbert_tf_dir)
+
+    # 
+    # Please refer to scripts/data/transform_ckpt_pytorch_to_tf.sh 
+    # 
 
     # for spanbert large 
     # 

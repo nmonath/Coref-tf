@@ -17,7 +17,7 @@ from models import mention_proposal
 repo_path = "/".join(os.path.realpath(__file__).split("/")[:-2])
 
 
-def get_model(config, model_sign="corefqa"):
+def get_model(config, model_sign="corefqa"): 
     if model_sign == "corefqa":
         return corefqa.CorefModel(config)
     else:
@@ -32,7 +32,7 @@ def initialize_from_env(eval_test=False, config_params="train_spanbert_base", co
         print("loading experiments_tpu.conf ... ")
         config = pyhocon.ConfigFactory.parse_file(os.path.join(repo_path, config_file))
 
-    config = config[config_params]
+    config = config[config_params] 
 
     if print_info:
         tf.logging.info("%*%"*20)

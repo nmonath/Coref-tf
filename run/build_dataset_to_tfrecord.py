@@ -45,41 +45,41 @@ suppose origin input_tokens are :
 'up', 'is', 'the', 'Focus', 'Today', 'program', 'hosted', 'by', 'Wang', 'Shi', '##lin', '.', 'Good', '-', 'bye', ',', 'dear', 'viewers', '.'] 
 IF sliding window size is 50. 
 Args:
-    doc_idx: a string: cctv/bn/0001
-    sentence_map: 
-        e.g. [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7]
-    subtoken_map: 
-        e.g. [0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 53, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 97, 98, 99, 99, 99, 100, 101, 102, 103]
-    flattened_window_input_ids: [num-window, window-size]
-        e.g. before bert_tokenizer convert subtokens into ids:
-        [['[CLS]', '[unused19]', 'speaker', '#', '1', '[unused73]', '-', '-', 'basically', ',', 'it', 'was', 'unanimously', 'agreed', 'upon', 'by', 'the', 'various', 'relevant', 'parties', '.', 'To', 'express', 'its', 'determination', ',', 'the', 'Chinese', 'securities', 'regulatory', 'department', 'compares', 'this', 'stock', 'reform', 'to', 'a', 'die', 'that', 'has', 'been', 'cast', '.', 'It', 'takes', 'time', 'to', 'prove', 'whether', '[SEP]'],
-        ['[CLS]', ',', 'the', 'Chinese', 'securities', 'regulatory', 'department', 'compares', 'this', 'stock', 'reform', 'to', 'a', 'die', 'that', 'has', 'been', 'cast', '.', 'It', 'takes', 'time', 'to', 'prove', 'whether', 'the', 'stock', 'reform', 'can', 'really', 'meet', 'expectations', ',', 'and', 'whether', 'any', 'de', '##viation', '##s', 'that', 'arise', 'during', 'the', 'stock', 'reform', 'can', 'be', 'promptly', 'corrected', '[SEP]'],
-        ['[CLS]', 'the', 'stock', 'reform', 'can', 'really', 'meet', 'expectations', ',', 'and', 'whether', 'any', 'de', '##viation', '##s', 'that', 'arise', 'during', 'the', 'stock', 'reform', 'can', 'be', 'promptly', 'corrected', '.', '[unused19]', 'Xu', '_', 'l', '##i', '[unused73]', 'Dear', 'viewers', ',', 'the', 'China', 'News', 'program', 'will', 'end', 'here', '.', 'This', 'is', 'Xu', 'Li', '.', 'Thank', '[SEP]'],
-        ['[CLS]', '.', '[unused19]', 'Xu', '_', 'l', '##i', '[unused73]', 'Dear', 'viewers', ',', 'the', 'China', 'News', 'program', 'will', 'end', 'here', '.', 'This', 'is', 'Xu', 'Li', '.', 'Thank', 'you', 'everyone', 'for', 'watching', '.', 'Coming', 'up', 'is', 'the', 'Focus', 'Today', 'program', 'hosted', 'by', 'Wang', 'Shi', '##lin', '.', 'Good', '-', 'bye', ',', 'dear', 'viewers', '[SEP]'],
-        ['[CLS]', 'you', 'everyone', 'for', 'watching', '.', 'Coming', 'up', 'is', 'the', 'Focus', 'Today', 'program', 'hosted', 'by', 'Wang', 'Shi', '##lin', '.', 'Good', '-', 'bye', ',', 'dear', 'viewers', '.', '[SEP]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]']] 
-    flattened_window_masked_ids: [num-window, window-size]
-        e.g.: before bert_tokenizer ids:
-        [[-3, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -3],
-        [-3, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -3],
-        [-3, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, -1, -1, -1, -1, -1, -1, 68, 69, 70, 71, 72, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -3],
-        [-3, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -3],
-        [-3, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, -3, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4]]
-    span_start: 
-        e.g.: mention start indices in the original document 
-            [17, 20, 26, 43, 60, 85, 86]
-    span_end:
-        e.g.: mention end indices in the original document 
-    cluster_ids: 
-        e.g.: cluster ids for the (span_start, span_end) pairs
-        [1, 1, 2, 2, 2, 3, 3] 
-    check the mention in the subword list: 
-        1. ['its']
-        1. ['the', 'Chinese', 'securities', 'regulatory', 'department']
-        2. ['this', 'stock', 'reform']
-        2. ['the', 'stock', 'reform']
-        2. ['the', 'stock', 'reform']
-        3. ['you']
-        3. ['everyone']
+doc_idx: a string: cctv/bn/0001
+sentence_map: 
+    e.g. [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7]
+subtoken_map: 
+    e.g. [0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 53, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 97, 98, 99, 99, 99, 100, 101, 102, 103]
+flattened_window_input_ids: [num-window, window-size]
+    e.g. before bert_tokenizer convert subtokens into ids:
+    [['[CLS]', '[unused19]', 'speaker', '#', '1', '[unused73]', '-', '-', 'basically', ',', 'it', 'was', 'unanimously', 'agreed', 'upon', 'by', 'the', 'various', 'relevant', 'parties', '.', 'To', 'express', 'its', 'determination', ',', 'the', 'Chinese', 'securities', 'regulatory', 'department', 'compares', 'this', 'stock', 'reform', 'to', 'a', 'die', 'that', 'has', 'been', 'cast', '.', 'It', 'takes', 'time', 'to', 'prove', 'whether', '[SEP]'],
+    ['[CLS]', ',', 'the', 'Chinese', 'securities', 'regulatory', 'department', 'compares', 'this', 'stock', 'reform', 'to', 'a', 'die', 'that', 'has', 'been', 'cast', '.', 'It', 'takes', 'time', 'to', 'prove', 'whether', 'the', 'stock', 'reform', 'can', 'really', 'meet', 'expectations', ',', 'and', 'whether', 'any', 'de', '##viation', '##s', 'that', 'arise', 'during', 'the', 'stock', 'reform', 'can', 'be', 'promptly', 'corrected', '[SEP]'],
+    ['[CLS]', 'the', 'stock', 'reform', 'can', 'really', 'meet', 'expectations', ',', 'and', 'whether', 'any', 'de', '##viation', '##s', 'that', 'arise', 'during', 'the', 'stock', 'reform', 'can', 'be', 'promptly', 'corrected', '.', '[unused19]', 'Xu', '_', 'l', '##i', '[unused73]', 'Dear', 'viewers', ',', 'the', 'China', 'News', 'program', 'will', 'end', 'here', '.', 'This', 'is', 'Xu', 'Li', '.', 'Thank', '[SEP]'],
+    ['[CLS]', '.', '[unused19]', 'Xu', '_', 'l', '##i', '[unused73]', 'Dear', 'viewers', ',', 'the', 'China', 'News', 'program', 'will', 'end', 'here', '.', 'This', 'is', 'Xu', 'Li', '.', 'Thank', 'you', 'everyone', 'for', 'watching', '.', 'Coming', 'up', 'is', 'the', 'Focus', 'Today', 'program', 'hosted', 'by', 'Wang', 'Shi', '##lin', '.', 'Good', '-', 'bye', ',', 'dear', 'viewers', '[SEP]'],
+    ['[CLS]', 'you', 'everyone', 'for', 'watching', '.', 'Coming', 'up', 'is', 'the', 'Focus', 'Today', 'program', 'hosted', 'by', 'Wang', 'Shi', '##lin', '.', 'Good', '-', 'bye', ',', 'dear', 'viewers', '.', '[SEP]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]', '[PAD]']] 
+flattened_window_masked_ids: [num-window, window-size]
+    e.g.: before bert_tokenizer ids:
+    [[-3, -1, -1, -1, -1, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -3],
+    [-3, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -3],
+    [-3, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, -1, -1, -1, -1, -1, -1, 68, 69, 70, 71, 72, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -3],
+    [-3, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -3],
+    [-3, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, -3, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4, -4]]
+span_start: 
+    e.g.: mention start indices in the original document 
+        [17, 20, 26, 43, 60, 85, 86]
+span_end:
+    e.g.: mention end indices in the original document 
+cluster_ids: 
+    e.g.: cluster ids for the (span_start, span_end) pairs
+    [1, 1, 2, 2, 2, 3, 3] 
+check the mention in the subword list: 
+    1. ['its']
+    1. ['the', 'Chinese', 'securities', 'regulatory', 'department']
+    2. ['this', 'stock', 'reform']
+    2. ['the', 'stock', 'reform']
+    2. ['the', 'stock', 'reform']
+    3. ['you']
+    3. ['everyone']
 """
 
 
@@ -111,7 +111,8 @@ def prepare_train_dataset(input_file, output_data_dir, output_filename, window_s
         tmp_speaker_ids = tokenized_document["speakers"] 
         tmp_speaker_ids = [[0]*130]* num_window
         instance = (input_id_windows, mask_windows, text_len, tmp_speaker_ids, tokenized_document["genre"], span_start, span_end, cluster_ids, tokenized_document['sentence_map'])   
-        write_instance_to_example_file(writer, instance, doc_key, window_size=window_size, num_window=num_window, max_num_mention=max_num_mention, max_num_cluster=max_num_cluster)
+        write_instance_to_example_file(writer, instance, doc_key, window_size=window_size, num_window=num_window, 
+            max_num_mention=max_num_mention, max_num_cluster=max_num_cluster)
         doc_map[doc_idx] = doc_key
         if demo and doc_idx > 3:
             break 
@@ -121,7 +122,7 @@ def prepare_train_dataset(input_file, output_data_dir, output_filename, window_s
 
 
 def write_instance_to_example_file(writer, instance, doc_key, window_size=64, num_window=5, max_num_mention=20,
-    max_cluster_num=30, pad_idx=-1):
+    max_num_cluster=30, pad_idx=-1):
     input_ids, input_mask, text_len, speaker_ids, genre, gold_starts, gold_ends, cluster_ids, sentence_map = instance 
     input_id_windows = input_ids 
     mask_windows = input_mask 
@@ -140,10 +141,9 @@ def write_instance_to_example_file(writer, instance, doc_key, window_size=64, nu
 
     flattened_input_ids = clip_or_pad(flattened_input_ids, max_sequence_len*max_seg_len, pad_idx=pad_idx)
     flattened_input_mask = clip_or_pad(flattened_input_mask, max_sequence_len*max_seg_len, pad_idx=pad_idx)
-    # genre = clip_or_pad(genre, )
     gold_starts = clip_or_pad(gold_starts, max_num_mention, pad_idx=pad_idx)
     gold_ends = clip_or_pad(gold_ends, max_num_mention, pad_idx=pad_idx)
-    cluster_ids = clip_or_pad(cluster_ids, max_cluster_num, pad_idx=pad_idx)
+    cluster_ids = clip_or_pad(cluster_ids, max_num_cluster, pad_idx=pad_idx)
 
     features = {
         'sentence_map': create_int_feature(sentence_map), 
@@ -289,9 +289,9 @@ def tokenize_document(genres, doc_info, tokenizer, max_doc_length):
     :return:
     """
     genres = {g: i for i, g in enumerate(genres)}
-    sub_tokens: List[str] = []  # all sub tokens of a document
-    sentence_map: List[int] = []  # collected tokenized tokens -> sentence id
-    subtoken_map: List[int] = []  # collected tokenized tokens -> original token id
+    sub_tokens = []  # all sub tokens of a document
+    sentence_map = []  # collected tokenized tokens -> sentence id
+    subtoken_map = []  # collected tokenized tokens -> original token id
 
     word_idx = -1
 
@@ -407,7 +407,7 @@ def parse_args():
     parser.add_argument("--max_doc_length", default=600, type=int)
     parser.add_argument("--lowercase", help="DO or NOT lowercase the datasets.", action="store_true")
     parser.add_argument("--demo", help="Wether to generate a small dataset for testing the code.", action="store_true")
-    parser.add_argument('--genres', action='store', dest='alist', type=str, nargs='*', default=["bc","bn","mz","nw","pt","tc","wb"])
+    parser.add_argument('--genres', default=["bc","bn","mz","nw","pt","tc","wb"])
     parser.add_argument("--seed", default=2333, type=int)
 
     args = parser.parse_args()
@@ -422,6 +422,12 @@ def parse_args():
 def main():
     args_config = parse_args()
 
+    print("*"*60)
+    print("***** ***** show configs ***** ***** ")
+    print("window_size : {}".format(str(args_config.window_size)))
+    print("num_window : {}".format(str(args_config.num_window)))
+    print("*"*60)
+
     for data_sign in ["train", "dev", "test"]:
         source_data_file = os.path.join(args_config.source_files_dir, "{}.{}.v4_gold_conll".format(data_sign, args_config.language))
         output_filename = "{}.overlap.corefqa".format(data_sign)
@@ -432,6 +438,8 @@ def main():
             else:
                 output_filename="demo.{}.overlap.corefqa".format(data_sign)
 
+        print("$"*60)
+        print("generate {}/{}".format(args_config.target_output_dir, output_filename))
         prepare_train_dataset(source_data_file, args_config.target_output_dir, output_filename, args_config.window_size, 
             args_config.num_window, vocab_file=args_config.vocab_file, language=args_config.language, 
             max_doc_length=args_config.max_doc_length, genres=args_config.genres, max_num_mention=args_config.max_num_mention,
@@ -443,6 +451,8 @@ def main():
 if __name__ == "__main__":
     main()
 
+    # please refer ${REPO_PATH}/scripts/data/generate_tfrecord_dataset.sh 
+    # 
     # for generate tfrecord datasets 
     # 
     # python3 build_dataset_to_tfrecord.py \
@@ -454,7 +464,7 @@ if __name__ == "__main__":
     # --max_num_cluster 30 \
     # --vocab_file /xiaoya/pretrain_ckpt/cased_L-12_H-768_A-12/vocab.txt \
     # --language english \
-    # --max_doc_length 600 \
+    # --max_doc_length 600 
     # 
 
 
