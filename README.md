@@ -57,8 +57,8 @@ E.g.: `./scripts/generate_train_data.sh /home/shannon/conll12_coreference_data e
 ### Install Package Dependencies 
 
 * Install packages dependencies via : `pip install -r requirements.txt`
-* TPU <br> 
-  - Cloud TPU v3-8 device with Tensorflow 1.15 Python 3.5. 
+* Cloud TPU v3-8 device with Tensorflow 1.15 Python 3.5. <br> 
+
 
 ### Train CorefQA Model
 
@@ -67,39 +67,35 @@ Run `./scripts/download_qauad2_finetune_model.sh <model-scale> <path-to-save-mod
 The `<model-scale>` should take the value of `[base, large]`. <br>
 The `<path-to-save-model>` is the path to save finetuned spanbert on SQuAD2.0 datasets. <br>
 2. Train CoNLL-12 Coreference Resolution Model. <br> 
-If using TPU, please run `./scripts/tpu/train_tpu.sh`<br>
-If using GPU, please run `./scripts/gpu/train_spanbert.sh`. 
+If using TPU, please run `./scripts/models/train_tpu.sh`<br>
+
 
 ### Prediction
 
-* Save the text for prediction in a txt file. If the text contains speaker name information, wrap the speaker with `<speaker></speaker>` and put it in front of its utterence. For example:
-```text
-<speaker> Host </speaker> A traveling reporter now on leave and joins us to tell her story. Thank you for coming in to share this with us.
-```
-* run `python3 ./run/evaluate.py <experiment> <input_file> <output_file>` will save the prediction results in `<output_file>`, The prediction for each instance is a list of clusters，each cluster is a list of mentions. Each mention is (text, (span_start, span_end)). For example:
-```python
-[[('A traveling reporter', (26, 46)), ('her', (81, 84)), ('you', (98, 101))]]
-```
 
 
 ## Descriptions of Directories
 
 Name | Descriptions 
 ----------- | ------------- 
-log | A collection of training logs in experments.   
-script |  Shell files help to reproduce our results.  
-data_preprocess | Files to generate train/dev/test datasets. 
-metric | Evaluation metrics for CorefQA. 
-model | An implementation of CorefQA based on Pytorch.
-module | Components for building CorefQA model.  
+bert | 
+conll-2012 | 
+data_utils | 
+func_builders | 
+logs | The logs for experiments. 
+models | An implementation of CorefQA/MentionProposal models based on TF.
 run | Train / Evaluate MRC-NER models.
-config | Config files for BERT models. 
+scripts/data | 
+scripts/models | 
+tests | 
+utils | 
+
 
 
 
 ## Acknowledgement
 
-Many thanks to Yuxian Meng and the previous work `https://github.com/mandarjoshi90/coref`.
+Many thanks to `Yuxian Meng` and the previous work `https://github.com/mandarjoshi90/coref`.
 
 ## Contact
 
