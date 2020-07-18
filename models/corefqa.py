@@ -53,7 +53,7 @@ class CorefQAModel(object):
         gold_end_index_labels = self.boolean_mask_1d(gold_ends, gold_start_end_mask, name_scope="gold_ends", use_tpu=self.use_tpu) # (num_of_mention)
 
         gold_cluster_mask = tf.cast(tf.math.greater_equal(gold_cluster_ids, tf.zeros_like(gold_cluster_ids, tf.int32)), tf.bool) # (max_num_cluster)
-        glod_cluster_ids = self.boolean_mask_1d(gold_cluster_ids, gold_cluster_mask, name_scope="gold_cluster", use_tpu=self.use_tpu)
+        gold_cluster_ids = self.boolean_mask_1d(gold_cluster_ids, gold_cluster_mask, name_scope="gold_cluster", use_tpu=self.use_tpu)
 
         window_text_len = tf.math.maximum(window_text_len, tf.zeros_like(window_text_len, tf.int32)) # (num_of_non_empty_window)
         num_subtoken_in_doc = tf.math.reduce_sum(window_text_len) # the value should be num_subtoken_in_doc 
@@ -81,14 +81,14 @@ class CorefQAModel(object):
         candidate_mention_starts = self.boolean_mask_1d(tf.reshape(candidate_mention_starts, [-1]), candidate_mention_mask, name_scope="candidate_mention_starts", use_tpu=self.use_tpu)
         candidate_mention_ends = self.boolean_mask_1d(tf.reshape(candidate_mention_ends, [-1]), candidate_mention_mask, name_scope="candidate_mention_ends", use_tpu=self.use_tpu)
 
-        candidate_cluster_idx_labels = self.get_candidate_cluster_labels(candidate_mention_starts, candidate_mention_ends, gold_starts, gold_ends, gold_cluster_ids)
+        candidate_cluster_idx_labels = self.get_candidate_cluster_labels(candidate_mention_starts, candidate_mention_ends, gold_start_index_labels, gold_end_index_labels, gold_cluster_ids)
 
 
         candidate_mention_span_embs, candidate_mention_start_embs, candidate_mention_end_embs = self.get_candidate_span_embedding(
             mention_doc_flat_embs, candidate_mention_starts, candidate_mention_ends) 
 
         gold_label_candidate_mention_spans, gold_label_candidate_mention_starts, gold_label_candidate_mention_ends = self.get_candidate_mention_gold_sequence_label(
-            mention_doc_flat_embs, candidate_mention_starts, candidate_mention_ends, gold_starts, gold_ends, num_subtoken_in_doc)
+            mention_doc_flat_embs, candidate_mention_starts, candidate_mention_ends, gold_start_index_labels, gold_end_index_labels, num_subtoken_in_doc)
 
         mention_proposal_loss, candidate_mention_start_prob, candidate_mention_end_prob, candidate_mention_span_prob, candidate_mention_span_scores = self.get_mention_score_and_loss(
             candidate_mention_span_embs, candidate_mention_start_embs, candidate_mention_end_embs, gold_label_candidate_mention_spans=gold_label_candidate_mention_spans, 
