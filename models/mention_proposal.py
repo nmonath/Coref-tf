@@ -109,6 +109,43 @@ class MentionProposalModel(object):
             return total_loss, start_sequence_probabilities, end_sequence_probabilities, span_sequence_probabilities
 
 
+    def get_gold_mention_sequence_labels_from_pad_index(self, pad_gold_start_index_labels, pad_gold_end_index_labels, pad_text_len):
+        """
+        Desc:
+            the original gold labels is padded to the fixed length and only contains the position index of gold mentions. 
+            return the gold sequence of labels for evaluation. 
+        Args:
+            pad_gold_start_index_labels: a tf.int32 tensor with a fixed length (self.config.max_num_mention). 
+                every element in the tensor is the start position index for the mentions. 
+            pad_gold_end_index_labels: a tf.int32 tensor with a fixed length (self.config.max_num_mention). 
+                every element in the tensor is the end position index of the mentions. 
+            pad_text_len: a tf.int32 tensor with a fixed length (self.config.num_window). 
+                every positive element in the tensor indicates that the number of subtokens in the window. 
+        Returns:
+            gold_start_sequence_labels: a tf.int32 tensor with the shape of (num_subtoken_in_doc). 
+                if the element in the tensor equals to 0, this subtoken is not a start for a mention. 
+                if the elemtn in the tensor equals to 1, this subtoken is a start for a mention.  
+            gold_end_sequence_labels: a tf.int32 tensor with the shape of (num_subtoken_in_doc). 
+                if the element in the tensor equals to 0, this subtoken is not a end for a mention. 
+                if the elemtn in the tensor equals to 1, this subtoken is a end for a mention.  
+            gold_span_sequence_labels: a tf.int32 tensor with the shape of (num_subtoken_in_doc, num_subtoken_in_doc)/ 
+                if the element[i][j] equals to 0, this subtokens from $i$ to $j$ is not a mention. 
+                if the element[i][j] equals to 1, this subtokens from $i$ to $j$ is a mention. 
+        """
+        text_len = tf.math.maximum(pad_text_len, tf.zeros_like(pad_text_len, tf.int32)) # (num_of_non_empty_window)
+        num_subtoken_in_doc = tf.math.reduce_sum(text_len) # the value should be num_subtoken_in_doc 
+        
+        gold_start_end_mask = tf.cast(tf.math.greater_equal(pad_gold_start_index_labels, tf.zeros_like(pad_gold_start_index_labels, tf.int32)), tf.bool) # (max_num_mention)
+        gold_start_index_labels = self.boolean_mask_1d(pad_gold_start_index_labels, gold_start_end_mask, name_scope="gold_starts", use_tpu=self.use_tpu) # (num_of_mention)
+        gold_end_index_labels = self.boolean_mask_1d(pad_gold_end_index_labels, gold_start_end_mask, name_scope="gold_ends", use_tpu=self.use_tpu) # (num_of_mention)
+
+        gold_start_sequence_labels = self.scatter_gold_index_to_label_sequence(gold_start_index_labels, num_subtoken_in_doc) # (num_subtoken_in_doc)
+        gold_end_sequence_labels = self.scatter_gold_index_to_label_sequence(gold_end_index_labels, num_subtoken_in_doc) # (num_subtoken_in_doc)
+        gold_span_sequence_labels = self.scatter_span_sequence_labels(gold_start_index_labels, gold_end_index_labels, num_subtoken_in_doc) # (num_subtoken_in_doc, num_subtoken_in_doc)
+
+        return gold_start_sequence_labels, gold_end_sequence_labels, gold_span_sequence_labels
+
+
     def scatter_gold_index_to_label_sequence(self, gold_index_labels, expect_length_of_labels):
         """
         Desc:
@@ -122,8 +159,8 @@ class MentionProposalModel(object):
         gold_value = tf.reshape(tf.ones_like(gold_index_labels), [-1]) # (num_of_mention)
         label_shape = tf.Variable(expect_length_of_labels) 
         label_shape = tf.reshape(label_shape, [1]) # [1]
-        gold_label_sequence = tf.cast(tf.scatter_nd(gold_labels_pos, gold_value, label_shape), tf.int32) # (num_subtoken_in_doc)
-        return gold_label_sequence 
+        gold_sequence_labels = tf.cast(tf.scatter_nd(gold_labels_pos, gold_value, label_shape), tf.int32) # (num_subtoken_in_doc)
+        return gold_sequence_labels
 
 
     def scatter_span_sequence_labels(self, gold_start_index_labels, gold_end_index_labels, expect_length_of_labels):
