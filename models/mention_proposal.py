@@ -55,8 +55,8 @@ class MentionProposalModel(object):
         flat_sentence_map = tf.math.maximum(flat_sentence_map, tf.zeros_like(flat_sentence_map, tf.int32)) # (num_window * window_size)
         
         gold_start_end_mask = tf.cast(tf.math.greater_equal(gold_starts, tf.zeros_like(gold_starts, tf.int32)), tf.bool) # (max_num_mention)
-        gold_start_index_labels = self.boolean_mask_1d(gold_starts, gold_start_end_mask, scope="gold_starts", use_tpu=self.use_tpu) # (num_of_mention)
-        gold_end_index_labels = self.boolean_mask_1d(gold_ends, gold_start_end_mask, scope="gold_ends", use_tpu=self.use_tpu) # (num_of_mention)
+        gold_start_index_labels = self.boolean_mask_1d(gold_starts, gold_start_end_mask, name_scope="gold_starts", use_tpu=self.use_tpu) # (num_of_mention)
+        gold_end_index_labels = self.boolean_mask_1d(gold_ends, gold_start_end_mask, name_scope="gold_ends", use_tpu=self.use_tpu) # (num_of_mention)
 
         text_len = tf.math.maximum(text_len, tf.zeros_like(text_len, tf.int32)) # (num_of_non_empty_window)
         num_subtoken_in_doc = tf.math.reduce_sum(text_len) # the value should be num_subtoken_in_doc 
@@ -231,7 +231,7 @@ class MentionProposalModel(object):
         return x.get_shape()[dim].value or tf.shape(x)[dim]
 
 
-    def boolean_mask_1d(self, itemtensor, boolmask_indicator, scope="boolean_mask1d", use_tpu=False):
+    def boolean_mask_1d(self, itemtensor, boolmask_indicator, name_scope="boolean_mask1d", use_tpu=False):
         """
         Desc:
             the same functionality of tf.boolean_mask. 
@@ -242,7 +242,7 @@ class MentionProposalModel(object):
             scope : name scope for the operation. 
             use_tpu : if False, return tf.boolean_mask.  
         """
-        with tf.name_scope(scope):
+        with tf.name_scope(name_scope):
             if not use_tpu:
                 return tf.boolean_mask(itemtensor, boolmask_indicator)
 
