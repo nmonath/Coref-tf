@@ -11,8 +11,7 @@ if repo_path not in sys.path:
 
 import tensorflow as tf
 from bert import modeling
-from utils import metrics
-from bert import tokenization
+
 
 # TODO (xiaoya): mention linking from the previous mentions 
 
@@ -91,15 +90,16 @@ class CorefQAModel(object):
         gold_label_candidate_mention_spans, gold_label_candidate_mention_starts, gold_label_candidate_mention_ends = self.get_candidate_mention_gold_sequence_label(
             mention_doc_flat_embs, candidate_mention_starts, candidate_mention_ends, gold_starts, gold_ends, num_subtoken_in_doc)
 
-        mention_proposal_loss, candidate_mention_start_prob, candidate_mention_end_prob, candidate_mention_span_prob, candidate_mention_span_scores = self.get_mention_proposal_score_and_loss(
-            candidate_mention_span_embs, candidate_mention_start_embs, candidate_mention_end_embs, gold_label_candidate_mention_spans, 
-            gold_label_candidate_mention_starts, gold_label_candidate_mention_ends)
+        mention_proposal_loss, candidate_mention_start_prob, candidate_mention_end_prob, candidate_mention_span_prob, candidate_mention_span_scores = self.get_mention_score_and_loss(
+            candidate_mention_span_embs, candidate_mention_start_embs, candidate_mention_end_embs, gold_label_candidate_mention_spans=gold_label_candidate_mention_spans, 
+            gold_label_candidate_mention_starts=gold_label_candidate_mention_starts, gold_label_candidate_mention_ends=gold_label_candidate_mention_ends, expect_length_of_labels=num_subtoken_in_doc)
+ 
 
         self.k = tf.minimum(self.config.max_candidate_mentions, tf.to_int32(tf.floor(tf.to_float(num_subtoken_in_doc) * self.config.top_span_ratio)))
-        self.c = tf.to_int32(tf.minimum(self.config.max_top_antecedents, k))
+        self.c = tf.to_int32(tf.minimum(self.config.max_top_antecedents, self.k))
 
         candidate_mention_span_scores = tf.reshape(candidate_mention_span_scores, [-1])
-        topk_mention_span_scores, topk_mention_span_indices = tf.nn.top_k(candidate_mention_span_scores, self.k)
+        topk_mention_span_scores, topk_mention_span_indices = tf.nn.top_k(candidate_mention_span_scores, self.k, sorted=False)
         topk_mention_span_indices = tf.reshape(topk_mention_span_indices, [-1])
 
         topk_mention_start_indices = tf.gather(candidate_mention_starts, topk_mention_span_indices) 
@@ -166,8 +166,47 @@ class CorefQAModel(object):
             scope="bert")
 
         forward_qa_overlap_window_embs = forward_qa_linking_model.get_sequence_output()
+        forward_context_overlap_window_embs = tf.math.multiply(forward_qa_overlap_window_embs, batch_forward_qa_input_type_mask)
+        forward_context_overlap_window_embs = tf.reshape(forward_context_overlap_window_embs, [self.k*self.config.num_widnow, self.config.window_size])
+
+        expand_doc_overlap_input_mask = tf.tile(tf.expand_dims(doc_overlap_input_mask, 0), [self.k, 1, 1]) # (k, num_window, window_size)
+        # offset_doc_overlap_input_mask = tf.tile(tf.expand_dims(tf.range(0, k)* (self.config.num_window * self.config.window_size), 1), [1, self.config.num_window * self.config.window_size])
+        # (k, num_window * window_size)
+        expand_doc_overlap_input_mask = tf.reshape(expand_doc_overlap_input_mask, [-1, self.config.window_size])
+
+        forward_context_flat_doc_embs = self.transform_overlap_sliding_windows_to_original_document(forward_context_overlap_window_embs, expand_doc_overlap_input_mask) # (k * num_subtoken_in_doc)
+        forward_context_flat_doc_embs = self.reshape(forward_context_flat_doc_embs, [self.k, -1, self.config.hidden_size])
+        num_candidate_mention = self.get_shape(candidate_mention_span_embs, 0)
+        forward_qa_mention_pos_offset = tf.cast(tf.tile(tf.reshape(tf.range(0, num_candidate_mention) * num_subtoken_in_doc, [1, -1]), [self.k, 1]), tf.int32)
+
+        forward_qa_mention_starts = tf.tile(tf.expand_dims(candidate_mention_starts, 0), [self.k, 1]) + forward_qa_mention_pos_offset
+        forward_qa_mention_ends = tf.tile(tf.expand_dims(candidate_mention_ends, 0), [self.k, 1]) + forward_qa_mention_pos_offset
+
+        forward_qa_mention_span_embs, forward_qa_mention_start_embs, forward_qa_mention_end_embs = self.get_candidate_span_embedding(tf.reshape(forward_context_flat_doc_embs, 
+                [-1, self.config.hidden_size]), tf.reshape(forward_qa_mention_starts, [-1]), tf.reshape(forward_qa_mention_ends, [-1]))
+
+        forward_qa_mention_span_prob, forward_qa_mention_start_prob, forward_qa_mention_end_prob = self.get_mention_score_and_loss(forward_qa_mention_span_embs, 
+                forward_qa_mention_start_embs, forward_qa_mention_end_embs, name_scope="forward_qa")
+
+        if self.config.sec_qa_mention_score:
+            forward_qa_mention_span_scores = (forward_qa_mention_span_prob + forward_qa_mention_start_prob + forward_qa_mention_end_prob)/3.0
+        else:
+            forward_qa_mention_span_scores = forward_qa_mention_span_prob 
+
+        forward_candidate_mention_span_scores = tf.reshape(forward_qa_mention_span_score, [self.k, -1])
+        forward_topc_mention_span_scores, local_forward_topc_mention_span_indices = tf.nn.top_k(forward_candidate_mention_span_scores, self.c, sorted=False)
+        local_flat_forward_topc_mention_span_indices = tf.reshape(local_forward_topc_mention_span_indices, [-1])
+
+        # topk_mention_start_indices
+        forward_topc_mention_start_indices = tf.gather(candidate_mention_starts, local_forward_topc_mention_span_indices) 
+        forward_topc_mention_end_indices = tf.gather(candidate_mention_ends, local_forward_topc_mention_span_indices) 
+        forward_topc_mention_span_scores_in_mention_proposal = tf.gather(candidate_mention_span_scores, local_forward_topc_mention_span_indices)
+        forward_topc_span_cluster_ids = tf.gather(candidate_cluster_idx_labels, local_forward_topc_mention_span_indices)
+
         
-        
+
+
+
 
 
     def get_query_token_ids(self, nonoverlap_doc_input_ids, sentence_map, mention_start_idx, mention_end_idx, paddding=True):
@@ -190,12 +229,21 @@ class CorefQAModel(object):
 
 
 
-    def get_mention_proposal_score_and_loss(self, candidate_mention_span_embs, candidate_mention_start_embs, candidate_mention_end_embs, 
-        gold_label_candidate_mention_spans, gold_label_candidate_mention_starts, gold_label_candidate_mention_ends, expect_length_of_labels):
+    def get_mention_score_and_loss(self, candidate_mention_span_embs, candidate_mention_start_embs, candidate_mention_end_embs, 
+        gold_label_candidate_mention_spans=None, gold_label_candidate_mention_starts=None, gold_label_candidate_mention_ends=None, expect_length_of_labels=None, 
+        name_scope="mention"):
 
-        candidate_mention_span_logits = self.ffnn(candidate_mention_span_embs, self.config.hidden_size*2, 1, dropout=self.dropout, name_scope="mention_span")
-        candidate_mention_start_logits = self.ffnn(candidate_mention_start_embs, self.config.hidden_size, 1, dropout=self.dropout, name_scope="mention_start")
-        candidate_mention_end_logits = self.ffnn(candidate_mention_end_embs, self.config.hidden_size, 1, dropout=self.dropout, name_scope="mention_end")
+        candidate_mention_span_logits = self.ffnn(candidate_mention_span_embs, self.config.hidden_size*2, 1, dropout=self.dropout, name_scope="{}_span".format(name_scope))
+        candidate_mention_start_logits = self.ffnn(candidate_mention_start_embs, self.config.hidden_size, 1, dropout=self.dropout, name_scope="{}_start".format(name_scope))
+        candidate_mention_end_logits = self.ffnn(candidate_mention_end_embs, self.config.hidden_size, 1, dropout=self.dropout, name_scope="{}_end".format(name_scope))
+
+        if gold_label_candidate_mention_spans is None or gold_label_candidate_mention_starts is None or gold_label_candidate_mention_ends is None: 
+            candidate_mention_span_probability = tf.sigmoid(candidate_mention_span_logits)
+            candidate_mention_start_probability = tf.sigmoid(candidate_mention_start_logits)
+            candidate_mention_end_probability = tf.sigmoid(candidate_mention_end_logits)
+
+            return candidate_mention_span_probability, candidate_mention_start_probability, candidate_mention_end_probability
+
 
         start_loss, candidate_mention_start_probability = self.compute_mention_score_and_loss(candidate_mention_start_logits, gold_label_candidate_mention_starts)
         end_loss, candidate_mention_end_probability = self.compute_mention_score_and_loss(candidate_mention_end_logits, gold_label_candidate_mention_ends)
