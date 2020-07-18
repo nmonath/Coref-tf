@@ -204,7 +204,7 @@ class MentionProposalModel(object):
         Desc:
             fully-connected neural network. 
             transform non-linearly the [input] tensor with [hidden_size] to a fix [output_size] size.  
-        Args:
+        Args: 
             hidden_size: should be the size of last dimension of [inputs]. 
         """
         with tf.variable_scope(name_scope, reuse=tf.AUTO_REUSE):

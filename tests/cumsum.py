@@ -45,10 +45,6 @@ input_f:
 """
 
 
-# author: xiaoy li 
-# description:
-# 
-
 
 
 import tensorflow as tf 

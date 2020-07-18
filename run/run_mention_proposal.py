@@ -80,7 +80,7 @@ def main(_):
 
     tf.logging.set_verbosity(tf.logging.INFO)
     num_train_steps = FLAGS.num_docs * FLAGS.num_epochs
-    num_train_steps = 100 
+    # num_train_steps = 100 
     keep_chceckpoint_max = max(math.ceil(num_train_steps / FLAGS.save_checkpoints_steps), FLAGS.keep_checkpoint_max)
 
     if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
