@@ -101,7 +101,7 @@ class MentionProposalModel(object):
         span_loss, span_sequence_probabilities = self.compute_score_and_loss(span_sequence_logits, gold_span_sequence_labels)
         # span_loss -> a scalar 
         # span_sequence_probabilities -> (num_subtoken_in_doc * num_subtoken_in_doc)
-
+        
         if self.config.mention_proposal_only_concate:
             return span_loss, span_sequence_probabilities
         else:
