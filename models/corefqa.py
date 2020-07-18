@@ -286,6 +286,48 @@ class CorefQAModel(object):
         else:
             backward_qa_mention_span_scores = backward_qa_mention_span_prob 
 
+        expand_forward_topc_mention_span_scores = tf.tile(tf.expand_dims(forward_topc_mention_span_scores, 0), [1, self.k])
+        expand_forward_topc_mention_span_scores_in_mention_proposal = tf.tile(tf.expand_dims(forward_topc_mention_span_scores_in_mention_proposal, 0), [1, self.k])
+        expand_topk_mention_span_scores = tf.tile(tf.expand_dims(topk_mention_span_scores, 0), [self.c, 1])
+
+        backward_qa_mention_span_scores = tf.reshape(backward_qa_mention_span_scores, [self.c, self.k])
+
+        mention_span_linking_scores = expand_forward_topc_mention_span_scores + backward_qa_mention_span_scores
+        mention_span_linking_scores = mention_span_linking_scores+ expand_forward_topc_mention_span_scores_in_mention_proposal + expand_topk_mention_span_scores
+        mention_span_linking_scores = tf.reshape(mention_span_linking_scores, [self.k, self.c])
+        dummy_scores = tf.zeros([self.k, 1])
+
+        top_mention_span_linking_scores = tf.concat([dummy_scores, mention_span_linking_scores], axis=1) 
+
+        forward_topc_span_cluster_ids = tf.reshape(forward_topc_span_cluster_ids, [self.k, self.c]) 
+        same_cluster_indicator = tf.equal(forward_topc_span_cluster_ids, tf.expand_dims(topk_mention_span_cluster_ids, 1))  
+        non_dummy_indicator = tf.expand_dims(topk_mention_span_cluster_ids > 0, 1)
+        pairwise_labels = tf.logical_and(same_cluster_indicator, non_dummy_indicator)
+        dummy_labels = tf.logical_not(tf.reduce_any(pairwise_labels, 1, keepdims=True)) 
+        top_mention_span_linking_labels = tf.concat([dummy_labels, pairwise_labels], 1)
+
+        linking_loss = self.marginal_likelihood_loss(top_mention_span_linking_scores, top_mention_span_linking_labels)
+
+        total_loss = mention_proposal_loss + linking_loss 
+
+        return total_loss, (topk_mention_start_indices, topk_mention_end_indices), (forward_topc_mention_start_indices, forward_topc_mention_end_indices), top_mention_span_linking_scores 
+
+
+    def marginal_likelihood_loss(self, antecedent_scores, antecedent_labels):
+        """
+        Desc:
+            marginal likelihood of gold antecedent spans form coreference cluster 
+        Args:
+            antecedent_scores: [k, c+1] the predicted scores by the model
+            antecedent_labels: [k, c+1] the gold-truth cluster labels
+        Returns:
+            a scalar of loss 
+        """
+        gold_scores = tf.math.add(antecedent_scores, tf.log(tf.to_float(antecedent_labels)))
+        marginalized_gold_scores = tf.math.reduce_logsumexp(gold_scores, [1])  # [k]
+        log_norm = tf.math.reduce_logsumexp(antecedent_scores, [1])  # [k]
+        loss = log_norm - marginalized_gold_scores  # [k]
+        return tf.math.reduce_sum(loss)
 
 
     def get_query_token_ids(self, nonoverlap_doc_input_ids, sentence_map, mention_start_idx, mention_end_idx, paddding=True):
