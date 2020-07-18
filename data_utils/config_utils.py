@@ -32,4 +32,4 @@ class ModelConfig(object):
         tf.logging.info("$*$"*30)
 
         for item_key, item_value in self.__dict__.items():
-            tf.logging.info("{} -----> {}".format(str(item_key), str(item_value)))
+            tf.logging.info("{} : {}".format(str(item_key), str(item_value)))

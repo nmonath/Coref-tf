@@ -12,7 +12,7 @@ import random
 import logging
 import numpy as np 
 import tensorflow as tf
-from config.config_utils import ModelConfig
+from data_utils.config_utils import ModelConfig
 from func_builders.model_fn_builder import model_fn_builder 
 from func_builders.input_fn_builder import file_based_input_fn_builder
 from utils.metrics import mention_proposal_prediction
@@ -22,8 +22,6 @@ tf.app.flags.DEFINE_string('f', '', 'kernel')
 flags = tf.app.flags
 
 flags.DEFINE_string("output_dir", "data", "The output directory of the model training.")
-flags.DEFINE_string("config_filename", "experiments.conf", "the input config file name.")
-flags.DEFINE_string("config_params", "train_spanbert_base", "specify the hyper-parameters in the config file.")
 flags.DEFINE_string("bert_config_file", "/home/uncased_L-2_H-128_A-2/config.json", "The config json file corresponding to the pre-trained BERT model.")
 flags.DEFINE_string("init_checkpoint", "/home/uncased_L-2_H-128_A-2/bert_model.ckpt", "Initial checkpoint (usually from a pre-trained BERT model).")
 flags.DEFINE_string("vocab_file", "/home/uncased_L-2_H-128_A-2/vocab.txt", "The vocabulary file that the BERT model was trained on.")
@@ -31,20 +29,6 @@ flags.DEFINE_string("logfile_path", "/home/lixiaoya/spanbert_large_mention_propo
 flags.DEFINE_integer("num_epochs", 20, "Total number of training epochs to perform.")
 flags.DEFINE_integer("keep_checkpoint_max", 30, "How many checkpoint models keep at most.")
 flags.DEFINE_integer("save_checkpoints_steps", 500, "Save checkpoint every X updates steps.")
-
-
-flags.DEFINE_float("learning_rate", 3e-5, "The initial learning rate for Adam.")
-flags.DEFINE_float("dropout_rate", 0.3, "Dropout rate for the training process.")
-flags.DEFINE_float("mention_threshold", 0.5, "The threshold for determining whether the span is a mention.")
-flags.DEFINE_integer("hidden_size", 128, "The size of hidden layers for the pre-trained model.")
-flags.DEFINE_integer("num_docs", 5604, "[Optional] The number of documents in the training files. Only need to change when conduct experiments on the small test sets.")
-flags.DEFINE_integer("window_size", 384, "The number of sliding window size.")
-flags.DEFINE_integer("num_window", 5, "The number of windows for one document.")
-flags.DEFINE_integer("max_num_mention", 30, "The max number of mentions in one document.")
-flags.DEFINE_bool("mention_proposal_only_concate", False, "Whether only to use concating [start, end] embedding to get the span embedding.") 
-flags.DEFINE_float("loss_start_ratio", 0.9, "The ratio of start label in the total loss.")
-flags.DEFINE_float("loss_end_ratio", 0.9, "The ratio of end label in the total loss.")
-flags.DEFINE_float("loss_span_ratio", 0.9, "The ratio of span label in the total loss.")
 
 
 flags.DEFINE_string("train_file", "/home/lixiaoya/train.english.tfrecord", "TFRecord file for training. E.g., train.english.tfrecord")
@@ -57,6 +41,21 @@ flags.DEFINE_bool("do_eval", False, "Whether to test a model.")
 flags.DEFINE_bool("do_predict", False, "Whether to test a trained model.")
 flags.DEFINE_string("eval_checkpoint", "/home/lixiaoya/mention_proposal_output_dir/bert_model.ckpt", "[Optional] The saved checkpoint for evaluation (usually after the training process).")
 flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
+
+
+flags.DEFINE_float("learning_rate", 3e-5, "The initial learning rate for Adam.")
+flags.DEFINE_float("dropout_rate", 0.3, "Dropout rate for the training process.")
+flags.DEFINE_float("mention_threshold", 0.5, "The threshold for determining whether the span is a mention.")
+flags.DEFINE_integer("hidden_size", 128, "The size of hidden layers for the pre-trained model.")
+flags.DEFINE_integer("num_docs", 5604, "[Optional] The number of documents in the training files. Only need to change when conduct experiments on the small test sets.")
+flags.DEFINE_integer("window_size", 384, "The number of sliding window size.")
+flags.DEFINE_integer("num_window", 5, "The number of windows for one document.")
+flags.DEFINE_integer("max_num_mention", 30, "The max number of mentions in one document.")
+flags.DEFINE_bool("mention_proposal_only_concate", False, "Whether only to use concating [start, end] embedding to get the span embedding.") 
+flags.DEFINE_bool("start_end_share", False, "Whether only to use [start, end] embedding to calculate the start/end scores.") 
+flags.DEFINE_float("loss_start_ratio", 0.9, "The ratio of start label in the total loss.")
+flags.DEFINE_float("loss_end_ratio", 0.9, "The ratio of end label in the total loss.")
+flags.DEFINE_float("loss_span_ratio", 0.9, "The ratio of span label in the total loss.")
 
 
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
@@ -81,6 +80,7 @@ def main(_):
 
     tf.logging.set_verbosity(tf.logging.INFO)
     num_train_steps = FLAGS.num_docs * FLAGS.num_epochs
+    # num_train_steps = 100 
     keep_chceckpoint_max = max(math.ceil(num_train_steps / FLAGS.save_checkpoints_steps), FLAGS.keep_checkpoint_max)
 
     if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
