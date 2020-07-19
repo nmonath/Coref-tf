@@ -59,7 +59,7 @@ flags.DEFINE_bool("start_end_share", False, "Whether only to use [start, end] em
 flags.DEFINE_float("loss_start_ratio", 1, "The ratio of start label prediction loss for mention proposal.")
 flags.DEFINE_float("loss_end_ratio", 1, "The ratio of end label prediction loss for mention proposal.")
 flags.DEFINE_float("loss_span_ratio", 1, "The ratio of span label loss for mention proposal.")
-# as described in the paper, the loss for a span being a mention is 
+# the loss for a span being a mention is 
 # -loss_start_ratio* log p(the start of the given span is a start) 
 # -loss_end_ratio* log p(the end of the given span is a end)
 # -loss_span_ratio* log p(the start and the end forms a span)
