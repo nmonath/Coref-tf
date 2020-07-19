@@ -55,9 +55,14 @@ flags.DEFINE_integer("num_window", 5, "The max number of windows for one documen
 flags.DEFINE_integer("max_num_mention", 30, "The max number of mentions in one document.")
 flags.DEFINE_bool("mention_proposal_only_concate", False, "Whether only to use concating [start, end] embedding to get the span embedding.") 
 flags.DEFINE_bool("start_end_share", False, "Whether only to use [start, end] embedding to calculate the start/end scores.") 
-flags.DEFINE_float("loss_start_ratio", 0.9, "The ratio of start label prediction in the total loss.")
-flags.DEFINE_float("loss_end_ratio", 0.9, "The ratio of end label prediction in the total loss.")
-flags.DEFINE_float("loss_span_ratio", 0.9, "The ratio of span label prediction in the total loss.")
+
+flags.DEFINE_float("loss_start_ratio", 1, "The ratio of start label prediction loss for mention proposal.")
+flags.DEFINE_float("loss_end_ratio", 1, "The ratio of end label prediction loss for mention proposal.")
+flags.DEFINE_float("loss_span_ratio", 1, "The ratio of span label loss for mention proposal.")
+# as described in the paper, the loss for a span being a mention is 
+# -loss_start_ratio* log p(the start of the given span is a start) 
+# -loss_end_ratio* log p(the end of the given span is a end)
+# -loss_span_ratio* log p(the start and the end forms a span)
 
 
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
