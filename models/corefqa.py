@@ -58,19 +58,25 @@ class CorefQAModel(object):
 
         window_text_len = tf.math.maximum(window_text_len, tf.zeros_like(window_text_len, tf.int32)) # (num_of_non_empty_window)
         num_subtoken_in_doc = tf.math.reduce_sum(window_text_len) # the value should be num_subtoken_in_doc 
-
+        ####################
+        ####################
+        ## mention proposal stage starts 
         mention_input_ids = tf.reshape(flat_window_input_ids, [-1, self.config.window_size]) # (num_window, window_size)
+        # each row of mention_input_ids is a subdocument 
         mention_input_mask = tf.ones_like(mention_input_ids, tf.int32) # (num_window, window_size)
         mention_model = modeling.BertModel(config=self.bert_config, is_training=is_training, 
             input_ids=mention_input_ids, input_mask=mention_input_mask, use_one_hot_embeddings=False, scope='bert')
 
         mention_doc_overlap_window_embs = mention_model.get_sequence_output() # (num_window, window_size, hidden_size)
+        # get BERT embeddings for mention_input_ids 
         doc_overlap_input_mask = tf.reshape(flat_doc_overlap_input_mask, [self.config.num_window, self.config.window_size]) # (num_window, window_size)
 
         mention_doc_flat_embs = self.transform_overlap_sliding_windows_to_original_document(mention_doc_overlap_window_embs, doc_overlap_input_mask) 
         mention_doc_flat_embs = tf.reshape(mention_doc_flat_embs, [-1, self.config.hidden_size]) # (num_subtoken_in_doc, hidden_size) 
 
         candidate_mention_starts = tf.tile(tf.expand_dims(tf.range(num_subtoken_in_doc), 1), [1, self.config.max_span_width]) # (num_subtoken_in_doc, max_span_width)
+        # getting all eligible mentions in each subdocument
+        # the number if eligible mentions of each subdocument is  config.max_span_width * num_subtoken_in_doc
         candidate_mention_ends = tf.math.add(candidate_mention_starts, tf.expand_dims(tf.range(self.config.max_span_width), 0)) # (num_subtoken_in_doc, max_span_width)
         
         candidate_mention_sentence_start_idx = tf.gather(flat_doc_sentence_map, candidate_mention_starts) # (num_subtoken_in_doc, max_span_width)
@@ -84,7 +90,6 @@ class CorefQAModel(object):
         # num_candidate_mention_in_doc is smaller than num_subtoken_in_doc
 
         candidate_cluster_idx_labels = self.get_candidate_cluster_labels(candidate_mention_starts, candidate_mention_ends, gold_start_index_labels, gold_end_index_labels, gold_cluster_ids)
-        # 
 
         candidate_mention_span_embs, candidate_mention_start_embs, candidate_mention_end_embs = self.get_candidate_span_embedding(
             mention_doc_flat_embs, candidate_mention_starts, candidate_mention_ends) 
@@ -105,8 +110,7 @@ class CorefQAModel(object):
         # candidate_mention_start_prob, candidate_mention_end_prob, candidate_mention_span_prob, -> (num_candidate_mention_in_doc)
 
         self.k = tf.minimum(self.config.max_candidate_mentions, tf.to_int32(tf.floor(tf.to_float(num_subtoken_in_doc) * self.config.top_span_ratio)))
-        self.c = tf.to_int32(tf.minimum(self.config.max_top_antecedents, self.k))
-        # self.k and self.c is the hyper-parameters in the model for model pruning. 
+        # self.k is a hyper-parameter. We want to select the top self.k mentions from the config.max_span_width * num_subtoken_in_doc mentions.
 
         candidate_mention_span_scores = tf.reshape(candidate_mention_span_scores, [-1])
         topk_mention_span_scores, topk_mention_span_indices = tf.nn.top_k(candidate_mention_span_scores, self.k, sorted=False) 
@@ -118,7 +122,14 @@ class CorefQAModel(object):
         topk_mention_end_indices = tf.gather(candidate_mention_ends, topk_mention_span_indices) # (k,)
         topk_mention_span_cluster_ids = tf.gather(candidate_cluster_idx_labels, topk_mention_span_indices) # (k,)
         topk_mention_span_scores = tf.gather(candidate_mention_span_scores, topk_mention_span_indices) # (k,)
-
+        ## mention proposal stage ends
+        ###########
+        ###########
+        
+        
+        ###### mention linking stage starts
+        ## foward QA score computation starts
+        ## for a given proposed mention i, we first compute the score of a span j being the correferent answer to i, denoted by s(j|i) 
         i0 = tf.constant(0)
         forward_qa_input_ids = tf.zeros((1, self.config.num_window, self.config.window_size + self.config.max_query_len + 2), dtype=tf.int32) # (1, num_window, max_query_len + window_size + 2)
         forward_qa_input_mask = tf.zeros((1, self.config.num_window, self.config.window_size + self.config.max_query_len + 2), dtype=tf.int32) # (1, num_window, max_query_len + window_size + 2)
@@ -199,11 +210,19 @@ class CorefQAModel(object):
                 [-1, self.config.hidden_size]), tf.reshape(forward_qa_mention_starts, [-1]), tf.reshape(forward_qa_mention_ends, [-1]))
         # forward_qa_mention_span_embs -> (k * num_candidate_mention_in_doc, hidden_size*2)
         # forward_qa_mention_start_embs -> (k * num_candidate_mention_in_doc, hidden_size)
+        
+        self.c = tf.to_int32(tf.minimum(self.config.max_top_antecedents, self.k))
 
-        forward_qa_mention_span_scores, forward_qa_mention_start_scores, forward_qa_mention_end_scores = self.get_mention_score_and_loss(forward_qa_mention_span_embs, 
+        forward_qa_mention_span_scores, forward_qa_mention_start_scores, forward_qa_mention_end_scores = self.
+        
+        
+        
+        
+        
+        (forward_qa_mention_span_embs, 
                 forward_qa_mention_start_embs, forward_qa_mention_end_embs, name_scope="forward_qa") 
         # forward_qa_mention_span_prob, forward_qa_mention_start_prob, forward_qa_mention_end_prob -> (k * num_candidate_mention_in_doc)
-
+        # computes the s(j|i) for all eligible span j in the document 
         if self.config.sec_qa_mention_score:
             forward_qa_mention_span_scores = (forward_qa_mention_span_scores + forward_qa_mention_start_scores + forward_qa_mention_end_scores)/3.0
         else:
@@ -211,15 +230,19 @@ class CorefQAModel(object):
 
         forward_candidate_mention_span_scores = tf.reshape(forward_qa_mention_span_scores, [self.k, -1]) # (k, num_candidate_mention_in_doc)
         forward_topc_mention_span_scores, local_forward_topc_mention_span_indices = tf.nn.top_k(forward_candidate_mention_span_scores, self.c, sorted=False) # (k, c)
+        # for each i, we only maintain the top self.c spans based on s(j|i)
         local_flat_forward_topc_mention_span_indices = tf.reshape(local_forward_topc_mention_span_indices, [-1]) # (k * c)
-
+        
         # topk_mention_start_indices
         forward_topc_mention_start_indices = tf.gather(candidate_mention_starts, local_flat_forward_topc_mention_span_indices) # (k, c)
         forward_topc_mention_end_indices = tf.gather(candidate_mention_ends, local_flat_forward_topc_mention_span_indices) # (k, c)
         forward_topc_mention_span_scores_in_mention_proposal = tf.gather(candidate_mention_span_scores, local_flat_forward_topc_mention_span_indices) # (k, c)
         forward_topc_span_cluster_ids = tf.gather(candidate_cluster_idx_labels, local_flat_forward_topc_mention_span_indices)
+        ## foward QA score computation ends
 
-
+        ## backward QA score computation ends
+        ## we need to compute the score of backward score, i.e., the span i is the correferent answer for j, denoted by s(i|j)
+        
         i0 = tf.constant(0)
         backward_qa_input_ids = tf.zeros((1, self.config.max_query_len + self.config.max_context_len + 2), dtype=tf.int32) # (1, max_query_len + max_context_len + 2)
         backward_qa_input_mask = tf.zeros((1, self.config.max_query_len + self.config.max_context_len + 2), dtype=tf.int32) # (1, max_query_len + max_context_len + 2)
@@ -305,7 +328,9 @@ class CorefQAModel(object):
                 backward_qa_mention_start_embs, backward_qa_mention_end_embs, name_scope="backward_qa")
         # backward_qa_mention_span_prob -> (k*c)
         # backward_qa_mention_start_prob, backward_qa_mention_end_prob -> (k*c)
-
+        
+        #############
+        ############# backward QA computation ends
         if self.config.sec_qa_mention_score:
             backward_qa_mention_span_scores = (backward_qa_mention_span_scores + backward_qa_mention_start_scores + backward_qa_mention_end_scores)/3.0
         else:
