@@ -21,7 +21,7 @@ from func_builders.input_fn_builder import file_based_input_fn_builder
 tf.app.flags.DEFINE_string('f', '', 'kernel')
 flags = tf.app.flags
 
-flags.DEFINE_string("output_dir", "data", "The output directory of the model training.")
+flags.DEFINE_string("output_dir", "data", "The output directory.")
 flags.DEFINE_string("bert_config_file", "/home/uncased_L-2_H-128_A-2/config.json", "The config json file corresponding to the pre-trained BERT model.")
 flags.DEFINE_string("init_checkpoint", "/home/uncased_L-2_H-128_A-2/bert_model.ckpt", "Initial checkpoint (usually from a pre-trained BERT model).")
 flags.DEFINE_string("vocab_file", "/home/uncased_L-2_H-128_A-2/vocab.txt", "The vocabulary file that the BERT model was trained on.")
@@ -37,8 +37,8 @@ flags.DEFINE_string("test_file", "/home/lixiaoya/test.english.tfrecord", "TFReco
 
 
 flags.DEFINE_bool("do_train", True, "Whether to train a model.")
-flags.DEFINE_bool("do_eval", False, "Whether to test a model.")
-flags.DEFINE_bool("do_predict", False, "Whether to test a trained model.")
+flags.DEFINE_bool("do_eval", False, "whether to do evaluation: evaluation is done on a set of trained checkpoints, the model will select the best one on the dev set, and report result on the test set")
+flags.DEFINE_bool("do_predict", False, "Whether to test (only) one trained model.")
 flags.DEFINE_string("eval_checkpoint", "/home/lixiaoya/mention_proposal_output_dir/bert_model.ckpt", "[Optional] The saved checkpoint for evaluation (usually after the training process).")
 flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
 
@@ -48,14 +48,16 @@ flags.DEFINE_float("dropout_rate", 0.3, "Dropout rate for the training process."
 flags.DEFINE_float("mention_threshold", 0.5, "The threshold for determining whether the span is a mention.")
 flags.DEFINE_integer("hidden_size", 128, "The size of hidden layers for the pre-trained model.")
 flags.DEFINE_integer("num_docs", 5604, "[Optional] The number of documents in the training files. Only need to change when conduct experiments on the small test sets.")
-flags.DEFINE_integer("window_size", 384, "The number of sliding window size.")
-flags.DEFINE_integer("num_window", 5, "The number of windows for one document.")
+flags.DEFINE_integer("window_size", 384, "The number of sliding window size. Each document is split into a set of subdocuments with length set to window_size")
+flags.DEFINE_integer("num_window", 5, "The max number of windows for one document. This is used for fitting a document into fix shape for TF computation. \
+                     If a document is longer than num_window*window_size, the exceeding part will be abandoned. This only affects training and does not affect test, since the all \
+                     docs in the test set is shorter than num_window*window_size")
 flags.DEFINE_integer("max_num_mention", 30, "The max number of mentions in one document.")
 flags.DEFINE_bool("mention_proposal_only_concate", False, "Whether only to use concating [start, end] embedding to get the span embedding.") 
 flags.DEFINE_bool("start_end_share", False, "Whether only to use [start, end] embedding to calculate the start/end scores.") 
-flags.DEFINE_float("loss_start_ratio", 0.9, "The ratio of start label in the total loss.")
-flags.DEFINE_float("loss_end_ratio", 0.9, "The ratio of end label in the total loss.")
-flags.DEFINE_float("loss_span_ratio", 0.9, "The ratio of span label in the total loss.")
+flags.DEFINE_float("loss_start_ratio", 0.9, "The ratio of start label prediction in the total loss.")
+flags.DEFINE_float("loss_end_ratio", 0.9, "The ratio of end label prediction in the total loss.")
+flags.DEFINE_float("loss_span_ratio", 0.9, "The ratio of span label prediction in the total loss.")
 
 
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
