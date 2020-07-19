@@ -1,12 +1,48 @@
-"""用python实现的评测脚本"""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+#!/usr/bin/env python3 
+# -*- coding: utf-8 -*- 
 
-from collections import Counter
+
 
 import numpy as np
+from collections import Counter
 from scipy.optimize import linear_sum_assignment
+
+
+def mention_proposal_prediction(config, current_doc_result, concat_only=True):
+    """
+    current_doc_result: 
+        "total_loss": total_loss,
+        "start_scores": start_scores,
+        "start_gold": gold_starts,
+        "end_gold": gold_ends,
+        "end_scores": end_scores, 
+        "span_scores": span_scores, 
+        "span_gold": span_mention
+
+    """
+
+    span_scores = current_doc_result["span_scores"]
+    span_gold = current_doc_result["span_gold"] 
+
+    if concat_only:
+        scores = span_scores
+    else:
+        start_scores = current_doc_result["start_scores"], 
+        end_scores = current_doc_result["end_scores"]   
+        # start_scores = tf.tile(tf.expand_dims(start_scores, 2), [1, 1, config["max_segment_len"]])
+        start_scores = np.tile(np.expand_dims(start_scores, axis=2), (1, 1, config["max_segment_len"]))
+        end_scores = np.tile(np.expand_dims(end_scores, axis=2), (1, 1, config["max_segment_len"]))
+        start_scores = np.reshape(start_scores, [-1, config["max_segment_len"], config["max_segment_len"]])
+        end_scores = np.reshape(end_scores, [-1, config["max_segment_len"], config["max_segment_len"]])
+
+        # end_scores -> max_training_sent, max_segment_len 
+        scores = (start_scores + end_scores + span_scores)/3
+
+    pred_span_label = scores >= 0.5
+    pred_span_label = np.reshape(pred_span_label, [-1])
+    gold_span_label = np.reshape(span_gold, [-1])
+
+    return pred_span_label, gold_span_label
 
 
 def f1(p_num, p_den, r_num, r_den, beta=1):

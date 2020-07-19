@@ -18,7 +18,7 @@ if __name__ == "__main__":
 
     res = tf.bitwise.bitwise_and(lhs, rhs)
     res.eval()
-    # array([ 0,  0,  3, 10], dtype=int32)
+    # array([ 0, 0, 3, 10], dtype=int32)
     sess.close()
 
 

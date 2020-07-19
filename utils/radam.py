@@ -1,3 +1,8 @@
+#!/usr/bin/env python3 
+# -*- coding: utf-8 -*- 
+
+
+
 import tensorflow as tf
 from tensorflow.python import (
         ops, math_ops, state_ops, control_flow_ops, resource_variable_ops)

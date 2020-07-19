@@ -1,6 +1,7 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+#!/usr/bin/env python3 
+# -*- coding: utf-8 -*- 
+
+
 
 import codecs
 import collections
@@ -25,9 +26,6 @@ def get_model(config, model_sign="corefqa"):
 
 
 def initialize_from_env(eval_test=False, config_params="train_spanbert_base", config_file="experiments_tinybert.conf", use_tpu=False, print_info=False):
-    # if "GPU" in os.environ:
-    #     set_gpus(int(os.environ["GPU"]))
-
     if not use_tpu:
         print("loading experiments.conf ... ")
         config = pyhocon.ConfigFactory.parse_file(os.path.join(repo_path, config_file)) 
@@ -95,57 +93,10 @@ def maybe_divide(x, y):
     return 0 if y == 0 else x / float(y)
 
 
-def projection(inputs, output_size, initializer=tf.truncated_normal_initializer(stddev=0.02)):
-    return ffnn_bk(inputs, 0, -1, output_size, dropout=None, output_weights_initializer=initializer)
-
-
-def highway(inputs, num_layers, dropout):
-    for i in range(num_layers):
-        with tf.variable_scope("highway_{}".format(i)):
-            j, f = tf.split(projection(inputs, 2 * shape(inputs, -1)), 2, -1)
-            f = tf.sigmoid(f)
-            j = tf.nn.relu(j)
-            if dropout is not None:
-                j = tf.nn.dropout(j, dropout)
-            inputs = f * j + (1 - f) * inputs
-    return inputs
-
 
 def shape(x, dim):
     return x.get_shape()[dim].value or tf.shape(x)[dim]
 
-def ffnn_bk(inputs, num_hidden_layers, hidden_size, output_size, dropout,
-         output_weights_initializer=tf.truncated_normal_initializer(stddev=0.02),
-         hidden_initializer=tf.truncated_normal_initializer(stddev=0.02)):
-    if len(inputs.get_shape()) > 3:
-        raise ValueError("FFNN with rank {} not supported".format(len(inputs.get_shape())))
-
-    if len(inputs.get_shape()) == 3:
-        batch_size = shape(inputs, 0)
-        seqlen = shape(inputs, 1)
-        emb_size = shape(inputs, 2)
-        current_inputs = tf.reshape(inputs, [batch_size * seqlen, emb_size])
-    else:
-        current_inputs = inputs
-
-    for i in range(num_hidden_layers):
-        hidden_weights = tf.get_variable("hidden_weights_{}".format(i), [shape(current_inputs, 1), hidden_size],
-                                         initializer=hidden_initializer)
-        hidden_bias = tf.get_variable("hidden_bias_{}".format(i), [hidden_size], initializer=tf.zeros_initializer())
-        current_outputs = tf.nn.relu(tf.nn.xw_plus_b(current_inputs, hidden_weights, hidden_bias))
-
-        if dropout is not None:
-            current_outputs = tf.nn.dropout(current_outputs, dropout)
-        current_inputs = current_outputs
-
-    output_weights = tf.get_variable("output_weights", [shape(current_inputs, 1), output_size],
-                                     initializer=output_weights_initializer)
-    output_bias = tf.get_variable("output_bias", [output_size], initializer=tf.zeros_initializer())
-    outputs = tf.nn.xw_plus_b(current_inputs, output_weights, output_bias)
-
-    if len(inputs.get_shape()) == 3:
-        outputs = tf.reshape(outputs, [batch_size, seqlen, output_size])
-    return outputs
 
 def ffnn(inputs, num_hidden_layers, hidden_size, output_size, dropout,
          output_weights_initializer=tf.truncated_normal_initializer(stddev=0.02),
@@ -153,41 +104,12 @@ def ffnn(inputs, num_hidden_layers, hidden_size, output_size, dropout,
     if len(inputs.get_shape()) > 3:
         raise ValueError("FFNN with rank {} not supported".format(len(inputs.get_shape())))
     current_inputs = inputs
-
-    # for i in range(num_hidden_layers):
     hidden_weights = tf.get_variable("hidden_weights", [hidden_size, output_size],
                                          initializer=hidden_initializer)
     hidden_bias = tf.get_variable("hidden_bias", [output_size], initializer=tf.zeros_initializer())
     current_outputs = tf.nn.relu(tf.nn.xw_plus_b(current_inputs, hidden_weights, hidden_bias))
 
-    # if dropout is not None:
-    #    current_outputs = tf.nn.dropout(current_outputs, dropout)
-    current_inputs = current_outputs
-
-    # output_weights = tf.get_variable("output_weights", [shape(current_inputs, 1), output_size],
-    #                                  initializer=output_weights_initializer)
-    # output_bias = tf.get_variable("output_bias", [output_size], initializer=tf.zeros_initializer())
-    # outputs = tf.nn.xw_plus_b(current_inputs, output_weights, output_bias)
-    outputs = current_inputs
-
-    # if len(inputs.get_shape()) == 3:
-    #     outputs = tf.reshape(outputs, [batch_size, seqlen, output_size])
-    return outputs
-
-
-def linear(inputs, output_size):
-    if len(inputs.get_shape()) == 3:
-        batch_size = shape(inputs, 0)
-        seqlen = shape(inputs, 1)
-        emb_size = shape(inputs, 2)
-        current_inputs = tf.reshape(inputs, [batch_size * seqlen, emb_size])
-    else:
-        current_inputs = inputs
-    hidden_weights = tf.get_variable("linear_w", [shape(current_inputs, 1), output_size])
-    hidden_bias = tf.get_variable("bias", [output_size])
-    current_outputs = tf.nn.xw_plus_b(current_inputs, hidden_weights, hidden_bias)
     return current_outputs
-
 
 
 def batch_gather(emb, indices):
@@ -204,26 +126,3 @@ def batch_gather(emb, indices):
         gathered = tf.squeeze(gathered, 2)  # [batch_size, num_indices]
     return gathered
 
-
-class RetrievalEvaluator(object):
-    def __init__(self):
-        self._num_correct = 0
-        self._num_gold = 0
-        self._num_predicted = 0
-
-    def update(self, gold_set, predicted_set):
-        self._num_correct += len(gold_set & predicted_set)
-        self._num_gold += len(gold_set)
-        self._num_predicted += len(predicted_set)
-
-    def recall(self):
-        return maybe_divide(self._num_correct, self._num_gold)
-
-    def precision(self):
-        return maybe_divide(self._num_correct, self._num_predicted)
-
-    def metrics(self):
-        recall = self.recall()
-        precision = self.precision()
-        f1 = maybe_divide(2 * recall * precision, precision + recall)
-        return recall, precision, f1
