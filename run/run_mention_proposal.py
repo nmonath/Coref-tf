@@ -51,7 +51,6 @@ flags.DEFINE_integer("num_docs", 5604, "[Optional] The number of documents in th
 flags.DEFINE_integer("window_size", 384, "The number of sliding window size.")
 flags.DEFINE_integer("num_window", 5, "The number of windows for one document.")
 flags.DEFINE_integer("max_num_mention", 30, "The max number of mentions in one document.")
-flags.DEFINE_bool("mention_proposal_only_concate", False, "Whether only to use concating [start, end] embedding to get the span embedding.") 
 flags.DEFINE_bool("start_end_share", False, "Whether only to use [start, end] embedding to calculate the start/end scores.") 
 flags.DEFINE_float("loss_start_ratio", 0.9, "The ratio of start label in the total loss.")
 flags.DEFINE_float("loss_end_ratio", 0.9, "The ratio of end label in the total loss.")

@@ -102,11 +102,8 @@ class MentionProposalModel(object):
         # span_loss -> a scalar 
         # span_sequence_probabilities -> (num_subtoken_in_doc * num_subtoken_in_doc)
         
-        if self.config.mention_proposal_only_concate:
-            return span_loss, span_sequence_probabilities
-        else:
-            total_loss = self.config.loss_start_ratio * start_loss + self.config.loss_end_ratio * end_loss + self.config.loss_span_ratio * span_loss 
-            return total_loss, start_sequence_probabilities, end_sequence_probabilities, span_sequence_probabilities
+        total_loss = self.config.loss_start_ratio * start_loss + self.config.loss_end_ratio * end_loss + self.config.loss_span_ratio * span_loss 
+        return total_loss, start_sequence_probabilities, end_sequence_probabilities, span_sequence_probabilities
 
 
     def get_gold_mention_sequence_labels_from_pad_index(self, pad_gold_start_index_labels, pad_gold_end_index_labels, pad_text_len):
