@@ -2,6 +2,7 @@
 
 The repository contains the code of the recent research advances in [Shannon.AI](http://www.shannonai.com). 
 
+
 **CorefQA: Coreference Resolution as Query-based Span Prediction** <br>
 Wei Wu, Fei Wang, Arianna Yuan, Fei Wu and Jiwei Li<br>
 In ACL 2020. [paper](https://arxiv.org/abs/1911.01746)<br>
@@ -14,33 +15,36 @@ If you find this repo helpful, please cite the following:
   year={2019}
 }
 ```
-For any question, please feel free to post Github issues.
 
 ## Contents 
 - [Overview](#overview)
-- [Experimental Results](#experimental-results)
+- [Hardware Requirements](#hardware-requirements)
 - [Data Preprocess](#data-preprocess)
-- [Replicate Experimental Results](#replicate-experimental-results)
+- [Training](#replicate-experimental-results)
     - [Install Package Dependencies](#install-package-dependencies)
+    - [Load Pretrained Models]
     - [Train CorefQA Model](#train-corefqa-model)
     - [Prediction](#prediction)
-- [Evaluating the Trained Model](#evaluating-the-trained-model)
+- [Evaluation](#evaluating-the-trained-model)
 - [Descriptions of Directories](#descriptions-of-directories)
 - [Acknowledgement](#acknowledgement)
 - [Contact](#contact)
 
 
 ## Overview 
+The model introduces +3.5 (83.1) F1 performance boost over previous SOTA coreference models on the CoNLL benchmark. The current codebase is written in Tensorflow. We plan to release the PyTorch version soon.  The current code version only supports training on TPUs and testing on GPUs (due to the annoying nature of TPUs). You thus have to bear the trouble of transferring all saved checkpoints from TPUs to GPU for evaluation (we plan fix this soon). Please follow the parameter setting in the log directionary to reproduce the performance.  
 
-
-## Experimental Results 
+Please post github issues or email xiaoya_li@shannonai.com for any pertinent questions.
 
 | Model          | F1 (%) |
 | -------------- |:------:|
-| CorefQA + SpanBERT-base  | 79.9  |
+| Previous SOTA  (Joshi et al., 2019a)  | 79.6  |
 | CorefQA + SpanBERT-large | 83.1   |
 
-
+## Hardware Requirements
+(xiaoya todo)
+TPU for training: Cloud TPU v3-8 device (128G memory) with Tensorflow 1.15 Python 3.5 
+GPU for evaluation: 
 
 ## Data Preprocess 
 1. Download the [Ontonotes 5.0](https://catalog.ldc.upenn.edu/LDC2013T19) dataset.
@@ -52,25 +56,31 @@ Run `./scripts/generate_train_data.sh <PATH-TO-SAVE-CoNLL-FORMAT-DATASETS> <LANG
 E.g.: `./scripts/generate_train_data.sh /home/shannon/conll12_coreference_data english 384`
 
 
-## Replicate Experimental Results 
+## Training 
 
 ### Install Package Dependencies 
 
 * Install packages dependencies via : `pip install -r requirements.txt`
 * Cloud TPU v3-8 device with Tensorflow 1.15 Python 3.5. <br> 
 
+### Load Pretrained Models
+Follow the pipeline described in the paper, you need to (1) load a pretrained SpanBERT model; (2) finetune the SpanBERT model on the combination of Squad and Quoref datasets; (3) pretrain the mention proposal model on the coref dataset; and (4) jointly train the mention proposal model and the mention linking model. We provide the options of both pretraining these models yourself and loading the pretrained models for (2) and (3). 
 
-### Train CorefQA Model
-
-1. Download Data Augmentation Models <br>
+1. Download Data Augmentation Models  on Squad and Quoref<br>
 Run `./scripts/download_qauad2_finetune_model.sh <model-scale> <path-to-save-model>` to download finetuned SpanBERT on SQuAD2.0. <br>
 The `<model-scale>` should take the value of `[base, large]`. <br>
 The `<path-to-save-model>` is the path to save finetuned spanbert on SQuAD2.0 datasets. <br>
-2. Train CoNLL-12 Coreference Resolution Model. <br> 
-If using TPU, please run `./scripts/models/train_tpu.sh`<br>
+
+2. Download the Pretrained Mention Proposal Model 
+xiaoya todo
+
+### Train CorefQA Model
+1. Pretrain the mention proposal model on CoNLL-12
+
+2. Jointly train the mention proposal model and linking model in CoNLL-12. <br> 
 
 
-### Prediction
+### Evaluation
 
 
 
