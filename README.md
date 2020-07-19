@@ -34,7 +34,7 @@ If you find this repo helpful, please cite the following:
 ## Overview 
 The model introduces +3.5 (83.1) F1 performance boost over previous SOTA coreference models on the CoNLL benchmark. The current codebase is written in Tensorflow. We plan to release the PyTorch version soon.  The current code version only supports training on TPUs and testing on GPUs (due to the annoying nature of TPUs). You thus have to bear the trouble of transferring all saved checkpoints from TPUs to GPU for evaluation (we plan fix this soon). Please follow the parameter setting in the log directionary to reproduce the performance.  
 
-Please post github issues or email xiaoya_li@shannonai.com for any pertinent questions.
+Please post github issues.
 
 | Model          | F1 (%) |
 | -------------- |:------:|
