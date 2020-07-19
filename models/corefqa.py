@@ -317,7 +317,7 @@ class CorefQAModel(object):
 
         backward_qa_mention_span_scores = tf.reshape(backward_qa_mention_span_scores, [self.k, self.c]) # (k, c)
 
-        mention_span_linking_scores = expand_forward_topc_mention_span_scores + backward_qa_mention_span_scores
+        mention_span_linking_scores = (expand_forward_topc_mention_span_scores + backward_qa_mention_span_scores ) / 2.0 
         mention_span_linking_scores = mention_span_linking_scores+ expand_forward_topc_mention_span_scores_in_mention_proposal + expand_topk_mention_span_scores
         mention_span_linking_scores = tf.reshape(mention_span_linking_scores, [self.k, self.c]) # (k, c)
         dummy_scores = tf.zeros([self.k, 1]) # (k, 1)
