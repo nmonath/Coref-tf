@@ -200,14 +200,14 @@ class CorefQAModel(object):
         # forward_qa_mention_span_embs -> (k * num_candidate_mention_in_doc, hidden_size*2)
         # forward_qa_mention_start_embs -> (k * num_candidate_mention_in_doc, hidden_size)
 
-        forward_qa_mention_span_prob, forward_qa_mention_start_prob, forward_qa_mention_end_prob = self.get_mention_score_and_loss(forward_qa_mention_span_embs, 
+        forward_qa_mention_span_scores, forward_qa_mention_start_scores, forward_qa_mention_end_scores = self.get_mention_score_and_loss(forward_qa_mention_span_embs, 
                 forward_qa_mention_start_embs, forward_qa_mention_end_embs, name_scope="forward_qa") 
         # forward_qa_mention_span_prob, forward_qa_mention_start_prob, forward_qa_mention_end_prob -> (k * num_candidate_mention_in_doc)
 
         if self.config.sec_qa_mention_score:
-            forward_qa_mention_span_scores = (forward_qa_mention_span_prob + forward_qa_mention_start_prob + forward_qa_mention_end_prob)/3.0
+            forward_qa_mention_span_scores = (forward_qa_mention_span_scores + forward_qa_mention_start_scores + forward_qa_mention_end_scores)/3.0
         else:
-            forward_qa_mention_span_scores = forward_qa_mention_span_prob 
+            forward_qa_mention_span_scores = forward_qa_mention_span_scores
 
         forward_candidate_mention_span_scores = tf.reshape(forward_qa_mention_span_scores, [self.k, -1]) # (k, num_candidate_mention_in_doc)
         forward_topc_mention_span_scores, local_forward_topc_mention_span_indices = tf.nn.top_k(forward_candidate_mention_span_scores, self.c, sorted=False) # (k, c)
@@ -301,15 +301,15 @@ class CorefQAModel(object):
         # backward_qa_mention_span_embs -> (k*c, 2*hidden_size)
         # backward_qa_mention_start_embs, backward_qa_mention_end_embs -> (k*c, hidden_size)
 
-        backward_qa_mention_span_prob, backward_qa_mention_start_prob, backward_qa_mention_end_prob = self.get_mention_score_and_loss(backward_qa_mention_span_embs, 
+        backward_qa_mention_span_scores, backward_qa_mention_start_scores, backward_qa_mention_end_scores = self.get_mention_score_and_loss(backward_qa_mention_span_embs, 
                 backward_qa_mention_start_embs, backward_qa_mention_end_embs, name_scope="backward_qa")
         # backward_qa_mention_span_prob -> (k*c)
         # backward_qa_mention_start_prob, backward_qa_mention_end_prob -> (k*c)
 
         if self.config.sec_qa_mention_score:
-            backward_qa_mention_span_scores = (backward_qa_mention_span_prob + backward_qa_mention_start_prob + backward_qa_mention_end_prob)/3.0
+            backward_qa_mention_span_scores = (backward_qa_mention_span_scores + backward_qa_mention_start_scores + backward_qa_mention_end_scores)/3.0
         else:
-            backward_qa_mention_span_scores = backward_qa_mention_span_prob 
+            backward_qa_mention_span_scores = backward_qa_mention_span_scores 
 
         expand_forward_topc_mention_span_scores = tf.tile(tf.expand_dims(forward_topc_mention_span_scores, 0), [self.k, 1]) # forward_topc_mention_span_scores -> (c); expand_forward_topc_mention_span_scores -> (c, k)
         expand_forward_topc_mention_span_scores_in_mention_proposal = tf.tile(tf.expand_dims(forward_topc_mention_span_scores_in_mention_proposal, 0), [self.k, 1])
@@ -384,11 +384,11 @@ class CorefQAModel(object):
         candidate_mention_end_logits = self.ffnn(candidate_mention_end_embs, self.config.hidden_size, 1, dropout=self.dropout, name_scope="{}_end".format(name_scope))
 
         if gold_label_candidate_mention_spans is None or gold_label_candidate_mention_starts is None or gold_label_candidate_mention_ends is None: 
-            candidate_mention_span_probability = tf.sigmoid(candidate_mention_span_logits)
-            candidate_mention_start_probability = tf.sigmoid(candidate_mention_start_logits)
-            candidate_mention_end_probability = tf.sigmoid(candidate_mention_end_logits)
+            candidate_mention_span_scores = tf.math.log(tf.sigmoid(candidate_mention_span_logits))
+            candidate_mention_start_scores = tf.math.log(tf.sigmoid(candidate_mention_start_logits))
+            candidate_mention_end_scores = tf.math.log(tf.sigmoid(candidate_mention_end_logits))
 
-            return candidate_mention_span_probability, candidate_mention_start_probability, candidate_mention_end_probability
+            return candidate_mention_span_scores, candidate_mention_start_scores, candidate_mention_end_scores
 
 
         start_loss, candidate_mention_start_probability = self.compute_mention_score_and_loss(candidate_mention_start_logits, gold_label_candidate_mention_starts)
@@ -396,10 +396,10 @@ class CorefQAModel(object):
         span_loss, candidate_mention_span_probability = self.compute_mention_score_and_loss(candidate_mention_span_logits, gold_label_candidate_mention_spans)
 
         if self.config.mention_proposal_only_concate:
-            return span_loss, candidate_mention_span_probability, candidate_mention_span_probability
+            return span_loss, tf.math.log(candidate_mention_span_probability)
         else:
             total_loss = start_loss + end_loss + span_loss
-            candidate_mention_span_scores = (candidate_mention_start_probability + candidate_mention_end_probability + candidate_mention_span_probability) / 3.0 
+            candidate_mention_span_scores = (tf.math.log(candidate_mention_start_probability) + tf.math.log(candidate_mention_end_probability) + tf.math.log(candidate_mention_span_probability)) / 3.0 
 
             return total_loss, candidate_mention_start_probability, candidate_mention_end_probability, candidate_mention_span_probability, candidate_mention_span_scores
 
