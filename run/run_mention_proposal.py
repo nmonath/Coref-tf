@@ -37,8 +37,8 @@ flags.DEFINE_string("test_file", "/home/lixiaoya/test.english.tfrecord", "TFReco
 
 
 flags.DEFINE_bool("do_train", True, "Whether to train a model.")
-flags.DEFINE_bool("do_eval", False, "Whether to test a model.")
-flags.DEFINE_bool("do_predict", False, "Whether to test a trained model.")
+flags.DEFINE_bool("do_eval", False, "whether to do evaluation: evaluation is done on a set of trained checkpoints, the checkpoint with the best score on the dev set will be selected.")
+flags.DEFINE_bool("do_predict", False, "Whether to test (only) one trained model.")
 flags.DEFINE_string("eval_checkpoint", "/home/lixiaoya/mention_proposal_output_dir/bert_model.ckpt", "[Optional] The saved checkpoint for evaluation (usually after the training process).")
 flags.DEFINE_integer("iterations_per_loop", 1000, "How many steps to make in each estimator call.")
 
@@ -48,13 +48,15 @@ flags.DEFINE_float("dropout_rate", 0.3, "Dropout rate for the training process."
 flags.DEFINE_float("mention_threshold", 0.5, "The threshold for determining whether the span is a mention.")
 flags.DEFINE_integer("hidden_size", 128, "The size of hidden layers for the pre-trained model.")
 flags.DEFINE_integer("num_docs", 5604, "[Optional] The number of documents in the training files. Only need to change when conduct experiments on the small test sets.")
-flags.DEFINE_integer("window_size", 384, "The number of sliding window size.")
-flags.DEFINE_integer("num_window", 5, "The number of windows for one document.")
+flags.DEFINE_integer("window_size", 384, "The number of sliding window size. Each document is split into a set of subdocuments with length set to window_size.")
+flags.DEFINE_integer("num_window", 5, "The max number of windows for one document. This is used for fitting a document into fix shape for TF computation. \
+    If a document is longer than num_window*window_size, the exceeding part will be abandoned. This only affects training and does not affect test, since the all \
+    docs in the test set is shorter than num_window*window_size")
 flags.DEFINE_integer("max_num_mention", 30, "The max number of mentions in one document.")
 flags.DEFINE_bool("start_end_share", False, "Whether only to use [start, end] embedding to calculate the start/end scores.") 
-flags.DEFINE_float("loss_start_ratio", 0.9, "The ratio of start label in the total loss.")
-flags.DEFINE_float("loss_end_ratio", 0.9, "The ratio of end label in the total loss.")
-flags.DEFINE_float("loss_span_ratio", 0.9, "The ratio of span label in the total loss.")
+flags.DEFINE_float("loss_start_ratio", 0.3, "As described in the paper, the loss for a span being a mention is -loss_start_ratio* log p(the start of the given span is a start).")
+flags.DEFINE_float("loss_end_ratio", 0.3, "As described in the paper, the loss for a span being a mention is -loss_end_ratio* log p(the end of the given span is a end).")
+flags.DEFINE_float("loss_span_ratio", 0.3, "As described in the paper, the loss for a span being a mention is -loss_span_ratio* log p(the start and the end forms a span).")
 
 
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
@@ -131,6 +133,7 @@ def main(_):
 
 
     if FLAGS.do_eval:
+        # doing evaluation  on a set of trained checkpoints, the checkpoint with the best score on the dev set will be selected.
         best_dev_f1, best_dev_prec, best_dev_rec, test_f1_when_dev_best, test_prec_when_dev_best, test_rec_when_dev_best = 0, 0, 0, 0, 0, 0
         best_ckpt_path = ""
         checkpoints_iterator = [os.path.join(FLAGS.eval_dir, "model.ckpt-{}".format(str(int(ckpt_idx)))) for ckpt_idx in range(0, num_train_steps, FLAGS.save_checkpoints_steps)]
