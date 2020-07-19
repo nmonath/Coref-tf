@@ -13,8 +13,6 @@ import tensorflow as tf
 from bert import modeling
 
 
-# TODO (xiaoya): mention linking from the previous mentions 
-
 
 class CorefQAModel(object):
     def __init__(self, config):
@@ -25,6 +23,9 @@ class CorefQAModel(object):
         self.mention_end_idx = 42
         self.bert_config = modeling.BertConfig.from_json_file(config.bert_config_file)
         self.bert_config.hidden_dropout_prob = config.dropout_rate
+        self.cls_in_vocab = 101
+        self.sep_in_vocab = 102
+
 
     def get_coreference_resolution_and_loss(self, instance, is_training, use_tpu=False):
 
@@ -69,53 +70,63 @@ class CorefQAModel(object):
         mention_doc_flat_embs = self.transform_overlap_sliding_windows_to_original_document(mention_doc_overlap_window_embs, doc_overlap_input_mask) 
         mention_doc_flat_embs = tf.reshape(mention_doc_flat_embs, [-1, self.config.hidden_size]) # (num_subtoken_in_doc, hidden_size) 
 
-        candidate_mention_starts = tf.tile(tf.expand_dims(tf.range(num_subtoken_in_doc), 1), [1, self.config.max_span_width])
-        candidate_mention_ends = tf.math.add(candidate_mention_starts, tf.expand_dims(tf.range(self.config.max_span_width), 0))
+        candidate_mention_starts = tf.tile(tf.expand_dims(tf.range(num_subtoken_in_doc), 1), [1, self.config.max_span_width]) # (num_subtoken_in_doc, max_span_width)
+        candidate_mention_ends = tf.math.add(candidate_mention_starts, tf.expand_dims(tf.range(self.config.max_span_width), 0)) # (num_subtoken_in_doc, max_span_width)
         
-        candidate_mention_sentence_start_idx = tf.gather(flat_doc_sentence_map, candidate_mention_starts)
-        candidate_mention_sentence_end_idx = tf.gather(flat_doc_sentence_map, candidate_mention_ends)
+        candidate_mention_sentence_start_idx = tf.gather(flat_doc_sentence_map, candidate_mention_starts) # (num_subtoken_in_doc, max_span_width)
+        candidate_mention_sentence_end_idx = tf.gather(flat_doc_sentence_map, candidate_mention_ends) # (num_subtoken_in_doc, max_span_width)
         
         candidate_mention_mask = tf.logical_and(candidate_mention_ends < num_subtoken_in_doc, tf.equal(candidate_mention_sentence_start_idx, candidate_mention_sentence_end_idx))
-        candidate_mention_mask = tf.reshape(candidate_mention_mask, [-1])
+        candidate_mention_mask = tf.reshape(candidate_mention_mask, [-1]) 
 
         candidate_mention_starts = self.boolean_mask_1d(tf.reshape(candidate_mention_starts, [-1]), candidate_mention_mask, name_scope="candidate_mention_starts", use_tpu=self.use_tpu)
         candidate_mention_ends = self.boolean_mask_1d(tf.reshape(candidate_mention_ends, [-1]), candidate_mention_mask, name_scope="candidate_mention_ends", use_tpu=self.use_tpu)
+        # num_candidate_mention_in_doc is smaller than num_subtoken_in_doc
 
         candidate_cluster_idx_labels = self.get_candidate_cluster_labels(candidate_mention_starts, candidate_mention_ends, gold_start_index_labels, gold_end_index_labels, gold_cluster_ids)
-
+        # 
 
         candidate_mention_span_embs, candidate_mention_start_embs, candidate_mention_end_embs = self.get_candidate_span_embedding(
             mention_doc_flat_embs, candidate_mention_starts, candidate_mention_ends) 
+        # candidate_mention_span_embs -> (num_candidate_mention_in_doc, 2 * hidden_size)
+        # candidate_mention_start_embs -> (num_candidate_mention_in_doc, hidden_size)
+        # candidate_mention_end_embs -> (num_candidate_mention_in_doc, hidden_size)
 
         gold_label_candidate_mention_spans, gold_label_candidate_mention_starts, gold_label_candidate_mention_ends = self.get_candidate_mention_gold_sequence_label(
-            mention_doc_flat_embs, candidate_mention_starts, candidate_mention_ends, gold_start_index_labels, gold_end_index_labels, num_subtoken_in_doc)
+            candidate_mention_starts, candidate_mention_ends, gold_start_index_labels, gold_end_index_labels, num_subtoken_in_doc)
+        # gold_label_candidate_mention_spans -> (num_candidate_mention_in_doc)
+        # gold_label_candidate_mention_starts -> (num_candidate_mention_in_doc)
+        # gold_label_candidate_mention_ends -> (num_candidate_mention_in_doc)
 
         mention_proposal_loss, candidate_mention_start_prob, candidate_mention_end_prob, candidate_mention_span_prob, candidate_mention_span_scores = self.get_mention_score_and_loss(
             candidate_mention_span_embs, candidate_mention_start_embs, candidate_mention_end_embs, gold_label_candidate_mention_spans=gold_label_candidate_mention_spans, 
             gold_label_candidate_mention_starts=gold_label_candidate_mention_starts, gold_label_candidate_mention_ends=gold_label_candidate_mention_ends, expect_length_of_labels=num_subtoken_in_doc)
- 
+        # mention_proposal_loss -> a scalar 
+        # candidate_mention_start_prob, candidate_mention_end_prob, candidate_mention_span_prob, -> (num_candidate_mention_in_doc)
 
         self.k = tf.minimum(self.config.max_candidate_mentions, tf.to_int32(tf.floor(tf.to_float(num_subtoken_in_doc) * self.config.top_span_ratio)))
         self.c = tf.to_int32(tf.minimum(self.config.max_top_antecedents, self.k))
+        # self.k and self.c is the hyper-parameters in the model for model pruning. 
 
         candidate_mention_span_scores = tf.reshape(candidate_mention_span_scores, [-1])
-        topk_mention_span_scores, topk_mention_span_indices = tf.nn.top_k(candidate_mention_span_scores, self.k, sorted=False)
+        topk_mention_span_scores, topk_mention_span_indices = tf.nn.top_k(candidate_mention_span_scores, self.k, sorted=False) 
         topk_mention_span_indices = tf.reshape(topk_mention_span_indices, [-1])
+        # topk_mention_span_scores -> (k,)
+        # topk_mention_span_indices -> (k,)
 
-        topk_mention_start_indices = tf.gather(candidate_mention_starts, topk_mention_span_indices) 
-        topk_mention_end_indices = tf.gather(candidate_mention_ends, topk_mention_span_indices)
-        topk_mention_span_cluster_ids = tf.gather(candidate_cluster_idx_labels, topk_mention_span_indices)
-        topk_mention_span_scores = tf.gather(candidate_mention_span_scores, topk_mention_span_indices)
-
+        topk_mention_start_indices = tf.gather(candidate_mention_starts, topk_mention_span_indices) # (k,)
+        topk_mention_end_indices = tf.gather(candidate_mention_ends, topk_mention_span_indices) # (k,)
+        topk_mention_span_cluster_ids = tf.gather(candidate_cluster_idx_labels, topk_mention_span_indices) # (k,)
+        topk_mention_span_scores = tf.gather(candidate_mention_span_scores, topk_mention_span_indices) # (k,)
 
         i0 = tf.constant(0)
-        forward_qa_input_ids = tf.zeros((1, self.config.num_window, self.config.window_size + self.config.max_query_len), dtype=tf.int32)
-        forward_qa_input_mask = tf.zeros((1, self.config.num_window, self.config.window_size + self.config.max_query_len), dtype=tf.int32)
-        forward_qa_input_token_type_mask = tf.zeros((1, self.config.num_window, self.config.window_size + self.config.max_query_len), dtype=tf.int32)
+        forward_qa_input_ids = tf.zeros((1, self.config.num_window, self.config.window_size + self.config.max_query_len + 2), dtype=tf.int32) # (1, num_window, max_query_len + window_size + 2)
+        forward_qa_input_mask = tf.zeros((1, self.config.num_window, self.config.window_size + self.config.max_query_len + 2), dtype=tf.int32) # (1, num_window, max_query_len + window_size + 2)
+        forward_qa_input_token_type_mask = tf.zeros((1, self.config.num_window, self.config.window_size + self.config.max_query_len + 2), dtype=tf.int32) # (1, num_window, max_query_len + window_size + 2)
 
         # prepare for non-overlap input token ids 
-        nonoverlap_doc_input_ids = self.transform_overlap_sliding_windows_to_original_document(flat_window_input_ids, flat_doc_overlap_input_mask)
-        overlap_window_input_ids = tf.reshape(flat_window_input_ids, [self.config.num_window, self.config.window_size]) 
+        nonoverlap_doc_input_ids = self.transform_overlap_sliding_windows_to_original_document(flat_window_input_ids, flat_doc_overlap_input_mask) # (num_subtoken_in_doc)
+        overlap_window_input_ids = tf.reshape(flat_window_input_ids, [self.config.num_window, self.config.window_size]) # (num_window, window_size)
 
         @tf.function
         def forward_qa_mention_linking(i, batch_qa_input_ids, batch_qa_input_mask, batch_qa_input_token_type_mask):
@@ -127,19 +138,21 @@ class CorefQAModel(object):
 
             query_pad_token_ids = tf.zeros([self.config.max_query_len - self.get_shape(query_input_token_ids, 0)], dtype=tf.int32)
 
-            pad_query_input_token_ids = tf.concat([query_input_token_ids, query_pad_token_ids], axis=0)
-            pad_query_input_token_mask = tf.ones_like(pad_query_input_token_ids, tf.int32)
-            pad_query_input_token_type_mask = tf.zeros_like(pad_query_input_token_ids, tf.int32)
+            pad_query_input_token_ids = tf.concat([query_input_token_ids, query_pad_token_ids], axis=0) # (max_query_len,)
+            pad_query_input_token_mask = tf.ones_like(pad_query_input_token_ids, tf.int32) # (max_query_len)
+            pad_query_input_token_type_mask = tf.zeros_like(pad_query_input_token_ids, tf.int32) # (max_query_len)
 
 
-            expand_pad_query_input_token_ids = tf.tile(tf.expand_dims(pad_query_input_token_ids, 0), [self.config.num_window, 1])
-            expand_pad_query_input_token_mask = tf.tile(tf.expand_dims(pad_query_input_token_mask, 0), [self.config.num_window, 1])
-            expand_pad_query_input_token_type_mask = tf.tile(tf.expand_dims(pad_query_input_token_type_mask, 0), [self.config.num_window, 1])
+            expand_pad_query_input_token_ids = tf.tile(tf.expand_dims(pad_query_input_token_ids, 0), [self.config.num_window, 1])  # (num_window, max_query_len)
+            expand_pad_query_input_token_mask = tf.tile(tf.expand_dims(pad_query_input_token_mask, 0), [self.config.num_window, 1]) # (num_window, max_query_len)
+            expand_pad_query_input_token_type_mask = tf.tile(tf.expand_dims(pad_query_input_token_type_mask, 0), [self.config.num_window, 1]) # (num_window, max_query_len)
 
+            sep_tokens = tf.cast(tf.fill([self.config.num_window, 1], self.sep_in_vocab), tf.int32) # (num_window, 1)
+            cls_tokens = tf.cast(tf.fill([self.config.num_window, 1], self.cls_in_vocab), tf.int32) # (num_window, 1)
 
-            query_context_input_token_ids = tf.concat([expand_pad_query_input_token_ids, overlap_window_input_ids], axis=1)
-            query_context_input_token_mask = tf.concat([expand_pad_query_input_token_mask, tf.ones_like(overlap_window_input_ids, tf.int32)], axis=1)
-            query_context_input_token_type_mask = tf.concat([expand_pad_query_input_token_type_mask, tf.ones_like(overlap_window_input_ids, tf.int32)], axis=1)
+            query_context_input_token_ids = tf.concat([cls_tokens, expand_pad_query_input_token_ids, sep_tokens, overlap_window_input_ids], axis=1) # (1, num_window, max_query_len + window_size + 2)
+            query_context_input_token_mask = tf.concat([tf.ones_like(cls_tokens, tf.int32), expand_pad_query_input_token_mask, tf.ones_like(sep_tokens, tf.int32), tf.ones_like(overlap_window_input_ids, tf.int32)], axis=1) # (1, num_window, max_query_len + window_size + 2)
+            query_context_input_token_type_mask = tf.concat([tf.zeros_like(cls_tokens, tf.int32), expand_pad_query_input_token_type_mask, tf.zeros_like(sep_tokens, tf.int32), tf.ones_like(overlap_window_input_ids, tf.int32)], axis=1) # (1, num_window, max_query_len + window_size + 2)
 
 
             return [tf.math.add(i, 1), tf.concat([batch_qa_input_ids, query_context_input_token_ids], 0), 
@@ -155,59 +168,62 @@ class CorefQAModel(object):
             shape_invariants=[i0.get_shape(), tf.TensorShape([None, None, None]), 
                 tf.TensorShape([None, None, None]), tf.TensorShape([None, None, None])])
 
+        # stack_forward_qa_input_ids, stack_forward_qa_input_mask, stack_forward_qa_input_type_mask -> (k, num_window, max_query_len + window_size + 2)
 
-        batch_forward_qa_input_ids = tf.reshape(stack_forward_qa_input_ids, [-1, self.config.max_query_len+self.config.window_size])
-        batch_forward_qa_input_mask = tf.reshape(stack_forward_qa_input_mask, [-1, self.config.max_query_len+self.config.window_size])
-        batch_forward_qa_input_type_mask = tf.reshape(stack_forward_qa_input_type_mask, [-1, self.config.max_query_len+self.config.window_size])
+        batch_forward_qa_input_ids = tf.reshape(stack_forward_qa_input_ids, [-1, self.config.max_query_len+self.config.window_size+2]) # (k * num_window, max_query_len + window_size + 2)
+        batch_forward_qa_input_mask = tf.reshape(stack_forward_qa_input_mask, [-1, self.config.max_query_len+self.config.window_size+2]) # (k * num_window, max_query_len + window_size + 2)
+        batch_forward_qa_input_type_mask = tf.reshape(stack_forward_qa_input_type_mask, [-1, self.config.max_query_len+self.config.window_size+2]) # (k * num_window, max_query_len + window_size + 2)
 
         forward_qa_linking_model = modeling.BertModel(config=self.bert_config, is_training=is_training, 
             input_ids=batch_forward_qa_input_ids, input_mask=batch_forward_qa_input_mask, 
             token_type_ids=batch_forward_qa_input_type_mask, use_one_hot_embeddings=False, 
             scope="bert")
 
-        forward_qa_overlap_window_embs = forward_qa_linking_model.get_sequence_output()
-        forward_context_overlap_window_embs = tf.math.multiply(forward_qa_overlap_window_embs, batch_forward_qa_input_type_mask)
+        forward_qa_overlap_window_embs = forward_qa_linking_model.get_sequence_output() # (k * num_window, max_query_len + window_size + 2, hidden_size)
+        forward_context_overlap_window_embs = self.transform_overlap_sliding_windows_to_original_document(forward_qa_overlap_window_embs, batch_forward_qa_input_type_mask)
         forward_context_overlap_window_embs = tf.reshape(forward_context_overlap_window_embs, [self.k*self.config.num_widnow, self.config.window_size])
+        # forward_context_overlap_window_embs -> (k*num_window, window_size, hidden_size)
 
         expand_doc_overlap_input_mask = tf.tile(tf.expand_dims(doc_overlap_input_mask, 0), [self.k, 1, 1]) # (k, num_window, window_size)
-        # offset_doc_overlap_input_mask = tf.tile(tf.expand_dims(tf.range(0, k)* (self.config.num_window * self.config.window_size), 1), [1, self.config.num_window * self.config.window_size])
-        # (k, num_window * window_size)
-        expand_doc_overlap_input_mask = tf.reshape(expand_doc_overlap_input_mask, [-1, self.config.window_size])
+        expand_doc_overlap_input_mask = tf.reshape(expand_doc_overlap_input_mask, [-1, self.config.window_size]) # (k * num_window, window_size)
 
-        forward_context_flat_doc_embs = self.transform_overlap_sliding_windows_to_original_document(forward_context_overlap_window_embs, expand_doc_overlap_input_mask) # (k * num_subtoken_in_doc)
-        forward_context_flat_doc_embs = self.reshape(forward_context_flat_doc_embs, [self.k, -1, self.config.hidden_size])
-        num_candidate_mention = self.get_shape(candidate_mention_span_embs, 0)
-        forward_qa_mention_pos_offset = tf.cast(tf.tile(tf.reshape(tf.range(0, num_candidate_mention) * num_subtoken_in_doc, [1, -1]), [self.k, 1]), tf.int32)
+        forward_context_flat_doc_embs = self.transform_overlap_sliding_windows_to_original_document(forward_context_overlap_window_embs, expand_doc_overlap_input_mask) # (k * num_subtoken_in_doc, hidden_size)
+        forward_context_flat_doc_embs = self.reshape(forward_context_flat_doc_embs, [self.k, -1, self.config.hidden_size]) # (k, num_subtoken_in_doc, hidden_size)
+        num_candidate_mention = self.get_shape(candidate_mention_span_embs, 0) # (num_candidate_mention_in_doc)
+        forward_qa_mention_pos_offset = tf.cast(tf.tile(tf.reshape(tf.range(0, num_candidate_mention) * num_subtoken_in_doc, [1, -1]), [self.k, 1]), tf.int32) # (k, num_candidate_mention_in_doc)
 
-        forward_qa_mention_starts = tf.tile(tf.expand_dims(candidate_mention_starts, 0), [self.k, 1]) + forward_qa_mention_pos_offset
-        forward_qa_mention_ends = tf.tile(tf.expand_dims(candidate_mention_ends, 0), [self.k, 1]) + forward_qa_mention_pos_offset
+        forward_qa_mention_starts = tf.tile(tf.expand_dims(candidate_mention_starts, 0), [self.k, 1]) + forward_qa_mention_pos_offset # (k, num_candidate_mention_in_doc)
+        forward_qa_mention_ends = tf.tile(tf.expand_dims(candidate_mention_ends, 0), [self.k, 1]) + forward_qa_mention_pos_offset # (k, num_candidate_mention_in_doc)
 
         forward_qa_mention_span_embs, forward_qa_mention_start_embs, forward_qa_mention_end_embs = self.get_candidate_span_embedding(tf.reshape(forward_context_flat_doc_embs, 
                 [-1, self.config.hidden_size]), tf.reshape(forward_qa_mention_starts, [-1]), tf.reshape(forward_qa_mention_ends, [-1]))
+        # forward_qa_mention_span_embs -> (k * num_candidate_mention_in_doc, hidden_size*2)
+        # forward_qa_mention_start_embs -> (k * num_candidate_mention_in_doc, hidden_size)
 
         forward_qa_mention_span_prob, forward_qa_mention_start_prob, forward_qa_mention_end_prob = self.get_mention_score_and_loss(forward_qa_mention_span_embs, 
-                forward_qa_mention_start_embs, forward_qa_mention_end_embs, name_scope="forward_qa")
+                forward_qa_mention_start_embs, forward_qa_mention_end_embs, name_scope="forward_qa") 
+        # forward_qa_mention_span_prob, forward_qa_mention_start_prob, forward_qa_mention_end_prob -> (k * num_candidate_mention_in_doc)
 
         if self.config.sec_qa_mention_score:
             forward_qa_mention_span_scores = (forward_qa_mention_span_prob + forward_qa_mention_start_prob + forward_qa_mention_end_prob)/3.0
         else:
             forward_qa_mention_span_scores = forward_qa_mention_span_prob 
 
-        forward_candidate_mention_span_scores = tf.reshape(forward_qa_mention_span_scores, [self.k, -1])
-        forward_topc_mention_span_scores, local_forward_topc_mention_span_indices = tf.nn.top_k(forward_candidate_mention_span_scores, self.c, sorted=False)
-        local_flat_forward_topc_mention_span_indices = tf.reshape(local_forward_topc_mention_span_indices, [-1])
+        forward_candidate_mention_span_scores = tf.reshape(forward_qa_mention_span_scores, [self.k, -1]) # (k, num_candidate_mention_in_doc)
+        forward_topc_mention_span_scores, local_forward_topc_mention_span_indices = tf.nn.top_k(forward_candidate_mention_span_scores, self.c, sorted=False) # (k, c)
+        local_flat_forward_topc_mention_span_indices = tf.reshape(local_forward_topc_mention_span_indices, [-1]) # (k * c)
 
         # topk_mention_start_indices
-        forward_topc_mention_start_indices = tf.gather(candidate_mention_starts, local_flat_forward_topc_mention_span_indices) 
-        forward_topc_mention_end_indices = tf.gather(candidate_mention_ends, local_flat_forward_topc_mention_span_indices) 
-        forward_topc_mention_span_scores_in_mention_proposal = tf.gather(candidate_mention_span_scores, local_flat_forward_topc_mention_span_indices)
+        forward_topc_mention_start_indices = tf.gather(candidate_mention_starts, local_flat_forward_topc_mention_span_indices) # (k, c)
+        forward_topc_mention_end_indices = tf.gather(candidate_mention_ends, local_flat_forward_topc_mention_span_indices) # (k, c)
+        forward_topc_mention_span_scores_in_mention_proposal = tf.gather(candidate_mention_span_scores, local_flat_forward_topc_mention_span_indices) # (k, c)
         forward_topc_span_cluster_ids = tf.gather(candidate_cluster_idx_labels, local_flat_forward_topc_mention_span_indices)
 
 
         i0 = tf.constant(0)
-        backward_qa_input_ids = tf.zeros((1, self.config.max_query_len + self.config.max_context_len), dtype=tf.int32)
-        backward_qa_input_mask = tf.zeros((1, self.config.max_query_len + self.config.max_context_len), dtype=tf.int32)
-        backward_qa_input_token_type_mask = tf.zeros((1, self.config.max_query_len + self.config.max_context_len), dtype=tf.int32)
+        backward_qa_input_ids = tf.zeros((1, self.config.max_query_len + self.config.max_context_len + 2), dtype=tf.int32) # (1, max_query_len + max_context_len + 2)
+        backward_qa_input_mask = tf.zeros((1, self.config.max_query_len + self.config.max_context_len + 2), dtype=tf.int32) # (1, max_query_len + max_context_len + 2)
+        backward_qa_input_token_type_mask = tf.zeros((1, self.config.max_query_len + self.config.max_context_len + 2), dtype=tf.int32) # (1, max_query_len + max_context_len + 2)
         backward_qa_mention_start_in_context = tf.convert_to_tensor(tf.constant([0]), dtype=tf.int32)
         backward_qa_mention_end_in_context = tf.convert_to_tensor(tf.constant([0]), dtype=tf.int32)
 
@@ -231,17 +247,20 @@ class CorefQAModel(object):
             query_pad_token_ids = tf.zeros([self.config.max_query_len - self.get_shape(query_input_token_ids, 0)], dtype=tf.int32)
             context_pad_token_ids = tf.zeros([self.config.max_context_len - self.get_shape(context_input_token_ids, 0)], dtype=tf.int32)
 
-            pad_query_input_token_ids = tf.concat([query_input_token_ids, query_pad_token_ids], axis=0)
+            pad_query_input_token_ids = tf.concat([query_input_token_ids, query_pad_token_ids], axis=0) # (max_query_len)
             pad_query_input_token_mask = tf.ones_like(pad_query_input_token_ids, tf.int32)
             pad_query_input_token_type_mask = tf.zeros_like(pad_query_input_token_ids, tf.int32)
 
-            pad_context_input_token_ids = tf.concat([context_input_token_ids, context_pad_token_ids], axis=0)
+            pad_context_input_token_ids = tf.concat([context_input_token_ids, context_pad_token_ids], axis=0) # (max_context_len)
             pad_context_input_token_mask = tf.ones_like(pad_context_input_token_ids, tf.int32)
             pad_context_input_token_type_mask = tf.ones_like(pad_context_input_token_ids, tf.int32)
 
-            query_context_input_token_ids = tf.concat([pad_query_input_token_ids, pad_context_input_token_ids], axis=1)
-            query_context_input_token_mask = tf.concat([pad_query_input_token_mask, pad_context_input_token_mask], axis=1)
-            query_context_input_token_type_mask = tf.concat([pad_query_input_token_type_mask, pad_context_input_token_type_mask], axis=1)
+            sep_tokens = tf.cast(tf.fill([1], self.sep_in_vocab), tf.int32) # (num_window, 1)
+            cls_tokens = tf.cast(tf.fill([1], self.cls_in_vocab), tf.int32) # (num_window, 1)
+
+            query_context_input_token_ids = tf.concat([cls_tokens, pad_query_input_token_ids, sep_tokens, pad_context_input_token_ids], axis=1)
+            query_context_input_token_mask = tf.concat([tf.ones_like(cls_tokens, tf.int32), pad_query_input_token_mask, tf.zeros_like(sep_tokens, tf.int32), pad_context_input_token_mask], axis=1)
+            query_context_input_token_type_mask = tf.concat([tf.zeros_like(cls_tokens, tf.int32), pad_query_input_token_type_mask, tf.zeros_like(sep_tokens, tf.int32), pad_context_input_token_type_mask], axis=1)
 
             return [tf.math.add(i, 1), tf.concat([batch_qa_input_ids, query_context_input_token_ids], 0), 
                     tf.concat([batch_qa_input_mask, query_context_input_token_mask], 0), 
@@ -257,49 +276,55 @@ class CorefQAModel(object):
             shape_invariants=[i0.get_shape(), tf.TensorShape([None, None]), tf.TensorShape([None, None]), tf.TensorShape([None, None]), 
             tf.TensorShape([None]), tf.TensorShape([None])]) 
 
-        batch_backward_qa_input_ids = tf.reshape(stack_backward_qa_input_ids, [-1, self.config.max_query_len+self.config.max_context_len])
-        batch_backward_qa_input_mask = tf.reshape(stack_backward_qa_input_mask, [-1, self.config.max_query_len+self.config.max_context_len])
-        batch_backward_qa_input_type_mask = tf.reshape(stack_backward_qa_input_type_mask, [-1, self.config.max_query_len+self.config.max_context_len])
+        # stack_backward_qa_input_ids, stack_backward_qa_input_mask, stack_backward_qa_input_type_mask -> (k*c, max_query_len + max_context_len + 2)
+        # stack_backward_mention_start_in_context, stack_backward_mention_end_in_context -> (k*c,)
+
+        batch_backward_qa_input_ids = tf.reshape(stack_backward_qa_input_ids, [-1, self.config.max_query_len+self.config.max_context_len+2])
+        batch_backward_qa_input_mask = tf.reshape(stack_backward_qa_input_mask, [-1, self.config.max_query_len+self.config.max_context_len+2])
+        batch_backward_qa_input_type_mask = tf.reshape(stack_backward_qa_input_type_mask, [-1, self.config.max_query_len+self.config.max_context_len+2])
 
         backward_qa_linking_model = modeling.BertModel(config=self.bert_config, is_training=is_training, 
             input_ids=batch_backward_qa_input_ids, input_mask=batch_backward_qa_input_mask, 
             token_type_ids=batch_backward_qa_input_type_mask, use_one_hot_embeddings=False, 
             scope="bert")
 
-        backward_query_context_embs = backward_qa_linking_model.get_sequence_output()
-        backward_query_context_embs = tf.reshape(backward_query_context_embs, [-1, self.config.hidden_size])
-        flat_batch_backward_qa_input_type_mask = tf.reshape(batch_backward_qa_input_type_mask, [-1])
+        backward_query_context_embs = backward_qa_linking_model.get_sequence_output() # (k*c, max_query_len + max_context_len + 2, hidden_size)
+        backward_query_context_embs = tf.reshape(backward_query_context_embs, [self.k*self.c, -1, self.config.hidden_size])
+        flat_batch_backward_qa_input_type_mask = tf.reshape(batch_backward_qa_input_type_mask, [self.k*self.c, -1])
 
-        backward_context_flat_embs = self.transform_overlap_sliding_windows_to_original_document(backward_query_context_embs, flat_batch_backward_qa_input_type_mask)
+        backward_context_flat_embs = self.transform_overlap_sliding_windows_to_original_document(backward_query_context_embs, flat_batch_backward_qa_input_type_mask) # (k*c, max_context_len, hidden_size)
         batch_backward_mention_start_in_context = tf.reshape(stack_backward_mention_start_in_context, [-1]) + tf.range(0, self.c*self.k) * (self.config.max_query_len+self.config.max_context_len) 
         batch_backward_mention_end_in_context = tf.reshape(stack_backward_mention_end_in_context, [-1]) + tf.range(0, self.c*self.k) * (self.config.max_query_len+self.config.max_context_len) 
 
         backward_qa_mention_span_embs, backward_qa_mention_start_embs, backward_qa_mention_end_embs = self.get_candidate_span_embedding(tf.reshape(backward_context_flat_embs, 
                 [-1, self.config.hidden_size]), tf.reshape(batch_backward_mention_start_in_context, [-1]), tf.reshape(batch_backward_mention_end_in_context, [-1]))
-
+        # backward_qa_mention_span_embs -> (k*c, 2*hidden_size)
+        # backward_qa_mention_start_embs, backward_qa_mention_end_embs -> (k*c, hidden_size)
 
         backward_qa_mention_span_prob, backward_qa_mention_start_prob, backward_qa_mention_end_prob = self.get_mention_score_and_loss(backward_qa_mention_span_embs, 
                 backward_qa_mention_start_embs, backward_qa_mention_end_embs, name_scope="backward_qa")
+        # backward_qa_mention_span_prob -> (k*c)
+        # backward_qa_mention_start_prob, backward_qa_mention_end_prob -> (k*c)
 
         if self.config.sec_qa_mention_score:
             backward_qa_mention_span_scores = (backward_qa_mention_span_prob + backward_qa_mention_start_prob + backward_qa_mention_end_prob)/3.0
         else:
             backward_qa_mention_span_scores = backward_qa_mention_span_prob 
 
-        expand_forward_topc_mention_span_scores = tf.tile(tf.expand_dims(forward_topc_mention_span_scores, 0), [1, self.k])
-        expand_forward_topc_mention_span_scores_in_mention_proposal = tf.tile(tf.expand_dims(forward_topc_mention_span_scores_in_mention_proposal, 0), [1, self.k])
-        expand_topk_mention_span_scores = tf.tile(tf.expand_dims(topk_mention_span_scores, 0), [self.c, 1])
+        expand_forward_topc_mention_span_scores = tf.tile(tf.expand_dims(forward_topc_mention_span_scores, 0), [self.k, 1]) # forward_topc_mention_span_scores -> (c); expand_forward_topc_mention_span_scores -> (c, k)
+        expand_forward_topc_mention_span_scores_in_mention_proposal = tf.tile(tf.expand_dims(forward_topc_mention_span_scores_in_mention_proposal, 0), [self.k, 1])
+        expand_topk_mention_span_scores = tf.tile(tf.expand_dims(topk_mention_span_scores, 1), [1, self.c]) # (k, c)
 
-        backward_qa_mention_span_scores = tf.reshape(backward_qa_mention_span_scores, [self.c, self.k])
+        backward_qa_mention_span_scores = tf.reshape(backward_qa_mention_span_scores, [self.k, self.c]) # (k, c)
 
         mention_span_linking_scores = expand_forward_topc_mention_span_scores + backward_qa_mention_span_scores
         mention_span_linking_scores = mention_span_linking_scores+ expand_forward_topc_mention_span_scores_in_mention_proposal + expand_topk_mention_span_scores
-        mention_span_linking_scores = tf.reshape(mention_span_linking_scores, [self.k, self.c])
-        dummy_scores = tf.zeros([self.k, 1])
+        mention_span_linking_scores = tf.reshape(mention_span_linking_scores, [self.k, self.c]) # (k, c)
+        dummy_scores = tf.zeros([self.k, 1]) # (k, 1)
 
-        top_mention_span_linking_scores = tf.concat([dummy_scores, mention_span_linking_scores], axis=1) 
+        top_mention_span_linking_scores = tf.concat([dummy_scores, mention_span_linking_scores], axis=1) # (k, c)
 
-        forward_topc_span_cluster_ids = tf.reshape(forward_topc_span_cluster_ids, [self.k, self.c]) 
+        forward_topc_span_cluster_ids = tf.reshape(forward_topc_span_cluster_ids, [self.k, self.c]) # (k, c)
         same_cluster_indicator = tf.equal(forward_topc_span_cluster_ids, tf.expand_dims(topk_mention_span_cluster_ids, 1))  
         non_dummy_indicator = tf.expand_dims(topk_mention_span_cluster_ids > 0, 1)
         pairwise_labels = tf.logical_and(same_cluster_indicator, non_dummy_indicator)
@@ -333,9 +358,7 @@ class CorefQAModel(object):
     def get_query_token_ids(self, nonoverlap_doc_input_ids, sentence_map, mention_start_idx, mention_end_idx, paddding=True):
         """
         Desc:
-            pass
-        Args:
-            pass  
+            construct question based on the selected mention. 
         """
         nonoverlap_doc_input_ids = tf.reshape(nonoverlap_doc_input_ids, [-1])
 
@@ -343,8 +366,10 @@ class CorefQAModel(object):
         sentence_mask_for_mention = tf.math.equal(sentence_map, sentence_idx_for_mention)
         query_token_input_ids = self.boolean_mask_1d(nonoverlap_doc_input_ids, sentence_mask_for_mention, name_scope="query_mention", use_tpu=self.use_tpu)
 
-        mention_start_in_sent = None 
-        mention_end_in_sent = None 
+        sentence_start = tf.where(tf.equal(nonoverlap_doc_input_ids, tf.gather(query_token_input_ids, tf.constant(0))))
+
+        mention_start_in_sent = mention_start_idx - tf.cast(sentence_start, tf.int32) 
+        mention_end_in_sent = mention_end_idx - tf.cast(sentence_start, tf.int32) 
 
         return query_token_input_ids, mention_start_in_sent, mention_end_in_sent 
 
@@ -475,12 +500,7 @@ class CorefQAModel(object):
 
     def get_candidate_cluster_labels(self, candidate_mention_starts, candidate_mention_ends, 
             gold_mention_starts, gold_mention_ends, gold_cluster_ids):
-        """
-        Desc:
-            pass 
-        Args:
-            pass 
-        """
+        
         same_mention_start = tf.equal(tf.expand_dims(gold_mention_starts, 1), tf.expand_dims(candidate_mention_starts, 0))
         same_mention_end = tf.equal(tf.expand_dims(gold_mention_ends, 1), tf.expand_dims(candidate_mention_ends, 0)) 
         same_mention_span = tf.logical_and(same_mention_start, same_mention_end)
@@ -574,14 +594,55 @@ class CorefQAModel(object):
         return x.get_shape()[dim].value or tf.shape(x)[dim]
 
 
+    def evaluate(self, top_span_starts, top_span_ends, predicted_antecedents, 
+            gold_clusters, gold_starts, gold_ends):
+        """
+        Desc:
+            expected cluster ids is : [[[21, 25], [18, 18]], [[63, 65], [46, 48], [27, 29]], [[88, 88], [89, 89]]]
+        Args:
+            top_span_starts: 
+            top_span_ends:
+            predicted_antecedents: 
+        Returns:
+            predicted_clusters: 
+            gold_clusters:
+            mention_to_predicted:
+            mention_to_gold: 
+        """ 
+        # predicted_antecedents = np.argmax(predicted_antecedents, axis=-1)
+        top_span_starts, top_span_ends, predicted_antecedents = top_span_starts.tolist(), top_span_ends.tolist(), predicted_antecedents.tolist()
+        gold_clusters, gold_starts, gold_ends =  gold_clusters.tolist()[0], gold_starts.tolist()[0], gold_ends.tolist()[0]
 
+        def transform_gold_labels(gold_clusters, gold_starts, gold_ends):
+            gold_clusters_idx = [tmp for tmp in gold_clusters if tmp >= 0]
+            gold_starts = [tmp for tmp in gold_starts if tmp >= 0]
+            gold_ends = [tmp for tmp in gold_ends if tmp >= 0]
 
+            gold_clusters_dict = {}
+            gold_cluster_lst = []
 
+            for idx, (tmp_start, tmp_end) in enumerate(zip(gold_starts, gold_ends)):
+                tmp_cluster_idx = gold_clusters_idx[idx]
+                if tmp_cluster_idx not in gold_clusters_dict.keys():
+                    gold_cluster_lst.append(tmp_cluster_idx)
+                    gold_clusters_dict[tmp_cluster_idx] = [[tmp_start, tmp_end]]
+                else:
+                    gold_clusters_dict[tmp_cluster_idx].append([tmp_start, tmp_end])
 
+            gold_cluster = [gold_clusters_dict[tmp_idx] for tmp_idx in gold_cluster_lst]
 
+            return gold_cluster, gold_starts, gold_ends
 
+        gold_clusters, gold_starts, gold_ends = transform_gold_labels(gold_clusters, gold_starts, gold_ends)
 
+        gold_clusters = [tuple(tuple(m) for m in gc) for gc in gold_clusters]
+        mention_to_gold = {}
+        for gc in gold_clusters:
+            for mention in gc:
+                mention_to_gold[mention] = gc
 
-
+        predicted_clusters, mention_to_predicted = self.get_predicted_clusters(top_span_starts, top_span_ends, predicted_antecedents)
+    
+        return predicted_clusters, gold_clusters, mention_to_predicted, mention_to_gold
 
 
