@@ -396,10 +396,8 @@ class CorefQAModel(object):
         span_loss, candidate_mention_span_probability = self.compute_mention_score_and_loss(candidate_mention_span_logits, gold_label_candidate_mention_spans)
 
         
-        total_loss = self.config.mention_loss_start_ratio * start_loss + self.config.mention_loss_end_ratio * end_loss + self.config.mention_loss_span_ratio * span_loss
-        candidate_mention_span_scores = (self.config.mention_loss_start_ratio * tf.math.log(candidate_mention_start_probability) + 
-            self.config.mention_loss_end_ratio* tf.math.log(candidate_mention_end_probability) + 
-            self.config.mention_loss_span_ratio * tf.math.log(candidate_mention_span_probability)) / 3.0 
+        total_loss = start_loss + end_loss + span_loss
+        candidate_mention_span_scores = (tf.math.log(candidate_mention_start_probability) + tf.math.log(candidate_mention_end_probability) + tf.math.log(candidate_mention_span_probability)) / 3.0 
 
         return total_loss, candidate_mention_start_probability, candidate_mention_end_probability, candidate_mention_span_probability, candidate_mention_span_scores
 

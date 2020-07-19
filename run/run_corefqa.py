@@ -61,9 +61,6 @@ flags.DEFINE_integer("max_top_antecedents", 30, "The number of top_antecedents c
 flags.DEFINE_integer("max_query_len", 150, ".")
 flags.DEFINE_integer("max_context_len", 150, ".")
 flags.DEFINE_bool("sec_qa_mention_score", False, "Whether to use TPU or GPU/CPU.")
-flags.DEFINE_float("mention_loss_start_ratio", 0.3, "The loss for a span being a mention is -loss_start_ratio* log p(the start of the given span is a start).")
-flags.DEFINE_float("mention_loss_end_ratio", 0.3, "The loss for a span being a mention is -loss_end_ratio* log p(the end of the given span is a end).")
-flags.DEFINE_float("mention_loss_span_ratio", 0.3, "The loss for a span being a mention is -loss_span_ratio* log p(the start and the end forms a span).")
 
 
 flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
