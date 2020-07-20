@@ -116,11 +116,13 @@ The `<path-to-save-model>` is the path to save finetuned spanbert on SQuAD2.0 da
 
 
 2. Or start to finetune the SpanBERT model on QA tasks. <br> 
-- Download SQuAD 2.0 [train](https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v2.0.json) [dev](https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v2.0.json) sets. 
+- Download SQuAD 2.0 [train](https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v2.0.json) and [dev](https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v2.0.json) sets. 
 - Download Quoref [train and dev](https://quoref-dataset.s3-us-west-2.amazonaws.com/train_and_dev/quoref-train-dev-v0.1.zip) sets.
 - Finetune the SpanBERT model on Google Could V3-8 TPU. 
-    ```bash 
-    REPO_PATH=/home/lixiaoya/coref-tf
+
+For Squad 2.0, Run 
+  ```bash 
+  REPO_PATH=/home/lixiaoya/coref-tf
    export TPU_NAME=tf-tpu
    export PYTHONPATH="$PYTHONPATH:$REPO_PATH"
    SQUAD_DIR=gs://qa_tasks/squad2
@@ -145,13 +147,42 @@ The `<path-to-save-model>` is the path to save finetuned spanbert on SQuAD2.0 da
    --use_tpu=True \
    --tpu_name=$TPU_NAME \
    --version_2_with_negative=True
-    ```
+  ```
+After getting the best model (choose based on the performance on dev set) on `SQuAD2.0`, you should start finetune the saved model on `Quoref`. Run 
+  ```bash 
+  REPO_PATH=/home/lixiaoya/coref-tf
+   export TPU_NAME=tf-tpu
+   export PYTHONPATH="$PYTHONPATH:$REPO_PATH"
+   QUOREF_DIR=gs://qa_tasks/quoref
+   BERT_DIR=gs://corefqa_output_squad/panbert_large_squad2_2e-5
+   OUTPUT_DIR=gs://corefqa_output_quoref/spanbert_large_squad2_best_quoref_3e-5 
 
+   python3 ${REPO_PATH}/run_quoref.py \
+   --vocab_file=$BERT_DIR/vocab.txt \
+   --bert_config_file=$BERT_DIR/bert_config.json \
+   --init_checkpoint=$BERT_DIR/best_bert_model.ckpt \
+   --do_train=True \
+   --train_file=$QUOREF_DIR/quoref-train-v0.1.json \
+   --do_predict=True \
+   --predict_file=$QUOREF_DIR/quoref-dev-v0.1.json \
+   --train_batch_size=8 \
+   --learning_rate=3e-5 \
+   --num_train_epochs=5 \
+   --max_seq_length=384 \
+   --do_lower_case=False \
+   --doc_stride=128 \
+   --output_dir=${OUTPUT_DIR} \
+   --use_tpu=True \
+   --tpu_name=$TPU_NAME 
+  ```
+  
 ### Train the CorefQA Model
 
 1. Pretrain the mention proposal model on CoNLL-12
 
 Download the Pretrained Mention Proposal Model 
+
+
 
 2. Jointly train the mention proposal model and linking model in CoNLL-12. <br> 
 
