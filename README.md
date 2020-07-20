@@ -24,8 +24,8 @@ If you find this repo helpful, please cite the following:
 - [Data Preprocess](#data-preprocess)
 - [Download Pretrained MLM](#download-pretrained-mlm)
 - [Training](#training)
-    - [Pretrained the CorefQA Model on QA Tasks](#pretrained-the-corefqa-model-on-qa-tasks)
-    - [Train the CorefQA Model](#train-the-corefqa-model)
+    - [Finetune the SpanBERT Model on QA Tasks](#finetune-the-spanbert-model-on-qa-tasks)
+    - [Train the CorefQA Model on the CoNLL-2012 Coreference Resolution Task](#train-the-corefqa-model-on-the-conll-2012-coreference-resolution-task)
     - [Prediction](#prediction)
 - [Evaluation](#evaluating-the-trained-model)
 - [Descriptions of Directories](#descriptions-of-directories)
@@ -104,7 +104,7 @@ Follow the pipeline described in the paper, you need to: <br>
  
 **Notice:** We provide the options of both pretraining these models yourself and loading the our pretrained models for 2) and 3). <br> 
 
-### Finetune the CorefQA Model on QA Tasks
+### Finetune the SpanBERT Model on QA Tasks
 We fintune the SpanBERT model on the [SQuAD 2.0](https://rajpurkar.github.io/SQuAD-explorer/) and [Quoref](https://allennlp.org/quoref) QA tasks for data augmentation before the coreference resolution task. 
 
 1. Download our pretrained models on QA tasks. <br> 
@@ -122,6 +122,7 @@ The `<path-to-save-model>` is the path to save finetuned spanbert on SQuAD2.0 da
 
 For Squad 2.0, Run 
   ```bash 
+  
   REPO_PATH=/home/lixiaoya/coref-tf
    export TPU_NAME=tf-tpu
    export PYTHONPATH="$PYTHONPATH:$REPO_PATH"
@@ -150,6 +151,7 @@ For Squad 2.0, Run
   ```
 After getting the best model (choose based on the performance on dev set) on `SQuAD2.0`, you should start finetune the saved model on `Quoref`. Run 
   ```bash 
+  
   REPO_PATH=/home/lixiaoya/coref-tf
    export TPU_NAME=tf-tpu
    export PYTHONPATH="$PYTHONPATH:$REPO_PATH"
@@ -175,19 +177,112 @@ After getting the best model (choose based on the performance on dev set) on `SQ
    --use_tpu=True \
    --tpu_name=$TPU_NAME 
   ```
+We use the best model (choose based on the performance on DEV set) on `Quoref` to initialize the CorefQA Model. 
   
-### Train the CorefQA Model
+### Train the CorefQA Model on the CoNLL-2012 Coreference Resolution Task 
 
-1. Pretrain the mention proposal model on CoNLL-12
+1. Train on the mention proposal task. 
 
-Download the Pretrained Mention Proposal Model 
+```bash 
 
+REPO_PATH=/home/lixiaoya/coref-tf
+export PYTHONPATH="$PYTHONPATH:$REPO_PATH"
+export TPU_NAME=tf-tpu
+export TPU_ZONE=europe-west4-a
+export GCP_PROJECT=xiaoyli-20-01-4820
 
+BERT_DIR=gs://corefqa_output_quoref/spanbert_large_squad2_best_quoref_1e-5
+DATA_DIR=gs://corefqa_data/final_overlap_384_6
+OUTPUT_DIR=gs://corefqa_output_mention_proposal/squad_quoref_large_384_6_1e5_8_0.2
+
+python3 ${REPO_PATH}/run/run_mention_proposal.py \
+--output_dir=$OUTPUT_DIR \
+--bert_config_file=$BERT_DIR/bert_config.json \
+--init_checkpoint=$BERT_DIR/bert_model.ckpt \
+--vocab_file=$BERT_DIR/vocab.txt \
+--logfile_path=$OUTPUT_DIR/train.log \
+--num_epochs=8 \
+--keep_checkpoint_max=50 \
+--save_checkpoints_steps=500 \
+--train_file=$DATA_DIR/train.corefqa.english.tfrecord \
+--dev_file=$DATA_DIR/dev.corefqa.english.tfrecord \
+--test_file=$DATA_DIR/test.corefqa.english.tfrecord \
+--do_train=True \
+--do_eval=False \
+--do_predict=False \
+--learning_rate=1e-5 \
+--dropout_rate=0.2 \
+--mention_threshold=0.5 \
+--hidden_size=1024 \
+--num_docs=5604 \
+--window_size=384 \
+--num_window=6 \
+--max_num_mention=60 \
+--start_end_share=False \
+--loss_start_ratio=0.3 \
+--loss_end_ratio=0.3 \
+--loss_span_ratio=0.3 \
+--use_tpu=True \
+--tpu_name=TPU_NAME \
+--tpu_zone=TPU_ZONE \
+--gcp_project=GCP_PROJECT \
+--num_tpu_scores=1 \
+--seed=2333
+```
+Or you can download the trained [mention proposal model](). 
 
 2. Jointly train the mention proposal model and linking model in CoNLL-12. <br> 
 
+```bash
 
-### Evaluation
+REPO_PATH=/home/lixiaoya/coref-tf
+export PYTHONPATH="$PYTHONPATH:$REPO_PATH"
+export TPU_NAME=tf-tpu
+export TPU_ZONE=europe-west4-a
+export GCP_PROJECT=xiaoyli-20-01-4820
+
+BERT_DIR=gs://corefqa_output_mention_proposal/output_bertlarge
+DATA_DIR=gs://corefqa_data/final_overlap_384_6
+OUTPUT_DIR=gs://corefqa_output_corefqa/squad_quoref_mention_large_384_6_8e4_8_0.2
+
+python3 ${REPO_PATH}/run/run_corefqa.py \
+--output_dir=$OUTPUT_DIR \
+--bert_config_file=$BERT_DIR/bert_config.json \
+--init_checkpoint=$BERT_DIR/best_bert_model.ckpt \
+--vocab_file=$BERT_DIR/vocab.txt \
+--logfile_path=$OUTPUT_DIR/train.log \
+--num_epochs=8 \
+--keep_checkpoint_max=50 \
+--save_checkpoints_steps=500 \
+--train_file=$DATA_DIR/train.corefqa.english.tfrecord \
+--dev_file=$DATA_DIR/dev.corefqa.english.tfrecord \
+--test_file=$DATA_DIR/test.corefqa.english.tfrecord \
+--do_train=True \
+--do_eval=False \
+--do_predict=False \
+--learning_rate=8e-4 \
+--dropout_rate=0.2 \
+--mention_threshold=0.5 \
+--hidden_size=1024 \
+--num_docs=5604 \
+--window_size=384 \
+--num_window=6 \
+--max_num_mention=50 \
+--start_end_share=False \
+--max_span_width=10 \
+--max_candiate_mentions=100 \
+--top_span_ratio=0.2 \
+--max_top_antecedents=30 \
+--max_query_len=150 \
+--max_context_len=150 \
+--sec_qa_mention_score=False \
+--use_tpu=True \
+--tpu_name=TPU_NAME \
+--tpu_zone=TPU_ZONE \
+--gcp_project=GCP_PROJECT \
+--num_tpu_scores=1 \
+--seed=2333
+```
 
 ## Descriptions of Directories
 
@@ -206,10 +301,11 @@ utils | modules including metrics、optimizers.
 
 
 
-
 ## Acknowledgement
 
 Many thanks to `Yuxian Meng` and the previous work `https://github.com/mandarjoshi90/coref`.
+
+## Useful Materials
 
 ## Contact
 
