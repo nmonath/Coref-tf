@@ -65,15 +65,34 @@ $ pip install google-cloud-storage
 1) Download the offical released [Ontonotes 5.0 (LDC2013T19)](https://catalog.ldc.upenn.edu/LDC2013T19). <br> 
 2) Preprocess Ontonotes5 annotations files for the CoNLL-2012 coreference resolution task. <br> 
 Run the command with **Python 2**
-`bash ./scripts/data/preprocess_ontonotes_annfiles.sh  /path_to_LDC2013T19-ontonotes5.0_directory  /path_to_save_CoNLL12_coreference_resolution_directory language`<br> 
+`bash ./scripts/data/preprocess_ontonotes_annfiles.sh  /path_to_LDC2013T19-ontonotes5.0_directory  /path_to_save_CoNLL12_coreference_resolution_directory <language>`<br> 
 and it will create `{train/dev/test}.{language}.v4_gold_conll` files in the directory `/path_to_save_CoNLL12_coreference_resolution_directory`. <br> 
-`language` can be `english`, `arabic` or `chinese`. In this paper, we set `language` to `english`. <br>
+`<language>` can be `english`, `arabic` or `chinese`. In this paper, we set `<language>` to `english`. <br>
 If you want to use **Python 3**, please refer to the
 [guideline](https://github.com/huggingface/neuralcoref/blob/master/neuralcoref/train/training.md#get-the-data) <br> 
 3) Generate TFRecord files for experiments. <br> 
 Run the command with **Python 3** `bash ./scripts/data/generate_tfrecord_dataset.sh /path_to_save_CoNLL12_coreference_resolution_directory  /path_to_save_tfrecord_directory /path_to_vocab_file`
 and it will create `{train/dev/test}.overlap.corefqa.{language}.tfrecord` files in the directory `/path_to_save_CoNLL12_coreference_resolution_directory`. <br> 
 
+## Download Pretrained MLM
+In our experiments, we used pretrained mask language models to initialize the mention_proposal and corefqa models. 
+
+1) Download the pretrained models. 
+Run 
+`bash ./scripts/data/download_pretrained_mlm.sh /path_to_save_pretrained_mlm <model_sign>` to download and unzip the pretrained mlm models. <br> 
+`<model_sign>` shoule take the value of `[bert_base, bert_large, spanbert_base, spanbert_large, bert_tiny]`. <br> 
+
+`bert_base, bert_large, spanbert_base, spanbert_large` are trained with a cased(upppercase and lowercase tokens) vocabulary. Should use the cased train/dev/test corefence datasets. <br>  
+
+`bert_tiny` is trained with a uncased(lowercase tokens) vocabulary. We use the tinyBERT model for fast debugging. Should use the uncased train/dev/test corefence datasets. <br> 
+
+2) Transform SpanBERT from `Pytorch` to `Tensorflow`. 
+
+Run `bash ./scripts/data/transform_ckpt_pytorch_to_tf.sh <model_name>  /path_to_spanbert_<scale>_pytorch_dir /path_to_bert_<scale>_tf_dir  /path_to_save_spanbert_tf_checkpoint_dir` 
+and the `<model_name>` in TF will be saved in `/path_to_save_spanbert_tf_checkpoint_dir`.
+<br> 
+- `<model_name>` should take the value of `[spanbert_base, spanbert_large]`. 
+- `<scale>` indicates that the `bert_model.ckpt` in the `/path_to_bert_<scale>_tf_dir` should have the same scale(base, large) to the `bert_model.bin` in `/path_to_spanbert_<scale>_pytorch_dir`.
 
 
 ## Training 
