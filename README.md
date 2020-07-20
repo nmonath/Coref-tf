@@ -24,8 +24,8 @@ If you find this repo helpful, please cite the following:
 - [Data Preprocess](#data-preprocess)
 - [Download Pretrained MLM](#download-pretrained-mlm)
 - [Training](#training)
-    - [Load Pretrained Models](#load-pretrained-models)
-    - [Train CorefQA Model](#train-corefqa-model)
+    - [Pretrained the CorefQA Model on QA Tasks](#pretrained-the-corefqa-model-on-qa-tasks)
+    - [Train the CorefQA Model](#train-the-corefqa-model)
     - [Prediction](#prediction)
 - [Evaluation](#evaluating-the-trained-model)
 - [Descriptions of Directories](#descriptions-of-directories)
@@ -96,25 +96,62 @@ and the `<model_name>` in TF will be saved in `/path_to_save_spanbert_tf_checkpo
 
 ## Training 
 
-### Load Pretrained Models
 Follow the pipeline described in the paper, you need to: <br> 
 1) load a pretrained SpanBERT model. <br> 
 2) finetune the SpanBERT model on the combination of Squad and Quoref datasets. <br> 
 3) pretrain the mention proposal model on the coref dataset. <br>
-4) jointly train the mention proposal model and the mention linking model. <br> 
-**Notice:**: We provide the options of both pretraining these models yourself and loading the pretrained models for 2) and 3). <br> 
+4) jointly train the mention proposal model and the mention linking model. <br>
+ 
+**Notice:** We provide the options of both pretraining these models yourself and loading the our pretrained models for 2) and 3). <br> 
 
+### Finetune the CorefQA Model on QA Tasks
+We fintune the SpanBERT model on the [SQuAD 2.0](https://rajpurkar.github.io/SQuAD-explorer/) and [Quoref](https://allennlp.org/quoref) QA tasks for data augmentation before the coreference resolution task. 
 
-1. Download Data Augmentation Models on Squad and Quoref<br>
-Run `./scripts/download_qauad2_finetune_model.sh <model-scale> <path-to-save-model>` to download finetuned SpanBERT on SQuAD2.0. <br>
+1. Download our pretrained models on QA tasks. <br> 
+
+Download Data Augmentation Models on Squad and Quoref <br>
+Run `./scripts/data/download_qauad2_finetune_model.sh <model-scale> <path-to-save-model>` to download finetuned SpanBERT on SQuAD2.0. <br>
 The `<model-scale>` should take the value of `[base, large]`. <br>
 The `<path-to-save-model>` is the path to save finetuned spanbert on SQuAD2.0 datasets. <br>
 
-2. Download the Pretrained Mention Proposal Model 
-xiaoya todo 
 
-### Train CorefQA Model
+2. Or start to finetune the SpanBERT model on QA tasks. <br> 
+- Download SQuAD 2.0 [train](https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v2.0.json) [dev](https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v2.0.json) sets. 
+- Download Quoref [train and dev](https://quoref-dataset.s3-us-west-2.amazonaws.com/train_and_dev/quoref-train-dev-v0.1.zip) sets.
+- Finetune the SpanBERT model on Google Could V3-8 TPU. 
+    ```bash 
+    REPO_PATH=/home/lixiaoya/coref-tf
+   export TPU_NAME=tf-tpu
+   export PYTHONPATH="$PYTHONPATH:$REPO_PATH"
+   SQUAD_DIR=gs://qa_tasks/squad2
+   BERT_DIR=gs://pretrained_mlm_checkpoint/spanbert_large_tf
+   OUTPUT_DIR=gs://corefqa_output_squad/spanbert_large_squad2_2e-5  
+
+   python3 ${REPO_PATH}/run/run_squad.py \
+   --vocab_file=$BERT_DIR/vocab.txt \
+   --bert_config_file=$BERT_DIR/bert_config.json \
+   --init_checkpoint=$BERT_DIR/bert_model.ckpt \
+   --do_train=True \
+   --train_file=$SQUAD_DIR/train-v2.0.json \
+   --do_predict=True \
+   --predict_file=$SQUAD_DIR/dev-v2.0.json \
+   --train_batch_size=8 \
+   --learning_rate=2e-5 \
+   --num_train_epochs=4.0 \
+   --max_seq_length=384 \
+   --do_lower_case=False \
+   --doc_stride=128 \
+   --output_dir=${OUTPUT_DIR} \
+   --use_tpu=True \
+   --tpu_name=$TPU_NAME \
+   --version_2_with_negative=True
+    ```
+
+### Train the CorefQA Model
+
 1. Pretrain the mention proposal model on CoNLL-12
+
+Download the Pretrained Mention Proposal Model 
 
 2. Jointly train the mention proposal model and linking model in CoNLL-12. <br> 
 
