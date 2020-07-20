@@ -123,7 +123,14 @@ class CorefQAModel(object):
         topk_mention_end_indices = tf.gather(candidate_mention_ends, topk_mention_span_indices) # (k,)
         topk_mention_span_cluster_ids = tf.gather(candidate_cluster_idx_labels, topk_mention_span_indices) # (k,)
         topk_mention_span_scores = tf.gather(candidate_mention_span_scores, topk_mention_span_indices) # (k,)
+        ## mention proposal stage ends
+        ###########
+        ###########
 
+
+        ###### mention linking stage starts
+        ## foward QA score computation starts
+        ## for a given proposed mention i, we first compute the score of a span j being the correferent answer to i, denoted by s(j|i) 
         i0 = tf.constant(0)
         forward_qa_input_ids = tf.zeros((1, self.config.num_window, self.config.window_size + self.config.max_query_len + 2), dtype=tf.int32) # (1, num_window, max_query_len + window_size + 2)
         forward_qa_input_mask = tf.zeros((1, self.config.num_window, self.config.window_size + self.config.max_query_len + 2), dtype=tf.int32) # (1, num_window, max_query_len + window_size + 2)
@@ -211,6 +218,7 @@ class CorefQAModel(object):
                 forward_qa_mention_start_embs, forward_qa_mention_end_embs, name_scope="forward_qa") 
         # forward_qa_mention_span_prob, forward_qa_mention_start_prob, forward_qa_mention_end_prob -> (k * num_candidate_mention_in_doc)
 
+        # computes the s(j|i) for all eligible span j in the document 
         if self.config.sec_qa_mention_score:
             forward_qa_mention_span_scores = (forward_qa_mention_span_scores + forward_qa_mention_start_scores + forward_qa_mention_end_scores)/3.0
         else:
@@ -218,6 +226,7 @@ class CorefQAModel(object):
 
         forward_candidate_mention_span_scores = tf.reshape(forward_qa_mention_span_scores, [self.k, -1]) # (k, num_candidate_mention_in_doc)
         forward_topc_mention_span_scores, local_forward_topc_mention_span_indices = tf.nn.top_k(forward_candidate_mention_span_scores, self.c, sorted=False) # (k, c)
+        # for each i, we only maintain the top self.c spans based on s(j|i)
         local_flat_forward_topc_mention_span_indices = tf.reshape(local_forward_topc_mention_span_indices, [-1]) # (k * c)
 
         # topk_mention_start_indices
@@ -225,8 +234,11 @@ class CorefQAModel(object):
         forward_topc_mention_end_indices = tf.gather(candidate_mention_ends, local_flat_forward_topc_mention_span_indices) # (k, c)
         forward_topc_mention_span_scores_in_mention_proposal = tf.gather(candidate_mention_span_scores, local_flat_forward_topc_mention_span_indices) # (k, c)
         forward_topc_span_cluster_ids = tf.gather(candidate_cluster_idx_labels, local_flat_forward_topc_mention_span_indices)
+        ## foward QA score computation ends
 
 
+        ## backward QA score computation begins
+        ## we need to compute the score of backward score, i.e., the span i is the correferent answer for j, denoted by s(i|j)
         i0 = tf.constant(0)
         backward_qa_input_ids = tf.zeros((1, self.config.max_query_len + self.config.max_context_len + 2), dtype=tf.int32) # (1, max_query_len + max_context_len + 2)
         backward_qa_input_mask = tf.zeros((1, self.config.max_query_len + self.config.max_context_len + 2), dtype=tf.int32) # (1, max_query_len + max_context_len + 2)
@@ -317,7 +329,9 @@ class CorefQAModel(object):
             backward_qa_mention_span_scores = (backward_qa_mention_span_scores + backward_qa_mention_start_scores + backward_qa_mention_end_scores)/3.0
         else:
             backward_qa_mention_span_scores = backward_qa_mention_span_scores 
-
+        #############
+        ############# backward QA computation ends
+        
         expand_forward_topc_mention_span_scores = tf.tile(tf.expand_dims(forward_topc_mention_span_scores, 0), [self.k, 1]) # forward_topc_mention_span_scores -> (c); expand_forward_topc_mention_span_scores -> (c, k)
         expand_forward_topc_mention_span_scores_in_mention_proposal = tf.tile(tf.expand_dims(forward_topc_mention_span_scores_in_mention_proposal, 0), [self.k, 1])
         expand_topk_mention_span_scores = tf.tile(tf.expand_dims(topk_mention_span_scores, 1), [1, self.c]) # (k, c)
