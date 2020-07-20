@@ -85,7 +85,8 @@ Run `bash ./scripts/data/download_pretrained_mlm.sh /path_to_save_pretrained_mlm
 - `bert_base, bert_large, spanbert_base, spanbert_large` are trained with a cased(upppercase and lowercase tokens) vocabulary. Should use the cased train/dev/test coreference datasets. 
 - `bert_tiny` is trained with a uncased(lowercase tokens) vocabulary. We use the tinyBERT model for fast debugging. Should use the uncased train/dev/test coreference datasets. <br> 
 
-2) Transform SpanBERT from `Pytorch` to `Tensorflow`. 
+2) Transform SpanBERT from `Pytorch` to `Tensorflow`. <br> 
+We need to tranform the SpanBERT checkpoints from Pytorch to TF because the offical relased models were trained with Pytorch. 
 Run `bash ./scripts/data/transform_ckpt_pytorch_to_tf.sh <model_name>  /path_to_spanbert_<scale>_pytorch_dir /path_to_bert_<scale>_tf_dir  /path_to_save_spanbert_tf_checkpoint_dir` 
 and the `<model_name>` in TF will be saved in `/path_to_save_spanbert_tf_checkpoint_dir`.
 
@@ -96,9 +97,15 @@ and the `<model_name>` in TF will be saved in `/path_to_save_spanbert_tf_checkpo
 ## Training 
 
 ### Load Pretrained Models
-Follow the pipeline described in the paper, you need to (1) load a pretrained SpanBERT model; (2) finetune the SpanBERT model on the combination of Squad and Quoref datasets; (3) pretrain the mention proposal model on the coref dataset; and (4) jointly train the mention proposal model and the mention linking model. We provide the options of both pretraining these models yourself and loading the pretrained models for (2) and (3). 
+Follow the pipeline described in the paper, you need to: <br> 
+(1) load a pretrained SpanBERT model; <br> 
+(2) finetune the SpanBERT model on the combination of Squad and Quoref datasets; <br> 
+(3) pretrain the mention proposal model on the coref dataset; <br>
+(4) jointly train the mention proposal model and the mention linking model. <br> 
+We provide the options of both pretraining these models yourself and loading the pretrained models for (2) and (3). <br> 
 
-1. Download Data Augmentation Models  on Squad and Quoref<br>
+
+1. Download Data Augmentation Models on Squad and Quoref<br>
 Run `./scripts/download_qauad2_finetune_model.sh <model-scale> <path-to-save-model>` to download finetuned SpanBERT on SQuAD2.0. <br>
 The `<model-scale>` should take the value of `[base, large]`. <br>
 The `<path-to-save-model>` is the path to save finetuned spanbert on SQuAD2.0 datasets. <br>
