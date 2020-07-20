@@ -24,7 +24,7 @@ If you find this repo helpful, please cite the following:
 - [Data Preprocess](#data-preprocess)
 - [Download Pretrained MLM](#download-pretrained-mlm)
 - [Training](#training)
-    - [Finetune the SpanBERT Model on QA Tasks](#finetune-the-spanbert-model-on-qa-tasks)
+    - [Finetune the SpanBERT Model on QA Tasks for Data Augmentation](#finetune-the-spanbert-model-on-qa-tasks-for-data-augmentation)
     - [Train the CorefQA Model on the CoNLL-2012 Coreference Resolution Task](#train-the-corefqa-model-on-the-conll-2012-coreference-resolution-task)
     - [Prediction](#prediction)
 - [Evaluation](#evaluating-the-trained-model)
@@ -104,18 +104,17 @@ Follow the pipeline described in the paper, you need to: <br>
  
 **Notice:** We provide the options of both pretraining these models yourself and loading the our pretrained models for 2) and 3). <br> 
 
-### Finetune the SpanBERT Model on QA Tasks
+### Finetune the SpanBERT Model on QA Tasks for Data Augmentation
 We fintune the SpanBERT model on the [SQuAD 2.0](https://rajpurkar.github.io/SQuAD-explorer/) and [Quoref](https://allennlp.org/quoref) QA tasks for data augmentation before the coreference resolution task. 
 
-1. Download our pretrained models on QA tasks. <br> 
-
+1. Download our pretrained models on QA tasks.  
 Download Data Augmentation Models on Squad and Quoref <br>
 Run `./scripts/data/download_qauad2_finetune_model.sh <model-scale> <path-to-save-model>` to download finetuned SpanBERT on SQuAD2.0. <br>
 The `<model-scale>` should take the value of `[base, large]`. <br>
 The `<path-to-save-model>` is the path to save finetuned spanbert on SQuAD2.0 datasets. <br>
 
 
-2. Or start to finetune the SpanBERT model on QA tasks. <br> 
+2. Or start to finetune the SpanBERT model on QA tasks. 
 - Download SQuAD 2.0 [train](https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v2.0.json) and [dev](https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v2.0.json) sets. 
 - Download Quoref [train and dev](https://quoref-dataset.s3-us-west-2.amazonaws.com/train_and_dev/quoref-train-dev-v0.1.zip) sets.
 - Finetune the SpanBERT model on Google Could V3-8 TPU. 
@@ -232,6 +231,8 @@ python3 ${REPO_PATH}/run/run_mention_proposal.py \
 Or you can download the trained [mention proposal model](). 
 
 2. Jointly train the mention proposal model and linking model in CoNLL-12. <br> 
+
+After trained 
 
 ```bash
 
