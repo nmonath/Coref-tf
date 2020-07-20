@@ -5,7 +5,7 @@
 
 # author: xiaoy li 
 # description:
-# clean code and add comments 
+# train and evaluate the middle checkpoints on dev and test sets. 
 
 
 
@@ -22,7 +22,7 @@ mkdir -p ${output_dir}
 
 
 
-CUDA_VISIBLE_DEVICES=3 python3 ${REPO_PATH}/run/run_mention_proposal.py \
+CUDA_VISIBLE_DEVICES=3 python3 ${REPO_PATH}/run/run_corefqa.py \
 --output_dir=${output_dir} \
 --bert_config_file=${bert_dir}/bert_config_nodropout.json \
 --init_checkpoint=${bert_dir}/bert_model.ckpt \
@@ -46,8 +46,15 @@ CUDA_VISIBLE_DEVICES=3 python3 ${REPO_PATH}/run/run_mention_proposal.py \
 --num_window=2 \
 --max_num_mention=20 \
 --start_end_share=False \
---loss_start_ratio=0.9 \
---loss_end_ratio=0.9 \
---loss_span_ratio=0.9 \
+--max_span_width=20 \
+--max_candiate_mentions=50 \
+--top_span_ratio=0.2 \
+--max_top_antecedents=30 \
+--max_query_len=150 \
+--max_context_len=150 \
+--sec_qa_mention_score=False \
 --use_tpu=False \
 --seed=2333
+
+
+
