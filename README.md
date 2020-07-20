@@ -80,16 +80,15 @@ In our experiments, we used pretrained mask language models to initialize the me
 
 1) Download the pretrained models. <br> 
 Run `bash ./scripts/data/download_pretrained_mlm.sh /path_to_save_pretrained_mlm <model_sign>` to download and unzip the pretrained mlm models. <br> 
-`<model_sign>` shoule take the value of `[bert_base, bert_large, spanbert_base, spanbert_large, bert_tiny]`. <br> 
+`<model_sign>` shoule take the value of `[bert_base, bert_large, spanbert_base, spanbert_large, bert_tiny]`.
 
-- `bert_base, bert_large, spanbert_base, spanbert_large` are trained with a cased(upppercase and lowercase tokens) vocabulary. Should use the cased train/dev/test corefence datasets. <br>  
-
+- `bert_base, bert_large, spanbert_base, spanbert_large` are trained with a cased(upppercase and lowercase tokens) vocabulary. Should use the cased train/dev/test corefence datasets. 
 - `bert_tiny` is trained with a uncased(lowercase tokens) vocabulary. We use the tinyBERT model for fast debugging. Should use the uncased train/dev/test corefence datasets. <br> 
 
 2) Transform SpanBERT from `Pytorch` to `Tensorflow`. 
 Run `bash ./scripts/data/transform_ckpt_pytorch_to_tf.sh <model_name>  /path_to_spanbert_<scale>_pytorch_dir /path_to_bert_<scale>_tf_dir  /path_to_save_spanbert_tf_checkpoint_dir` 
 and the `<model_name>` in TF will be saved in `/path_to_save_spanbert_tf_checkpoint_dir`.
-<br> 
+
 - `<model_name>` should take the value of `[spanbert_base, spanbert_large]`. 
 - `<scale>` indicates that the `bert_model.ckpt` in the `/path_to_bert_<scale>_tf_dir` should have the same scale(base, large) to the `bert_model.bin` in `/path_to_spanbert_<scale>_pytorch_dir`.
 
