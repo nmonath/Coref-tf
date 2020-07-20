@@ -98,11 +98,11 @@ and the `<model_name>` in TF will be saved in `/path_to_save_spanbert_tf_checkpo
 
 ### Load Pretrained Models
 Follow the pipeline described in the paper, you need to: <br> 
-(1) load a pretrained SpanBERT model; <br> 
-(2) finetune the SpanBERT model on the combination of Squad and Quoref datasets; <br> 
-(3) pretrain the mention proposal model on the coref dataset; <br>
-(4) jointly train the mention proposal model and the mention linking model. <br> 
-We provide the options of both pretraining these models yourself and loading the pretrained models for (2) and (3). <br> 
+1) load a pretrained SpanBERT model; <br> 
+2) finetune the SpanBERT model on the combination of Squad and Quoref datasets; <br> 
+3) pretrain the mention proposal model on the coref dataset; <br>
+4) jointly train the mention proposal model and the mention linking model. <br> 
+We provide the options of both pretraining these models yourself and loading the pretrained models for 2) and 3). <br> 
 
 
 1. Download Data Augmentation Models on Squad and Quoref<br>
