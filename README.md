@@ -16,13 +16,14 @@ If you find this repo helpful, please cite the following:
 }
 ```
 
+
 ## Contents 
 - [Overview](#overview)
 - [Hardware Requirements](#hardware-requirements)
+- [Install Package Dependencies](#install-package-dependencies)
 - [Data Preprocess](#data-preprocess)
-- [Training](#replicate-experimental-results)
-    - [Install Package Dependencies](#install-package-dependencies)
-    - [Load Pretrained Models]
+- [Training](#training)
+    - [Load Pretrained Models](#load-pretrained-models)
     - [Train CorefQA Model](#train-corefqa-model)
     - [Prediction](#prediction)
 - [Evaluation](#evaluating-the-trained-model)
@@ -34,34 +35,48 @@ If you find this repo helpful, please cite the following:
 ## Overview 
 The model introduces +3.5 (83.1) F1 performance boost over previous SOTA coreference models on the CoNLL benchmark. The current codebase is written in Tensorflow. We plan to release the PyTorch version soon.  The current code version only supports training on TPUs and testing on GPUs (due to the annoying nature of TPUs). You thus have to bear the trouble of transferring all saved checkpoints from TPUs to GPU for evaluation (we plan fix this soon). Please follow the parameter setting in the log directionary to reproduce the performance.  
 
-Please post github issues or email xiaoya_li@shannonai.com for any pertinent questions.
+Please post github issues for any pertinent questions.
 
 | Model          | F1 (%) |
 | -------------- |:------:|
 | Previous SOTA  (Joshi et al., 2019a)  | 79.6  |
 | CorefQA + SpanBERT-large | 83.1   |
 
+
 ## Hardware Requirements
-(xiaoya todo)
 TPU for training: Cloud TPU v3-8 device (128G memory) with Tensorflow 1.15 Python 3.5 
-GPU for evaluation: 
+GPU for evaluation: with CUDA 10.0 Tensorflow 1.15 Python 3.5
+
+## Install Package Dependencies
+ 
+```shell
+$ python3 -m pip install --user virtualenv
+$ virtualenv --python=python3.5 ~/corefqa_venv
+$ source ~/corefqa_venv/bin/activate
+$ cd coref-tf
+$ pip install -r requirements.txt
+# If you are using TPU, please run the following commands:
+$ pip install cloud-tpu-client
+$ pip install google-cloud-storage
+```
 
 ## Data Preprocess 
-1. Download the [Ontonotes 5.0](https://catalog.ldc.upenn.edu/LDC2013T19) dataset.
-2. Split train/dev/test datasets and preprocess the official release `ontonotes-release-5.0` for coreference resolution annotations. <br>
-Run `./scripts/preprocess_conll_data.sh  <PATH-TO-ontonotes-release-5.0> <PATH-TO-SAVE-CoNLL-FORMAT-DATASETS> <PATH-TO-CorefQA-REPOSITORY>`. <br>
-E.g.: `./scripts/preprocess_conll_data.sh /home/shannon/ontonotes-release-5.0 /home/shannnon/conll12_coreference_data /home/shannon/CorefQA`
-3. Generate and save training datasets to TFRecord files. <br>
-Run `./scripts/generate_train_data.sh <PATH-TO-SAVE-CoNLL-FORMAT-DATASETS> <LANGUAGE> <NUMBER-of-SLIDING-WINDOW-SIZE>`<br>
-E.g.: `./scripts/generate_train_data.sh /home/shannon/conll12_coreference_data english 384`
+
+1) Download the offical released [Ontonotes 5.0 (LDC2013T19)](https://catalog.ldc.upenn.edu/LDC2013T19). <br> 
+2) Preprocess Ontonotes5 annotations files for the CoNLL-2012 coreference resolution task. <br> 
+Run the command with **Python 2**
+`bash ./scripts/data/preprocess_ontonotes_annfiles.sh  /path_to_LDC2013T19-ontonotes5.0_directory  /path_to_save_CoNLL12_coreference_resolution_directory language`<br> 
+and it will create `{train/dev/test}.{language}.v4_gold_conll` files in the directory `/path_to_save_CoNLL12_coreference_resolution_directory`. <br> 
+`language` can be `english`, `arabic` or `chinese`. In this paper, we set `language` to `english`. <br>
+If you want to use **Python 3**, please refer to the
+[guideline](https://github.com/huggingface/neuralcoref/blob/master/neuralcoref/train/training.md#get-the-data) <br> 
+3) Generate TFRecord files for experiments. <br> 
+Run the command with **Python 3** `bash ./scripts/data/generate_tfrecord_dataset.sh /path_to_save_CoNLL12_coreference_resolution_directory  /path_to_save_tfrecord_directory /path_to_vocab_file`
+and it will create `{train/dev/test}.overlap.corefqa.{language}.tfrecord` files in the directory `/path_to_save_CoNLL12_coreference_resolution_directory`. <br> 
+
 
 
 ## Training 
-
-### Install Package Dependencies 
-
-* Install packages dependencies via : `pip install -r requirements.txt`
-* Cloud TPU v3-8 device with Tensorflow 1.15 Python 3.5. <br> 
 
 ### Load Pretrained Models
 Follow the pipeline described in the paper, you need to (1) load a pretrained SpanBERT model; (2) finetune the SpanBERT model on the combination of Squad and Quoref datasets; (3) pretrain the mention proposal model on the coref dataset; and (4) jointly train the mention proposal model and the mention linking model. We provide the options of both pretraining these models yourself and loading the pretrained models for (2) and (3). 
@@ -72,7 +87,7 @@ The `<model-scale>` should take the value of `[base, large]`. <br>
 The `<path-to-save-model>` is the path to save finetuned spanbert on SQuAD2.0 datasets. <br>
 
 2. Download the Pretrained Mention Proposal Model 
-xiaoya todo
+xiaoya todo 
 
 ### Train CorefQA Model
 1. Pretrain the mention proposal model on CoNLL-12
@@ -82,23 +97,20 @@ xiaoya todo
 
 ### Evaluation
 
-
-
 ## Descriptions of Directories
 
 Name | Descriptions 
 ----------- | ------------- 
-bert | 
-conll-2012 | 
-data_utils | 
-func_builders | 
-logs | The logs for experiments. 
-models | An implementation of CorefQA/MentionProposal models based on TF.
-run | Train / Evaluate MRC-NER models.
-scripts/data | 
-scripts/models | 
-tests | 
-utils | 
+bert | BERT modules (model,tokenizer,optimization) ref to the `google-research/bert` repository. 
+conll-2012 | offical evaluation scripts for CoNLL2012 shared task.
+data_utils | modules for processing training data.  
+func_builders | the input dataloader and model constructor for CorefQA.
+logs | the log files in our experiments. 
+models | an implementation of CorefQA/MentionProposal models based on TF.
+run | modules for data preparation and training models.
+scripts/data | scripts for data preparation and loading pretrained models.
+scripts/models | scripts for {train/evaluate} {mention_proposal/corefqa} models on {TPU/GPU}. 
+utils | modules including metrics、optimizers. 
 
 
 
