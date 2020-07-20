@@ -26,8 +26,8 @@ If you find this repo helpful, please cite the following:
 - [Training](#training)
     - [Finetune the SpanBERT Model on QA Tasks for Data Augmentation](#finetune-the-spanbert-model-on-qa-tasks-for-data-augmentation)
     - [Train the CorefQA Model on the CoNLL-2012 Coreference Resolution Task](#train-the-corefqa-model-on-the-conll-2012-coreference-resolution-task)
-    - [Prediction](#prediction)
-- [Evaluation](#evaluating-the-trained-model)
+- [Evaluation](#evaluation)
+- [Prediction](#prediction)
 - [Descriptions of Directories](#descriptions-of-directories)
 - [Acknowledgement](#acknowledgement)
 - [Contact](#contact)
@@ -232,8 +232,9 @@ Or you can download the trained [mention proposal model]().
 
 2. Jointly train the mention proposal model and linking model in CoNLL-12. <br> 
 
-After trained 
+After getting the best mention proposal model on the dev set, start jointly training the mention proposal and linking tasks. 
 
+Run 
 ```bash
 
 REPO_PATH=/home/lixiaoya/coref-tf
@@ -285,6 +286,20 @@ python3 ${REPO_PATH}/run/run_corefqa.py \
 --seed=2333
 ```
 
+## Evaluation
+
+Currently, the evaluation is conducted on a set of saved checkpoints after the training process. And DO NOT support evaluation during training.<br> 
+We report the performance result on the test set with the model achieving the highest F1-score on the dev set. <br> 
+
+Set `--do_eval=True`、 `--do_train=False` and `--do_predict=False` to `run_<model_sign>.py` and start the evaluation process on the saved checkpoints. And other parameters should be the same with the training process. <br>
+`<model_sign>` should take the value of `[mention_proposal, corefqa]`.
+
+## Prediction
+
+Set `--do_eval=False`、 `--do_train=False` and `--do_predict=True` to `run_<model_sign>.py` and predict and test on the test set with the checkpoint path `--eval_checkpoint=/path_to_eval_checkpoint_model`. <br>
+`<model_sign>` should take the value of `[mention_proposal, corefqa]`.
+
+
 ## Descriptions of Directories
 
 Name | Descriptions 
@@ -307,6 +322,9 @@ utils | modules including metrics、optimizers.
 Many thanks to `Yuxian Meng` and the previous work `https://github.com/mandarjoshi90/coref`.
 
 ## Useful Materials
+
+- TPU Quick Start [link](https://cloud.google.com/tpu/docs/quickstart)
+- TPU Available Operations [link](https://cloud.google.com/tpu/docs/tensorflow-ops)
 
 ## Contact
 
