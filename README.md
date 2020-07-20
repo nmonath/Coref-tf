@@ -22,6 +22,7 @@ If you find this repo helpful, please cite the following:
 - [Hardware Requirements](#hardware-requirements)
 - [Install Package Dependencies](#install-package-dependencies)
 - [Data Preprocess](#data-preprocess)
+- [Download Pretrained MLM](#download-pretrained-mlm)
 - [Training](#training)
     - [Load Pretrained Models](#load-pretrained-models)
     - [Train CorefQA Model](#train-corefqa-model)
@@ -77,17 +78,15 @@ and it will create `{train/dev/test}.overlap.corefqa.{language}.tfrecord` files 
 ## Download Pretrained MLM
 In our experiments, we used pretrained mask language models to initialize the mention_proposal and corefqa models. 
 
-1) Download the pretrained models. 
-Run 
-`bash ./scripts/data/download_pretrained_mlm.sh /path_to_save_pretrained_mlm <model_sign>` to download and unzip the pretrained mlm models. <br> 
+1) Download the pretrained models. <br> 
+Run `bash ./scripts/data/download_pretrained_mlm.sh /path_to_save_pretrained_mlm <model_sign>` to download and unzip the pretrained mlm models. <br> 
 `<model_sign>` shoule take the value of `[bert_base, bert_large, spanbert_base, spanbert_large, bert_tiny]`. <br> 
 
-`bert_base, bert_large, spanbert_base, spanbert_large` are trained with a cased(upppercase and lowercase tokens) vocabulary. Should use the cased train/dev/test corefence datasets. <br>  
+- `bert_base, bert_large, spanbert_base, spanbert_large` are trained with a cased(upppercase and lowercase tokens) vocabulary. Should use the cased train/dev/test corefence datasets. <br>  
 
-`bert_tiny` is trained with a uncased(lowercase tokens) vocabulary. We use the tinyBERT model for fast debugging. Should use the uncased train/dev/test corefence datasets. <br> 
+- `bert_tiny` is trained with a uncased(lowercase tokens) vocabulary. We use the tinyBERT model for fast debugging. Should use the uncased train/dev/test corefence datasets. <br> 
 
 2) Transform SpanBERT from `Pytorch` to `Tensorflow`. 
-
 Run `bash ./scripts/data/transform_ckpt_pytorch_to_tf.sh <model_name>  /path_to_spanbert_<scale>_pytorch_dir /path_to_bert_<scale>_tf_dir  /path_to_save_spanbert_tf_checkpoint_dir` 
 and the `<model_name>` in TF will be saved in `/path_to_save_spanbert_tf_checkpoint_dir`.
 <br> 
